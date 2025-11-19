@@ -1,7 +1,8 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { View, Text, StyleSheet, ScrollView, Platform, TouchableOpacity, TextInput, Switch, Alert, Linking } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { IconSymbol } from "@/components/IconSymbol";
 import { useTheme } from "@react-navigation/native";
 import { colors } from "@/styles/commonStyles";
@@ -10,6 +11,35 @@ import { useProfile } from "@/contexts/ProfileContext";
 import { useRouter } from "expo-router";
 
 const SUPPORT_PHONE = "+22177XXXXXXX";
+
+type UserMainRole = 'Conducteur' | 'Passager' | 'Envoyeur de colis' | 'Livreur' | null;
+
+const roleOptions = [
+  {
+    id: 'Conducteur',
+    label: 'Conducteur',
+    icon: { ios: 'car.fill', android: 'directions-car' },
+    color: colors.primary,
+  },
+  {
+    id: 'Passager',
+    label: 'Passager',
+    icon: { ios: 'person.2.fill', android: 'people' },
+    color: '#FF8C00',
+  },
+  {
+    id: 'Envoyeur de colis',
+    label: 'Envoyeur de colis',
+    icon: { ios: 'shippingbox.fill', android: 'local-shipping' },
+    color: colors.accent,
+  },
+  {
+    id: 'Livreur',
+    label: 'Livreur / Coursier',
+    icon: { ios: 'bolt.fill', android: 'flash-on' },
+    color: colors.secondary,
+  },
+];
 
 export default function ProfileScreen() {
   const theme = useTheme();
@@ -22,6 +52,23 @@ export default function ProfileScreen() {
   const [isDriver, setIsDriver] = useState(profile.roles.driver);
   const [isPassenger, setIsPassenger] = useState(profile.roles.passenger);
   const [isDelivery, setIsDelivery] = useState(profile.roles.delivery);
+  const [userMainRole, setUserMainRole] = useState<UserMainRole>(null);
+
+  useEffect(() => {
+    // Load user main role
+    const loadUserMainRole = async () => {
+      try {
+        const role = await AsyncStorage.getItem('userMainRole');
+        if (role) {
+          setUserMainRole(role as UserMainRole);
+          console.log('User main role loaded:', role);
+        }
+      } catch (error) {
+        console.error('Error loading user main role:', error);
+      }
+    };
+    loadUserMainRole();
+  }, []);
 
   const handleSave = async () => {
     await updateProfile({
@@ -52,11 +99,26 @@ export default function ProfileScreen() {
             setIsDriver(false);
             setIsPassenger(false);
             setIsDelivery(false);
+            setUserMainRole(null);
+            await AsyncStorage.removeItem('userMainRole');
             Alert.alert("Succès", "Votre profil a été réinitialisé");
           },
         },
       ]
     );
+  };
+
+  const handleRoleSelect = async (role: UserMainRole) => {
+    setUserMainRole(role);
+    try {
+      if (role) {
+        await AsyncStorage.setItem('userMainRole', role);
+        console.log('User main role saved:', role);
+        Alert.alert("Succès", "Votre rôle principal a été mis à jour");
+      }
+    } catch (error) {
+      console.error('Error saving user main role:', error);
+    }
   };
 
   const handleCallSupport = async () => {
@@ -158,6 +220,60 @@ export default function ProfileScreen() {
             color="#FFFFFF"
           />
         </TouchableOpacity>
+
+        {/* Main Role Selection */}
+        <View style={[styles.formCard, { backgroundColor: isDark ? colors.darkCard : colors.card }]}>
+          <Text style={[styles.sectionTitle, { color: isDark ? colors.darkText : colors.text }]}>
+            Vous utilisez Yombal Yoon surtout comme :
+          </Text>
+          <Text style={[styles.sectionDescription, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+            Choisissez votre rôle principal pour personnaliser votre expérience
+          </Text>
+
+          <View style={styles.roleOptionsContainer}>
+            {roleOptions.map((option) => (
+              <TouchableOpacity
+                key={option.id}
+                style={[
+                  styles.roleOption,
+                  userMainRole === option.id && styles.roleOptionSelected,
+                  { 
+                    backgroundColor: isDark ? colors.darkBackground : colors.background,
+                    borderColor: userMainRole === option.id ? option.color : colors.border,
+                  },
+                ]}
+                onPress={() => handleRoleSelect(option.id as UserMainRole)}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.roleIconContainer, { backgroundColor: option.color + '20' }]}>
+                  <IconSymbol
+                    ios_icon_name={option.icon.ios}
+                    android_material_icon_name={option.icon.android}
+                    size={24}
+                    color={option.color}
+                  />
+                </View>
+                <Text style={[
+                  styles.roleOptionText,
+                  { color: isDark ? colors.darkText : colors.text },
+                  userMainRole === option.id && styles.roleOptionTextSelected,
+                ]}>
+                  {option.label}
+                </Text>
+                {userMainRole === option.id && (
+                  <View style={[styles.checkmark, { backgroundColor: option.color }]}>
+                    <IconSymbol
+                      ios_icon_name="checkmark"
+                      android_material_icon_name="check"
+                      size={14}
+                      color="#FFFFFF"
+                    />
+                  </View>
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
 
         {/* Assistance Yombal Yoon Section */}
         <View style={[styles.assistanceCard, { backgroundColor: isDark ? colors.darkCard : colors.card }]}>
@@ -467,6 +583,49 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     marginBottom: 16,
+  },
+  sectionDescription: {
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: 16,
+  },
+  roleOptionsContainer: {
+    gap: 10,
+  },
+  roleOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 12,
+    padding: 14,
+    borderWidth: 2,
+    gap: 12,
+  },
+  roleOptionSelected: {
+    borderWidth: 2,
+    boxShadow: '0px 3px 10px rgba(0, 128, 0, 0.2)',
+    elevation: 4,
+  },
+  roleIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  roleOptionText: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  roleOptionTextSelected: {
+    fontWeight: '700',
+  },
+  checkmark: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   inputGroup: {
     marginBottom: 16,

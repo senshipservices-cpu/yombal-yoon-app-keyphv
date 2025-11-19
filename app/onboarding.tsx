@@ -44,8 +44,38 @@ const slides: Slide[] = [
   },
 ];
 
+type UserMainRole = 'Conducteur' | 'Passager' | 'Envoyeur de colis' | 'Livreur' | null;
+
+const roleOptions = [
+  {
+    id: 'Conducteur',
+    label: 'Conducteur',
+    icon: { ios: 'car.fill', android: 'directions-car' },
+    color: colors.primary,
+  },
+  {
+    id: 'Passager',
+    label: 'Passager',
+    icon: { ios: 'person.2.fill', android: 'people' },
+    color: '#FF8C00',
+  },
+  {
+    id: 'Envoyeur de colis',
+    label: 'Envoyeur de colis',
+    icon: { ios: 'shippingbox.fill', android: 'local-shipping' },
+    color: colors.accent,
+  },
+  {
+    id: 'Livreur',
+    label: 'Livreur / Coursier',
+    icon: { ios: 'bolt.fill', android: 'flash-on' },
+    color: colors.secondary,
+  },
+];
+
 export default function OnboardingScreen() {
   const [currentSlide, setCurrentSlide] = useState(0);
+  const [selectedRole, setSelectedRole] = useState<UserMainRole>(null);
   const scrollViewRef = useRef<ScrollView>(null);
   const router = useRouter();
 
@@ -73,11 +103,20 @@ export default function OnboardingScreen() {
   const handleFinish = async () => {
     try {
       await AsyncStorage.setItem('onboardingDone', 'true');
+      if (selectedRole) {
+        await AsyncStorage.setItem('userMainRole', selectedRole);
+        console.log('User main role saved:', selectedRole);
+      }
       console.log('Onboarding completed, navigating to home');
       router.replace('/(tabs)/(home)/');
     } catch (error) {
       console.error('Error saving onboarding status:', error);
     }
+  };
+
+  const handleRoleSelect = (role: UserMainRole) => {
+    setSelectedRole(role);
+    console.log('Role selected:', role);
   };
 
   return (
@@ -97,6 +136,7 @@ export default function OnboardingScreen() {
         onScroll={handleScroll}
         scrollEventThrottle={16}
         style={styles.scrollView}
+        scrollEnabled={currentSlide < slides.length}
       >
         {slides.map((slide, index) => (
           <View key={index} style={[styles.slide, { width: SCREEN_WIDTH }]}>
@@ -115,11 +155,67 @@ export default function OnboardingScreen() {
             </View>
           </View>
         ))}
+
+        {/* Role Selection Slide */}
+        <View style={[styles.slide, { width: SCREEN_WIDTH }]}>
+          <View style={styles.slideContent}>
+            <View style={[styles.iconContainer, { backgroundColor: colors.primary + '20' }]}>
+              <IconSymbol
+                ios_icon_name="person.circle.fill"
+                android_material_icon_name="account-circle"
+                size={80}
+                color={colors.primary}
+              />
+            </View>
+
+            <Text style={styles.slideTitle}>Vous utilisez Yombal Yoon surtout comme :</Text>
+            <Text style={styles.slideText}>
+              Choisissez votre rôle principal pour personnaliser votre expérience
+            </Text>
+
+            <View style={styles.roleOptionsContainer}>
+              {roleOptions.map((option) => (
+                <TouchableOpacity
+                  key={option.id}
+                  style={[
+                    styles.roleOption,
+                    selectedRole === option.id && styles.roleOptionSelected,
+                    { borderColor: selectedRole === option.id ? option.color : colors.border },
+                  ]}
+                  onPress={() => handleRoleSelect(option.id as UserMainRole)}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.roleIconContainer, { backgroundColor: option.color + '20' }]}>
+                    <IconSymbol
+                      ios_icon_name={option.icon.ios}
+                      android_material_icon_name={option.icon.android}
+                      size={32}
+                      color={option.color}
+                    />
+                  </View>
+                  <Text style={[styles.roleOptionText, selectedRole === option.id && styles.roleOptionTextSelected]}>
+                    {option.label}
+                  </Text>
+                  {selectedRole === option.id && (
+                    <View style={[styles.checkmark, { backgroundColor: option.color }]}>
+                      <IconSymbol
+                        ios_icon_name="checkmark"
+                        android_material_icon_name="check"
+                        size={16}
+                        color="#FFFFFF"
+                      />
+                    </View>
+                  )}
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        </View>
       </ScrollView>
 
       <View style={styles.footer}>
         <View style={styles.pagination}>
-          {slides.map((_, index) => (
+          {[...slides, { title: 'Role' }].map((_, index) => (
             <TouchableOpacity
               key={index}
               onPress={() => goToSlide(index)}
@@ -137,7 +233,7 @@ export default function OnboardingScreen() {
         </View>
 
         <View style={styles.buttonContainer}>
-          {currentSlide < slides.length - 1 ? (
+          {currentSlide < slides.length ? (
             <View style={styles.navigationButtons}>
               <TouchableOpacity
                 style={styles.skipButton}
@@ -163,11 +259,17 @@ export default function OnboardingScreen() {
             </View>
           ) : (
             <TouchableOpacity
-              style={[styles.finishButton, { backgroundColor: colors.primary }]}
+              style={[
+                styles.finishButton,
+                { backgroundColor: selectedRole ? colors.primary : colors.border },
+              ]}
               onPress={handleFinish}
               activeOpacity={0.7}
+              disabled={!selectedRole}
             >
-              <Text style={styles.finishButtonText}>Commencer avec Yombal Yoon</Text>
+              <Text style={[styles.finishButtonText, { opacity: selectedRole ? 1 : 0.5 }]}>
+                Commencer avec Yombal Yoon
+              </Text>
               <IconSymbol
                 ios_icon_name="arrow.right"
                 android_material_icon_name="arrow-forward"
@@ -241,6 +343,50 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     textAlign: 'center',
     lineHeight: 28,
+  },
+  roleOptionsContainer: {
+    width: '100%',
+    marginTop: 24,
+    gap: 12,
+  },
+  roleOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.card,
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 2,
+    gap: 16,
+    boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.08)',
+    elevation: 3,
+  },
+  roleOptionSelected: {
+    borderWidth: 3,
+    boxShadow: '0px 4px 12px rgba(0, 128, 0, 0.2)',
+    elevation: 5,
+  },
+  roleIconContainer: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  roleOptionText: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  roleOptionTextSelected: {
+    fontWeight: '700',
+  },
+  checkmark: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   footer: {
     paddingHorizontal: 20,
