@@ -1,5 +1,5 @@
 
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform } from "react-native";
 import { useTheme } from "@react-navigation/native";
 import { useRouter } from "expo-router";
@@ -8,12 +8,26 @@ import { IconSymbol } from "@/components/IconSymbol";
 import { useProfile } from "@/contexts/ProfileContext";
 import { useNotifications } from "@/contexts/NotificationContext";
 
+const tips = [
+  "Réservez vos trajets tôt le matin pour trouver plus de conducteurs.",
+  "Précisez bien vos arrêts intermédiaires pour un covoiturage fluide.",
+  "Emballez correctement vos colis pour éviter les dommages.",
+  "Confirmez toujours votre réservation 24h avant le départ.",
+  "Partagez votre position en temps réel pour faciliter la rencontre.",
+  "Vérifiez les avis des conducteurs avant de réserver.",
+  "Préparez la monnaie exacte pour faciliter le paiement.",
+  "Arrivez 10 minutes avant l'heure de départ prévue.",
+  "Communiquez avec le conducteur si vous avez des bagages volumineux.",
+  "Respectez les horaires pour une expérience agréable pour tous.",
+];
+
 export default function HomeScreen() {
   const theme = useTheme();
   const isDark = theme.dark;
   const router = useRouter();
   const { profile } = useProfile();
   const { unreadCount, registerForPushNotifications } = useNotifications();
+  const [tipOfTheDay, setTipOfTheDay] = useState("");
 
   useEffect(() => {
     const roles = [];
@@ -23,6 +37,14 @@ export default function HomeScreen() {
     
     registerForPushNotifications('current_user', roles);
   }, [profile.roles]);
+
+  useEffect(() => {
+    // Select tip based on day of the month
+    const dayOfMonth = new Date().getDate();
+    const tipIndex = dayOfMonth % tips.length;
+    setTipOfTheDay(tips[tipIndex]);
+    console.log('Tip of the day selected:', tips[tipIndex]);
+  }, []);
 
   const services = [
     {
@@ -91,6 +113,20 @@ export default function HomeScreen() {
           <Text style={[styles.tagline, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
             Votre partenaire de mobilité au Sénégal
           </Text>
+
+          {tipOfTheDay && (
+            <View style={[styles.tipCard, { backgroundColor: isDark ? colors.darkCard : colors.card }]}>
+              <View style={styles.tipHeader}>
+                <Text style={styles.tipIcon}>💡</Text>
+                <Text style={[styles.tipTitle, { color: isDark ? colors.darkText : colors.text }]}>
+                  Astuce Yombal Yoon
+                </Text>
+              </View>
+              <Text style={[styles.tipText, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+                {tipOfTheDay}
+              </Text>
+            </View>
+          )}
         </View>
 
         <View style={styles.content}>
@@ -197,6 +233,34 @@ const styles = StyleSheet.create({
   },
   tagline: {
     fontSize: 16,
+    marginBottom: 16,
+  },
+  tipCard: {
+    borderRadius: 16,
+    padding: 16,
+    marginTop: 8,
+    boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.08)',
+    elevation: 3,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.secondary,
+  },
+  tipHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+    gap: 8,
+  },
+  tipIcon: {
+    fontSize: 24,
+  },
+  tipTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  tipText: {
+    fontSize: 15,
+    lineHeight: 22,
+    fontStyle: 'italic',
   },
   content: {
     padding: 20,
