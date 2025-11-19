@@ -4,6 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase, isSupabaseConfigured, ParcelRow } from '@/config/supabase';
 import { demoMode } from '@/config/demoMode';
 import { calculateDistance } from '@/utils/distance';
+import Constants from 'expo-constants';
 
 export interface Location {
   lat: number;
@@ -121,12 +122,10 @@ export function ColisProvider({ children }: { children: ReactNode }) {
     loadData();
   }, []);
 
-  // Auto-calculate distance when both coordinates are available
+  // Auto-calculate distance when both coordinates are available using Google Distance Matrix API
   useEffect(() => {
     if (pickupLat !== null && pickupLng !== null && dropoffLat !== null && dropoffLng !== null) {
-      const distance = calculateDistance(pickupLat, pickupLng, dropoffLat, dropoffLng);
-      console.log('Auto-calculated distance:', distance, 'km');
-      setDistanceKmState(distance);
+      calculateDistanceFromGoogleAPI(pickupLat, pickupLng, dropoffLat, dropoffLng);
     } else {
       setDistanceKmState(0);
     }
@@ -136,6 +135,73 @@ export function ColisProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     updatePriceFromDistance(distanceKm);
   }, [distanceKm]);
+
+  // Calculate distance using Google Distance Matrix API
+  const calculateDistanceFromGoogleAPI = async (
+    originLat: number,
+    originLng: number,
+    destLat: number,
+    destLng: number
+  ) => {
+    try {
+      // Get API key from expo constants
+      const apiKey = Constants.expoConfig?.extra?.GOOGLE_MAPS_API_KEY;
+      
+      if (!apiKey) {
+        console.warn('Google Maps API key not configured');
+        // Fallback to Haversine formula if API key is not available
+        const distance = calculateDistance(originLat, originLng, destLat, destLng);
+        console.log('Fallback to Haversine distance:', distance, 'km');
+        setDistanceKmState(distance);
+        return;
+      }
+
+      // Build the Distance Matrix API URL
+      const url = `https://maps.googleapis.com/maps/api/distancematrix/json?origins=${originLat},${originLng}&destinations=${destLat},${destLng}&mode=driving&language=fr&key=${apiKey}`;
+
+      console.log('Calling Google Distance Matrix API...');
+      const response = await fetch(url);
+      const data = await response.json();
+
+      if (data.status === 'OK' && data.rows && data.rows[0]?.elements && data.rows[0].elements[0]) {
+        const element = data.rows[0].elements[0];
+        
+        if (element.status === 'OK' && element.distance) {
+          // Distance is in meters, convert to kilometers
+          const distanceMeters = element.distance.value;
+          const distanceKilometers = distanceMeters / 1000;
+          
+          console.log('Google Distance Matrix API result:', {
+            distanceMeters,
+            distanceKilometers: distanceKilometers.toFixed(2),
+          });
+          
+          setDistanceKmState(distanceKilometers);
+        } else {
+          console.error('Distance Matrix element status:', element.status);
+          // Fallback to Haversine formula
+          const distance = calculateDistance(originLat, originLng, destLat, destLng);
+          console.log('Fallback to Haversine distance:', distance, 'km');
+          setDistanceKmState(distance);
+        }
+      } else {
+        console.error('Distance Matrix API status:', data.status);
+        if (data.error_message) {
+          console.error('API Error:', data.error_message);
+        }
+        // Fallback to Haversine formula
+        const distance = calculateDistance(originLat, originLng, destLat, destLng);
+        console.log('Fallback to Haversine distance:', distance, 'km');
+        setDistanceKmState(distance);
+      }
+    } catch (error) {
+      console.error('Error calling Google Distance Matrix API:', error);
+      // Fallback to Haversine formula
+      const distance = calculateDistance(originLat, originLng, destLat, destLng);
+      console.log('Fallback to Haversine distance:', distance, 'km');
+      setDistanceKmState(distance);
+    }
+  };
 
   const loadData = async () => {
     try {
