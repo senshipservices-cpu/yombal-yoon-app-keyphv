@@ -15,19 +15,19 @@ import { useTheme } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import Constants from 'expo-constants';
 import { colors } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
 import { useCovoiturage } from '@/contexts/CovoiturageContext';
 import { useProfile } from '@/contexts/ProfileContext';
 import CityAutocomplete from '@/components/CityAutocomplete';
+import { supabase } from '@/config/supabase';
 
 const FAVORITE_ROUTE_KEY = '@yombal_yoon_favorite_route';
 
 interface FavoriteRoute {
   departureCity: string;
   arrivalCity: string;
-  departureTime: string; // HH:MM format
+  departureTime: string;
   vehicleType?: string;
 }
 
@@ -47,7 +47,6 @@ export default function PublishRideScreen() {
   const [vehicleType, setVehicleType] = useState('');
   const [intermediateStops, setIntermediateStops] = useState('');
 
-  // Google Maps related state
   const [departurePlaceId, setDeparturePlaceId] = useState('');
   const [arrivalPlaceId, setArrivalPlaceId] = useState('');
   const [departureLat, setDepartureLat] = useState<number | null>(null);
@@ -64,12 +63,10 @@ export default function PublishRideScreen() {
   const [favoriteRoute, setFavoriteRoute] = useState<FavoriteRoute | null>(null);
   const [showNoFavoriteMessage, setShowNoFavoriteMessage] = useState(false);
 
-  // Load favorite route on mount
   useEffect(() => {
     loadFavoriteRoute();
   }, []);
 
-  // Calculate distance and duration when all coordinates are available
   useEffect(() => {
     if (departureLat && departureLng && arrivalLat && arrivalLng) {
       calculateDistanceAndDuration();
@@ -116,19 +113,22 @@ export default function PublishRideScreen() {
     setIsCalculatingDistance(true);
 
     try {
-      const apiKey = Constants.expoConfig?.extra?.GOOGLE_MAPS_API_KEY;
-      
-      if (!apiKey) {
-        console.error('Google Maps API key not found');
-        return;
-      }
-
-      const url = `https://maps.googleapis.com/maps/api/distancematrix/json?origins=${departureLat},${departureLng}&destinations=${arrivalLat},${arrivalLng}&mode=driving&language=fr&key=${apiKey}`;
-
       console.log('Calculating distance and duration...');
 
-      const response = await fetch(url);
-      const data = await response.json();
+      const { data, error } = await supabase.functions.invoke('google-places-proxy', {
+        body: {
+          action: 'distance_matrix',
+          originLat: departureLat,
+          originLng: departureLng,
+          destLat: arrivalLat,
+          destLng: arrivalLng,
+        },
+      });
+
+      if (error) {
+        console.error('Error calculating distance:', error);
+        return;
+      }
 
       if (data.status === 'OK' && data.rows?.[0]?.elements?.[0]) {
         const element = data.rows[0].elements[0];
@@ -137,7 +137,7 @@ export default function PublishRideScreen() {
           const distanceMeters = element.distance.value;
           const durationSeconds = element.duration.value;
 
-          const distanceKm = Math.round((distanceMeters / 1000) * 10) / 10; // Round to 1 decimal
+          const distanceKm = Math.round((distanceMeters / 1000) * 10) / 10;
           const durationMinutes = Math.round(durationSeconds / 60);
 
           setRideDistanceKm(distanceKm);
@@ -167,11 +167,9 @@ export default function PublishRideScreen() {
       return;
     }
 
-    // Pre-fill form fields
     setDepartureCity(favoriteRoute.departureCity);
     setArrivalCity(favoriteRoute.arrivalCity);
     
-    // Set time from favorite (HH:MM format)
     const [hours, minutes] = favoriteRoute.departureTime.split(':');
     const newTime = new Date();
     newTime.setHours(parseInt(hours, 10));
@@ -182,7 +180,6 @@ export default function PublishRideScreen() {
       setVehicleType(favoriteRoute.vehicleType);
     }
 
-    // Leave date empty for user to choose
     setDepartureDate(null);
 
     Alert.alert(
@@ -214,7 +211,6 @@ export default function PublishRideScreen() {
     console.log('Date picker event:', event.type, selectedDate);
     
     if (Platform.OS === 'android') {
-      // On Android, always close the picker after any interaction
       setShowDatePicker(false);
       
       if (event.type === 'set' && selectedDate) {
@@ -222,7 +218,6 @@ export default function PublishRideScreen() {
         console.log('Date selected (Android):', selectedDate);
       }
     } else {
-      // On iOS, only update the date, don't close the modal yet
       if (selectedDate) {
         setDepartureDate(selectedDate);
         console.log('Date updated (iOS):', selectedDate);
@@ -234,7 +229,6 @@ export default function PublishRideScreen() {
     console.log('Time picker event:', event.type, selectedTime);
     
     if (Platform.OS === 'android') {
-      // On Android, always close the picker after any interaction
       setShowTimePicker(false);
       
       if (event.type === 'set' && selectedTime) {
@@ -242,7 +236,6 @@ export default function PublishRideScreen() {
         console.log('Time selected (Android):', selectedTime);
       }
     } else {
-      // On iOS, only update the time, don't close the modal yet
       if (selectedTime) {
         setDepartureTime(selectedTime);
         console.log('Time updated (iOS):', selectedTime);
@@ -367,7 +360,6 @@ export default function PublishRideScreen() {
         durationMinutes: rideDurationMinutes,
       });
 
-      // Save as favorite route
       await saveFavoriteRoute();
 
       Alert.alert('Succès', 'Trajet publié avec succès.', [
@@ -385,7 +377,6 @@ export default function PublishRideScreen() {
   const renderDatePicker = () => {
     if (!showDatePicker) return null;
 
-    // Web: Use HTML5 date input
     if (Platform.OS === 'web') {
       return (
         <Modal
@@ -454,7 +445,6 @@ export default function PublishRideScreen() {
       />
     );
 
-    // On iOS, wrap in a modal with confirm button
     if (Platform.OS === 'ios') {
       return (
         <Modal
@@ -496,14 +486,12 @@ export default function PublishRideScreen() {
       );
     }
 
-    // On Android, return the picker directly (it shows as a native dialog)
     return picker;
   };
 
   const renderTimePicker = () => {
     if (!showTimePicker) return null;
 
-    // Web: Use HTML5 time input
     if (Platform.OS === 'web') {
       return (
         <Modal
@@ -571,7 +559,6 @@ export default function PublishRideScreen() {
       />
     );
 
-    // On iOS, wrap in a modal with confirm button
     if (Platform.OS === 'ios') {
       return (
         <Modal
@@ -613,13 +600,11 @@ export default function PublishRideScreen() {
       );
     }
 
-    // On Android, return the picker directly (it shows as a native dialog)
     return picker;
   };
 
   return (
     <View style={[styles.container, { backgroundColor: isDark ? colors.darkBackground : colors.background }]}>
-      {/* Header */}
       <View style={[styles.header, { backgroundColor: '#FF8C00' }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <IconSymbol
@@ -641,7 +626,6 @@ export default function PublishRideScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.content}>
-          {/* Usual Route Button */}
           <TouchableOpacity
             style={[
               styles.usualRouteButton,
@@ -664,7 +648,6 @@ export default function PublishRideScreen() {
             </Text>
           </TouchableOpacity>
 
-          {/* No Favorite Message */}
           {showNoFavoriteMessage && (
             <View style={[styles.noFavoriteMessage, { backgroundColor: colors.warning + '20' }]}>
               <IconSymbol
@@ -679,7 +662,6 @@ export default function PublishRideScreen() {
             </View>
           )}
 
-          {/* Departure City with Autocomplete */}
           <CityAutocomplete
             value={departureCity}
             onChangeText={setDepartureCity}
@@ -688,7 +670,6 @@ export default function PublishRideScreen() {
             label="Ville de départ"
           />
 
-          {/* Arrival City with Autocomplete */}
           <CityAutocomplete
             value={arrivalCity}
             onChangeText={setArrivalCity}
@@ -697,7 +678,6 @@ export default function PublishRideScreen() {
             label="Ville d'arrivée"
           />
 
-          {/* Distance and Duration Display */}
           {(rideDistanceKm > 0 || isCalculatingDistance) && (
             <View style={[styles.distanceCard, { backgroundColor: isDark ? colors.darkCard : colors.card }]}>
               <View style={styles.distanceRow}>
@@ -732,7 +712,6 @@ export default function PublishRideScreen() {
             </View>
           )}
 
-          {/* Date */}
           <View style={styles.inputGroup}>
             <Text style={[styles.label, { color: isDark ? colors.darkText : colors.text }]}>
               Date du trajet *
@@ -768,7 +747,6 @@ export default function PublishRideScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* Time */}
           <View style={styles.inputGroup}>
             <Text style={[styles.label, { color: isDark ? colors.darkText : colors.text }]}>
               Heure de départ *
@@ -804,7 +782,6 @@ export default function PublishRideScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* Available Seats */}
           <View style={styles.inputGroup}>
             <Text style={[styles.label, { color: isDark ? colors.darkText : colors.text }]}>
               Nombre de places disponibles (1-8) *
@@ -826,7 +803,6 @@ export default function PublishRideScreen() {
             />
           </View>
 
-          {/* Price */}
           <View style={styles.inputGroup}>
             <Text style={[styles.label, { color: isDark ? colors.darkText : colors.text }]}>
               Prix par passager (FCFA) *
@@ -847,7 +823,6 @@ export default function PublishRideScreen() {
             />
           </View>
 
-          {/* Vehicle Type (Optional) */}
           <View style={styles.inputGroup}>
             <Text style={[styles.label, { color: isDark ? colors.darkText : colors.text }]}>
               Type de véhicule (optionnel)
@@ -867,7 +842,6 @@ export default function PublishRideScreen() {
             />
           </View>
 
-          {/* Intermediate Stops (Optional) */}
           <View style={styles.inputGroup}>
             <Text style={[styles.label, { color: isDark ? colors.darkText : colors.text }]}>
               Arrêts intermédiaires (optionnel)
@@ -890,7 +864,6 @@ export default function PublishRideScreen() {
             />
           </View>
 
-          {/* Submit Button */}
           <TouchableOpacity
             style={[
               styles.submitButton,
@@ -907,10 +880,7 @@ export default function PublishRideScreen() {
         </View>
       </ScrollView>
 
-      {/* Date Picker */}
       {renderDatePicker()}
-
-      {/* Time Picker */}
       {renderTimePicker()}
     </View>
   );
@@ -1087,7 +1057,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.border,
   },
   modalButtonConfirm: {
-    // backgroundColor set dynamically
   },
   modalButtonCancelText: {
     fontSize: 16,

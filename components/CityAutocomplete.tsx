@@ -10,9 +10,9 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useTheme } from '@react-navigation/native';
-import Constants from 'expo-constants';
 import { colors } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
+import { supabase } from '@/config/supabase';
 
 interface PlacePrediction {
   place_id: string;
@@ -57,21 +57,21 @@ export default function CityAutocomplete({
   const fetchSuggestions = async (input: string) => {
     setIsLoading(true);
     try {
-      const apiKey = Constants.expoConfig?.extra?.GOOGLE_MAPS_API_KEY;
-      
-      if (!apiKey) {
-        console.error('Google Maps API key not found');
-        return;
-      }
-
-      const url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(
-        input
-      )}&types=(cities)&language=fr&components=country:sn&key=${apiKey}`;
-
       console.log('Fetching city suggestions for:', input);
 
-      const response = await fetch(url);
-      const data = await response.json();
+      const { data, error } = await supabase.functions.invoke('google-places-proxy', {
+        body: {
+          action: 'autocomplete',
+          input: input,
+        },
+      });
+
+      if (error) {
+        console.error('Error fetching city suggestions:', error);
+        setSuggestions([]);
+        setShowSuggestions(false);
+        return;
+      }
 
       if (data.status === 'OK' && data.predictions) {
         console.log('City suggestions received:', data.predictions.length);
@@ -93,19 +93,20 @@ export default function CityAutocomplete({
 
   const fetchPlaceDetails = async (placeId: string, cityName: string) => {
     try {
-      const apiKey = Constants.expoConfig?.extra?.GOOGLE_MAPS_API_KEY;
-      
-      if (!apiKey) {
-        console.error('Google Maps API key not found');
-        return;
-      }
-
-      const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&fields=geometry&key=${apiKey}`;
-
       console.log('Fetching place details for:', placeId);
 
-      const response = await fetch(url);
-      const data = await response.json();
+      const { data, error } = await supabase.functions.invoke('google-places-proxy', {
+        body: {
+          action: 'place_details',
+          placeId: placeId,
+        },
+      });
+
+      if (error) {
+        console.error('Error fetching place details:', error);
+        onSelectCity(cityName, placeId, 0, 0);
+        return;
+      }
 
       if (data.status === 'OK' && data.result?.geometry?.location) {
         const { lat, lng } = data.result.geometry.location;
