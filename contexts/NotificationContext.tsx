@@ -4,7 +4,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 
-// Configure notification handler
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowBanner: true,
@@ -18,13 +17,23 @@ export interface DeviceToken {
   userId: string;
   token: string;
   platform: string;
+  roles: string[];
   createdAt: string;
 }
 
 export interface NotificationData {
   id: string;
   userId: string;
-  type: 'reservation_created' | 'reservation_accepted' | 'reservation_refused' | 'ride_cancelled';
+  type: 
+    | 'reservation_created' 
+    | 'reservation_accepted' 
+    | 'reservation_refused' 
+    | 'ride_cancelled'
+    | 'parcel_assignment'
+    | 'parcel_accepted'
+    | 'parcel_picked_up'
+    | 'parcel_delivered'
+    | 'parcel_already_taken';
   title: string;
   body: string;
   data?: any;
@@ -35,11 +44,14 @@ export interface NotificationData {
 interface NotificationContextType {
   deviceToken: string | null;
   notifications: NotificationData[];
-  registerForPushNotifications: () => Promise<void>;
+  unreadCount: number;
+  registerForPushNotifications: (userId?: string, roles?: string[]) => Promise<void>;
   sendLocalNotification: (title: string, body: string, data?: any) => Promise<void>;
   markNotificationAsRead: (notificationId: string) => Promise<void>;
+  markAllAsRead: () => Promise<void>;
   clearAllNotifications: () => Promise<void>;
   isLoading: boolean;
+  hasPermission: boolean;
 }
 
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
@@ -51,6 +63,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   const [deviceToken, setDeviceToken] = useState<string | null>(null);
   const [notifications, setNotifications] = useState<NotificationData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [hasPermission, setHasPermission] = useState(false);
   const notificationListener = useRef<any>();
   const responseListener = useRef<any>();
 
@@ -68,6 +81,8 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  const unreadCount = notifications.filter(n => !n.read).length;
+
   const loadData = async () => {
     try {
       const storedNotifications = await AsyncStorage.getItem(NOTIFICATIONS_STORAGE_KEY);
@@ -83,14 +98,12 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   };
 
   const setupNotificationListeners = () => {
-    // Listen for notifications received while app is running
     notificationListener.current = Notifications.addNotificationReceivedListener(notification => {
       console.log('Notification received:', notification);
       
-      // Add to local notifications list
       const newNotification: NotificationData = {
         id: notification.request.identifier,
-        userId: 'current_user', // In production, use actual user ID
+        userId: 'current_user',
         type: notification.request.content.data?.type || 'reservation_created',
         title: notification.request.content.title || '',
         body: notification.request.content.body || '',
@@ -106,16 +119,13 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       });
     });
 
-    // Listen for user interactions with notifications
     responseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
       console.log('Notification response:', response);
-      // Handle navigation or other actions based on notification data
     });
   };
 
-  const registerForPushNotifications = async () => {
+  const registerForPushNotifications = async (userId: string = 'current_user', roles: string[] = []) => {
     try {
-      // Request permissions
       const { status: existingStatus } = await Notifications.getPermissionsAsync();
       let finalStatus = existingStatus;
 
@@ -126,44 +136,73 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 
       if (finalStatus !== 'granted') {
         console.log('Permission not granted for push notifications');
+        setHasPermission(false);
         return;
       }
 
-      // Create notification channel for Android
+      setHasPermission(true);
+
       if (Platform.OS === 'android') {
+        await Notifications.setNotificationChannelAsync('default', {
+          name: 'Notifications Yombal Yoon',
+          importance: Notifications.AndroidImportance.MAX,
+          vibrationPattern: [0, 250, 250, 250],
+          lightColor: '#008000',
+        });
+
         await Notifications.setNotificationChannelAsync('covoiturage', {
           name: 'Covoiturage',
           importance: Notifications.AndroidImportance.MAX,
           vibrationPattern: [0, 250, 250, 250],
           lightColor: '#FF8C00',
         });
+
+        await Notifications.setNotificationChannelAsync('colis', {
+          name: 'Livraison de Colis',
+          importance: Notifications.AndroidImportance.MAX,
+          vibrationPattern: [0, 250, 250, 250],
+          lightColor: '#FF0000',
+        });
       }
 
-      // Get device push token (mock for now - in production, use getExpoPushTokenAsync)
-      const token = `mock_token_${Platform.OS}_${Date.now()}`;
+      const token = `mock_token_${Platform.OS}_${userId}_${Date.now()}`;
       setDeviceToken(token);
 
-      // Store device token
       const deviceTokenData: DeviceToken = {
-        userId: 'current_user', // In production, use actual user ID
+        userId,
         token,
         platform: Platform.OS,
+        roles,
         createdAt: new Date().toISOString(),
       };
 
       const storedTokens = await AsyncStorage.getItem(DEVICE_TOKENS_STORAGE_KEY);
       const tokens: DeviceToken[] = storedTokens ? JSON.parse(storedTokens) : [];
-      tokens.push(deviceTokenData);
+      
+      const existingTokenIndex = tokens.findIndex(t => t.userId === userId && t.platform === Platform.OS);
+      if (existingTokenIndex >= 0) {
+        tokens[existingTokenIndex] = deviceTokenData;
+      } else {
+        tokens.push(deviceTokenData);
+      }
+      
       await AsyncStorage.setItem(DEVICE_TOKENS_STORAGE_KEY, JSON.stringify(tokens));
 
-      console.log('Device token registered:', token);
+      console.log('Device token registered:', token, 'Roles:', roles);
     } catch (error) {
       console.error('Error registering for push notifications:', error);
+      setHasPermission(false);
     }
   };
 
   const sendLocalNotification = async (title: string, body: string, data?: any) => {
     try {
+      const channelId = data?.type?.includes('parcel') || data?.type?.includes('colis') 
+        ? 'colis' 
+        : data?.type?.includes('reservation') || data?.type?.includes('ride')
+        ? 'covoiturage'
+        : 'default';
+
       await Notifications.scheduleNotificationAsync({
         content: {
           title,
@@ -171,7 +210,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
           data,
           sound: true,
         },
-        trigger: null, // Immediate notification
+        trigger: null,
       });
 
       console.log('Local notification sent:', title);
@@ -193,6 +232,17 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const markAllAsRead = async () => {
+    try {
+      const updatedNotifications = notifications.map(notif => ({ ...notif, read: true }));
+      setNotifications(updatedNotifications);
+      await AsyncStorage.setItem(NOTIFICATIONS_STORAGE_KEY, JSON.stringify(updatedNotifications));
+      console.log('All notifications marked as read');
+    } catch (error) {
+      console.error('Error marking all notifications as read:', error);
+    }
+  };
+
   const clearAllNotifications = async () => {
     try {
       setNotifications([]);
@@ -209,11 +259,14 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       value={{
         deviceToken,
         notifications,
+        unreadCount,
         registerForPushNotifications,
         sendLocalNotification,
         markNotificationAsRead,
+        markAllAsRead,
         clearAllNotifications,
         isLoading,
+        hasPermission,
       }}
     >
       {children}

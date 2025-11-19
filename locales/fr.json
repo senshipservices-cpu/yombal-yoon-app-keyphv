@@ -39,6 +39,48 @@
       }
     }
   },
+  "notifications": {
+    "title": "Notifications",
+    "empty": "Aucune notification",
+    "emptyMessage": "Vous n'avez pas encore reçu de notifications. Vous serez notifié des événements importants ici.",
+    "markAllRead": "Tout marquer comme lu",
+    "clearAll": "Effacer toutes les notifications",
+    "types": {
+      "reservation_created": "Nouvelle réservation",
+      "reservation_accepted": "Réservation acceptée",
+      "reservation_refused": "Réservation refusée",
+      "ride_cancelled": "Trajet annulé",
+      "parcel_assignment": "Nouvelle demande de colis",
+      "parcel_accepted": "Colis accepté",
+      "parcel_picked_up": "Colis récupéré",
+      "parcel_delivered": "Colis livré",
+      "parcel_already_taken": "Colis déjà pris"
+    }
+  },
+  "emptyStates": {
+    "noRides": "Aucun trajet publié pour le moment",
+    "noRidesMessage": "Aucun trajet ne correspond à votre recherche. Essayez de modifier vos critères ou revenez plus tard.",
+    "noReservations": "Aucune réservation pour l'instant",
+    "noReservationsMessage": "Vous n'avez pas encore de réservations. Recherchez un trajet pour commencer.",
+    "noDelivery": "Aucun livreur disponible actuellement",
+    "noDeliveryMessage": "Il n'y a pas de demandes de livraison en attente pour le moment. Vous serez notifié dès qu'une nouvelle demande arrive.",
+    "noParcels": "Aucun colis",
+    "noParcelsMessage": "Vous n'avez pas encore envoyé de colis."
+  },
+  "errors": {
+    "networkError": "Erreur de connexion",
+    "networkErrorMessage": "Impossible de charger les données. Vérifiez votre connexion internet et réessayez.",
+    "retry": "Réessayer",
+    "genericError": "Une erreur est survenue",
+    "tryAgain": "Veuillez réessayer"
+  },
+  "location": {
+    "permissionDenied": "Localisation désactivée",
+    "permissionDeniedMessage": "La localisation automatique n'est pas disponible, mais vous pouvez toujours utiliser l'application en saisissant vos adresses manuellement.",
+    "permissionInfo": "Pour activer la localisation automatique, vous pouvez modifier les paramètres de votre appareil.",
+    "openSettings": "Ouvrir les paramètres",
+    "continueWithoutLocation": "Continuer sans localisation"
+  },
   "profile": {
     "title": "Mon Profil",
     "personalInfo": "Informations personnelles",

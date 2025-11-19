@@ -33,6 +33,7 @@ export default function RootLayout() {
                   >
                     <Stack.Screen name="(tabs)" />
                     <Stack.Screen name="wallet" />
+                    <Stack.Screen name="notifications" />
                     <Stack.Screen name="covoiturage/publish-ride" />
                     <Stack.Screen name="covoiturage/search-ride" />
                     <Stack.Screen name="covoiturage/search-results" />
