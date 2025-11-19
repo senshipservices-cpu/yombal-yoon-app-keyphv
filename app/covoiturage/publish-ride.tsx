@@ -9,6 +9,7 @@ import {
   TouchableOpacity,
   Platform,
   Alert,
+  Modal,
 } from 'react-native';
 import { useTheme } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
@@ -210,43 +211,53 @@ export default function PublishRideScreen() {
   };
 
   const handleDateChange = (event: any, selectedDate?: Date) => {
-    // On Android, the picker closes automatically
-    if (Platform.OS === 'android') {
-      setShowDatePicker(false);
-    }
+    console.log('Date picker event:', event.type, selectedDate);
     
-    if (event.type === 'set' && selectedDate) {
-      setDepartureDate(selectedDate);
-      console.log('Date selected:', selectedDate);
-      
-      // Close picker on iOS after selection
-      if (Platform.OS === 'ios') {
-        setShowDatePicker(false);
-      }
-    } else if (event.type === 'dismissed') {
-      // User cancelled
+    if (Platform.OS === 'android') {
+      // On Android, always close the picker after any interaction
       setShowDatePicker(false);
+      
+      if (event.type === 'set' && selectedDate) {
+        setDepartureDate(selectedDate);
+        console.log('Date selected (Android):', selectedDate);
+      }
+    } else {
+      // On iOS, only update the date, don't close the modal yet
+      if (selectedDate) {
+        setDepartureDate(selectedDate);
+        console.log('Date updated (iOS):', selectedDate);
+      }
     }
   };
 
   const handleTimeChange = (event: any, selectedTime?: Date) => {
-    // On Android, the picker closes automatically
-    if (Platform.OS === 'android') {
-      setShowTimePicker(false);
-    }
+    console.log('Time picker event:', event.type, selectedTime);
     
-    if (event.type === 'set' && selectedTime) {
-      setDepartureTime(selectedTime);
-      console.log('Time selected:', selectedTime);
-      
-      // Close picker on iOS after selection
-      if (Platform.OS === 'ios') {
-        setShowTimePicker(false);
-      }
-    } else if (event.type === 'dismissed') {
-      // User cancelled
+    if (Platform.OS === 'android') {
+      // On Android, always close the picker after any interaction
       setShowTimePicker(false);
+      
+      if (event.type === 'set' && selectedTime) {
+        setDepartureTime(selectedTime);
+        console.log('Time selected (Android):', selectedTime);
+      }
+    } else {
+      // On iOS, only update the time, don't close the modal yet
+      if (selectedTime) {
+        setDepartureTime(selectedTime);
+        console.log('Time updated (iOS):', selectedTime);
+      }
     }
+  };
+
+  const confirmDateSelection = () => {
+    setShowDatePicker(false);
+    console.log('Date confirmed:', departureDate);
+  };
+
+  const confirmTimeSelection = () => {
+    setShowTimePicker(false);
+    console.log('Time confirmed:', departureTime);
   };
 
   const formatDate = (date: Date): string => {
@@ -335,6 +346,126 @@ export default function PublishRideScreen() {
       console.error('Error publishing ride:', error);
       Alert.alert('Erreur', 'Erreur lors de la publication du trajet.');
     }
+  };
+
+  const renderDatePicker = () => {
+    if (!showDatePicker) return null;
+
+    const picker = (
+      <DateTimePicker
+        value={departureDate || new Date()}
+        mode="date"
+        display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+        onChange={handleDateChange}
+        minimumDate={new Date()}
+        locale="fr-FR"
+      />
+    );
+
+    // On iOS, wrap in a modal with confirm button
+    if (Platform.OS === 'ios') {
+      return (
+        <Modal
+          visible={showDatePicker}
+          transparent={true}
+          animationType="slide"
+          onRequestClose={() => setShowDatePicker(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalContent, { backgroundColor: isDark ? colors.darkCard : '#FFFFFF' }]}>
+              <View style={styles.modalHeader}>
+                <Text style={[styles.modalTitle, { color: isDark ? colors.darkText : colors.text }]}>
+                  Sélectionner une date
+                </Text>
+              </View>
+              
+              {picker}
+              
+              <View style={styles.modalButtons}>
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.modalButtonCancel]}
+                  onPress={() => setShowDatePicker(false)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.modalButtonCancelText}>Annuler</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.modalButtonConfirm, { backgroundColor: colors.primary }]}
+                  onPress={confirmDateSelection}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.modalButtonConfirmText}>Confirmer</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+      );
+    }
+
+    // On Android, return the picker directly (it shows as a native dialog)
+    return picker;
+  };
+
+  const renderTimePicker = () => {
+    if (!showTimePicker) return null;
+
+    const picker = (
+      <DateTimePicker
+        value={departureTime || new Date()}
+        mode="time"
+        display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+        onChange={handleTimeChange}
+        is24Hour={true}
+        locale="fr-FR"
+      />
+    );
+
+    // On iOS, wrap in a modal with confirm button
+    if (Platform.OS === 'ios') {
+      return (
+        <Modal
+          visible={showTimePicker}
+          transparent={true}
+          animationType="slide"
+          onRequestClose={() => setShowTimePicker(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalContent, { backgroundColor: isDark ? colors.darkCard : '#FFFFFF' }]}>
+              <View style={styles.modalHeader}>
+                <Text style={[styles.modalTitle, { color: isDark ? colors.darkText : colors.text }]}>
+                  Sélectionner une heure
+                </Text>
+              </View>
+              
+              {picker}
+              
+              <View style={styles.modalButtons}>
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.modalButtonCancel]}
+                  onPress={() => setShowTimePicker(false)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.modalButtonCancelText}>Annuler</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.modalButtonConfirm, { backgroundColor: colors.primary }]}
+                  onPress={confirmTimeSelection}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.modalButtonConfirmText}>Confirmer</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+      );
+    }
+
+    // On Android, return the picker directly (it shows as a native dialog)
+    return picker;
   };
 
   return (
@@ -465,7 +596,10 @@ export default function PublishRideScreen() {
                   backgroundColor: isDark ? colors.darkCard : colors.card,
                 },
               ]}
-              onPress={() => setShowDatePicker(true)}
+              onPress={() => {
+                console.log('Date picker button pressed');
+                setShowDatePicker(true);
+              }}
               activeOpacity={0.7}
             >
               <Text
@@ -485,16 +619,6 @@ export default function PublishRideScreen() {
             </TouchableOpacity>
           </View>
 
-          {showDatePicker && (
-            <DateTimePicker
-              value={departureDate || new Date()}
-              mode="date"
-              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-              onChange={handleDateChange}
-              minimumDate={new Date()}
-            />
-          )}
-
           {/* Time */}
           <View style={styles.inputGroup}>
             <Text style={[styles.label, { color: isDark ? colors.darkText : colors.text }]}>
@@ -508,7 +632,10 @@ export default function PublishRideScreen() {
                   backgroundColor: isDark ? colors.darkCard : colors.card,
                 },
               ]}
-              onPress={() => setShowTimePicker(true)}
+              onPress={() => {
+                console.log('Time picker button pressed');
+                setShowTimePicker(true);
+              }}
               activeOpacity={0.7}
             >
               <Text
@@ -527,16 +654,6 @@ export default function PublishRideScreen() {
               />
             </TouchableOpacity>
           </View>
-
-          {showTimePicker && (
-            <DateTimePicker
-              value={departureTime || new Date()}
-              mode="time"
-              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-              onChange={handleTimeChange}
-              is24Hour={true}
-            />
-          )}
 
           {/* Available Seats */}
           <View style={styles.inputGroup}>
@@ -640,6 +757,12 @@ export default function PublishRideScreen() {
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+      {/* Date Picker */}
+      {renderDatePicker()}
+
+      {/* Time Picker */}
+      {renderTimePicker()}
     </View>
   );
 }
@@ -767,5 +890,61 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 18,
     fontWeight: '700',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingBottom: 40,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: -2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  modalHeader: {
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    gap: 12,
+  },
+  modalButton: {
+    flex: 1,
+    padding: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  modalButtonCancel: {
+    backgroundColor: colors.border,
+  },
+  modalButtonConfirm: {
+    // backgroundColor set dynamically
+  },
+  modalButtonCancelText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  modalButtonConfirmText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
 });
