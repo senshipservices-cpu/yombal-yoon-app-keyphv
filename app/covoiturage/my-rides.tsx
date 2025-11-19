@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
   View,
   Text,
@@ -14,45 +14,112 @@ import { useRouter } from 'expo-router';
 import { colors } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
 import { useCovoiturage } from '@/contexts/CovoiturageContext';
+import { useNotifications } from '@/contexts/NotificationContext';
 
 export default function MyRidesScreen() {
   const theme = useTheme();
   const isDark = theme.dark;
   const router = useRouter();
-  const { rides, getReservationsByRide, updateReservationStatus } = useCovoiturage();
+  const { rides, getReservationsByRide, updateReservationStatus, cancelRide } = useCovoiturage();
+  const { sendLocalNotification, registerForPushNotifications } = useNotifications();
+
+  useEffect(() => {
+    // Register for push notifications when screen loads
+    registerForPushNotifications();
+  }, []);
 
   // For demo purposes, we'll show all rides. In production, filter by driverId
   const myRides = rides;
 
-  const handleAcceptReservation = (reservationId: string) => {
+  const handleAcceptReservation = async (reservationId: string, passengerName: string) => {
     Alert.alert(
       'Accepter la réservation',
-      'Voulez-vous accepter cette réservation ?',
+      `Voulez-vous accepter la réservation de ${passengerName} ?`,
       [
         { text: 'Annuler', style: 'cancel' },
         {
           text: 'Accepter',
           onPress: async () => {
-            await updateReservationStatus(reservationId, 'accepted');
-            Alert.alert('Succès', 'Réservation acceptée !');
+            const result = await updateReservationStatus(
+              reservationId,
+              'accepted',
+              (type, passengerId, rideDetails) => {
+                // Send notification to passenger
+                sendLocalNotification(
+                  'Réservation acceptée ! 🎉',
+                  `Votre réservation pour ${rideDetails.ride.departureCity} → ${rideDetails.ride.arrivalCity} a été acceptée`,
+                  { type, reservationId, ...rideDetails }
+                );
+              }
+            );
+
+            if (result.success) {
+              Alert.alert('Succès', 'Réservation acceptée !');
+            } else {
+              Alert.alert('Erreur', result.message || 'Impossible d\'accepter la réservation');
+            }
           },
         },
       ]
     );
   };
 
-  const handleRefuseReservation = (reservationId: string) => {
+  const handleRefuseReservation = async (reservationId: string, passengerName: string) => {
     Alert.alert(
       'Refuser la réservation',
-      'Voulez-vous refuser cette réservation ?',
+      `Voulez-vous refuser la réservation de ${passengerName} ?`,
       [
         { text: 'Annuler', style: 'cancel' },
         {
           text: 'Refuser',
           style: 'destructive',
           onPress: async () => {
-            await updateReservationStatus(reservationId, 'refused');
-            Alert.alert('Succès', 'Réservation refusée.');
+            const result = await updateReservationStatus(
+              reservationId,
+              'refused',
+              (type, passengerId, rideDetails) => {
+                // Send notification to passenger
+                sendLocalNotification(
+                  'Réservation refusée',
+                  `Votre réservation pour ${rideDetails.ride.departureCity} → ${rideDetails.ride.arrivalCity} a été refusée`,
+                  { type, reservationId, ...rideDetails }
+                );
+              }
+            );
+
+            if (result.success) {
+              Alert.alert('Succès', 'Réservation refusée.');
+            } else {
+              Alert.alert('Erreur', result.message || 'Impossible de refuser la réservation');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleCancelRide = (rideId: string, rideDetails: any) => {
+    Alert.alert(
+      'Annuler le trajet',
+      'Êtes-vous sûr de vouloir annuler ce trajet ? Toutes les réservations seront refusées et les passagers seront notifiés.',
+      [
+        { text: 'Non', style: 'cancel' },
+        {
+          text: 'Oui, annuler',
+          style: 'destructive',
+          onPress: async () => {
+            await cancelRide(rideId, (type, passengerIds, details) => {
+              // Send notification to all passengers
+              passengerIds.forEach(() => {
+                sendLocalNotification(
+                  'Trajet annulé ⚠️',
+                  `Le trajet ${details.ride.departureCity} → ${details.ride.arrivalCity} du ${new Date(details.ride.date).toLocaleDateString('fr-FR')} a été annulé par le conducteur`,
+                  { type, rideId, ...details }
+                );
+              });
+            });
+
+            Alert.alert('Succès', 'Trajet annulé. Les passagers ont été notifiés.');
           },
         },
       ]
@@ -124,11 +191,16 @@ export default function MyRidesScreen() {
             myRides.map((ride, index) => {
               const reservations = getReservationsByRide(ride.id);
               const isFull = ride.availableSeats === 0;
+              const isCancelled = ride.status === 'cancelled';
 
               return (
                 <View
                   key={index}
-                  style={[styles.rideCard, { backgroundColor: isDark ? colors.darkCard : colors.card }]}
+                  style={[
+                    styles.rideCard,
+                    { backgroundColor: isDark ? colors.darkCard : colors.card },
+                    isCancelled && styles.cancelledCard,
+                  ]}
                 >
                   {/* Ride Info */}
                   <View style={styles.rideHeader}>
@@ -146,11 +218,15 @@ export default function MyRidesScreen() {
                         {ride.arrivalCity}
                       </Text>
                     </View>
-                    {isFull && (
+                    {isCancelled ? (
+                      <View style={[styles.badge, { backgroundColor: '#999' }]}>
+                        <Text style={styles.badgeText}>Annulé</Text>
+                      </View>
+                    ) : isFull ? (
                       <View style={[styles.badge, { backgroundColor: colors.accent }]}>
                         <Text style={styles.badgeText}>Complet</Text>
                       </View>
-                    )}
+                    ) : null}
                   </View>
 
                   <View style={styles.rideDetails}>
@@ -191,6 +267,25 @@ export default function MyRidesScreen() {
                     </View>
                   </View>
 
+                  {/* Cancel Ride Button */}
+                  {!isCancelled && (
+                    <TouchableOpacity
+                      style={[styles.cancelRideButton, { backgroundColor: colors.accent + '20', borderColor: colors.accent }]}
+                      onPress={() => handleCancelRide(ride.id, ride)}
+                      activeOpacity={0.7}
+                    >
+                      <IconSymbol
+                        ios_icon_name="xmark.circle"
+                        android_material_icon_name="cancel"
+                        size={16}
+                        color={colors.accent}
+                      />
+                      <Text style={[styles.cancelRideButtonText, { color: colors.accent }]}>
+                        Annuler le trajet
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+
                   {/* Reservations */}
                   {reservations.length > 0 && (
                     <View style={styles.reservationsSection}>
@@ -221,11 +316,11 @@ export default function MyRidesScreen() {
                             {reservation.numberOfPassengers} passager(s)
                           </Text>
 
-                          {reservation.status === 'pending' && (
+                          {reservation.status === 'pending' && !isCancelled && (
                             <View style={styles.actionButtons}>
                               <TouchableOpacity
                                 style={[styles.actionButton, { backgroundColor: colors.primary }]}
-                                onPress={() => handleAcceptReservation(reservation.id)}
+                                onPress={() => handleAcceptReservation(reservation.id, reservation.passengerName)}
                                 activeOpacity={0.7}
                               >
                                 <Text style={styles.actionButtonText}>Accepter</Text>
@@ -233,7 +328,7 @@ export default function MyRidesScreen() {
 
                               <TouchableOpacity
                                 style={[styles.actionButton, { backgroundColor: colors.accent }]}
-                                onPress={() => handleRefuseReservation(reservation.id)}
+                                onPress={() => handleRefuseReservation(reservation.id, reservation.passengerName)}
                                 activeOpacity={0.7}
                               >
                                 <Text style={styles.actionButtonText}>Refuser</Text>
@@ -314,6 +409,9 @@ const styles = StyleSheet.create({
     boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.08)',
     elevation: 3,
   },
+  cancelledCard: {
+    opacity: 0.6,
+  },
   rideHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -342,7 +440,7 @@ const styles = StyleSheet.create({
   },
   rideDetails: {
     gap: 8,
-    marginBottom: 16,
+    marginBottom: 12,
   },
   detailRow: {
     flexDirection: 'row',
@@ -351,6 +449,21 @@ const styles = StyleSheet.create({
   },
   detailText: {
     fontSize: 14,
+  },
+  cancelRideButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginBottom: 12,
+  },
+  cancelRideButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
   },
   reservationsSection: {
     borderTopWidth: 1,

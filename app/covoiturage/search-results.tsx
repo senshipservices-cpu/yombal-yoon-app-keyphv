@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import {
   View,
   Text,
@@ -13,7 +13,8 @@ import { useTheme } from '@react-navigation/native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { colors } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
-import { useCovoiturage, Ride } from '@/contexts/CovoiturageContext';
+import { useCovoiturage } from '@/contexts/CovoiturageContext';
+import { useNotifications } from '@/contexts/NotificationContext';
 import { useProfile } from '@/contexts/ProfileContext';
 
 export default function SearchResultsScreen() {
@@ -22,55 +23,55 @@ export default function SearchResultsScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const { searchRides, addReservation } = useCovoiturage();
+  const { sendLocalNotification } = useNotifications();
   const { profile } = useProfile();
 
-  const [results, setResults] = useState<Ride[]>([]);
+  const departureCity = params.departureCity as string;
+  const arrivalCity = params.arrivalCity as string;
+  const date = params.date as string;
+  const passengers = parseInt(params.passengers as string) || 1;
 
-  useEffect(() => {
-    performSearch();
-  }, []);
+  const results = searchRides(departureCity, arrivalCity, date, passengers);
 
-  const performSearch = () => {
-    const departureCity = params.departureCity as string || '';
-    const arrivalCity = params.arrivalCity as string || '';
-    const date = params.date as string || '';
-    const numberOfPassengers = parseInt(params.numberOfPassengers as string || '1');
-
-    console.log('Searching with:', { departureCity, arrivalCity, date, numberOfPassengers });
-
-    const searchResults = searchRides(departureCity, arrivalCity, date, numberOfPassengers);
-    setResults(searchResults);
-    console.log('Found results:', searchResults.length);
-  };
-
-  const handleReserve = (ride: Ride) => {
-    const numberOfPassengers = parseInt(params.numberOfPassengers as string || '1');
-
+  const handleBookRide = async (ride: any) => {
     Alert.alert(
       'Confirmer la réservation',
-      `Réserver ${numberOfPassengers} place(s) pour ${ride.pricePerPassenger * numberOfPassengers} FCFA ?`,
+      `Réserver ${passengers} place(s) pour ${ride.pricePerPassenger * passengers} FCFA ?`,
       [
         { text: 'Annuler', style: 'cancel' },
         {
           text: 'Réserver',
           onPress: async () => {
-            try {
-              await addReservation({
+            const result = await addReservation(
+              {
                 rideId: ride.id,
-                passengerId: 'passenger_' + Date.now(),
+                passengerId: 'passenger_demo', // In production, use actual user ID
                 passengerName: profile.fullName || 'Passager',
-                numberOfPassengers,
-              });
+                numberOfPassengers: passengers,
+              },
+              (type, driverId, rideDetails) => {
+                // Send notification to driver
+                sendLocalNotification(
+                  'Nouvelle réservation ! 🚗',
+                  `${rideDetails.passengerName} souhaite réserver ${rideDetails.numberOfPassengers} place(s) pour ${rideDetails.ride.departureCity} → ${rideDetails.ride.arrivalCity}`,
+                  { type, ...rideDetails }
+                );
+              }
+            );
 
-              Alert.alert('Succès', 'Votre réservation a été envoyée au conducteur !', [
-                {
-                  text: 'OK',
-                  onPress: () => router.push('/covoiturage/my-reservations'),
-                },
-              ]);
-            } catch (error) {
-              console.error('Error making reservation:', error);
-              Alert.alert('Erreur', 'Une erreur est survenue lors de la réservation.');
+            if (result.success) {
+              Alert.alert(
+                'Réservation effectuée !',
+                'Votre réservation a été envoyée au conducteur. Vous serez notifié de sa réponse.',
+                [
+                  {
+                    text: 'OK',
+                    onPress: () => router.push('/covoiturage/my-reservations'),
+                  },
+                ]
+              );
+            } else {
+              Alert.alert('Erreur', result.message || 'Impossible de réserver ce trajet');
             }
           },
         },
@@ -102,6 +103,44 @@ export default function SearchResultsScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.content}>
+          {/* Search Summary */}
+          <View style={[styles.summaryCard, { backgroundColor: isDark ? colors.darkCard : colors.card }]}>
+            <View style={styles.summaryRow}>
+              <IconSymbol
+                ios_icon_name="location.fill"
+                android_material_icon_name="place"
+                size={16}
+                color={colors.primary}
+              />
+              <Text style={[styles.summaryText, { color: isDark ? colors.darkText : colors.text }]}>
+                {departureCity} → {arrivalCity}
+              </Text>
+            </View>
+            <View style={styles.summaryRow}>
+              <IconSymbol
+                ios_icon_name="calendar"
+                android_material_icon_name="calendar-today"
+                size={16}
+                color={colors.primary}
+              />
+              <Text style={[styles.summaryText, { color: isDark ? colors.darkText : colors.text }]}>
+                {date ? new Date(date).toLocaleDateString('fr-FR') : 'Toutes les dates'}
+              </Text>
+            </View>
+            <View style={styles.summaryRow}>
+              <IconSymbol
+                ios_icon_name="person.2.fill"
+                android_material_icon_name="people"
+                size={16}
+                color={colors.primary}
+              />
+              <Text style={[styles.summaryText, { color: isDark ? colors.darkText : colors.text }]}>
+                {passengers} passager(s)
+              </Text>
+            </View>
+          </View>
+
+          {/* Results */}
           {results.length === 0 ? (
             <View style={[styles.emptyCard, { backgroundColor: isDark ? colors.darkCard : colors.card }]}>
               <IconSymbol
@@ -123,52 +162,40 @@ export default function SearchResultsScreen() {
                 key={index}
                 style={[styles.rideCard, { backgroundColor: isDark ? colors.darkCard : colors.card }]}
               >
-                {/* Driver Info */}
-                <View style={styles.driverSection}>
-                  <View style={styles.driverAvatar}>
-                    <IconSymbol
-                      ios_icon_name="person.fill"
-                      android_material_icon_name="person"
-                      size={24}
-                      color={colors.primary}
-                    />
-                  </View>
-                  <View style={styles.driverInfo}>
-                    <Text style={[styles.driverName, { color: isDark ? colors.darkText : colors.text }]}>
-                      {ride.driverName}
-                    </Text>
-                    {ride.vehicleType && (
-                      <Text style={[styles.vehicleType, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-                        {ride.vehicleType}
-                      </Text>
-                    )}
-                  </View>
-                </View>
-
                 {/* Route */}
-                <View style={styles.routeSection}>
-                  <View style={styles.routeContainer}>
-                    <Text style={[styles.cityText, { color: isDark ? colors.darkText : colors.text }]}>
-                      {ride.departureCity}
-                    </Text>
-                    <IconSymbol
-                      ios_icon_name="arrow.right"
-                      android_material_icon_name="arrow-forward"
-                      size={20}
-                      color={colors.primary}
-                    />
-                    <Text style={[styles.cityText, { color: isDark ? colors.darkText : colors.text }]}>
-                      {ride.arrivalCity}
-                    </Text>
-                  </View>
+                <View style={styles.routeContainer}>
+                  <Text style={[styles.cityText, { color: isDark ? colors.darkText : colors.text }]}>
+                    {ride.departureCity}
+                  </Text>
+                  <IconSymbol
+                    ios_icon_name="arrow.right"
+                    android_material_icon_name="arrow-forward"
+                    size={20}
+                    color={colors.primary}
+                  />
+                  <Text style={[styles.cityText, { color: isDark ? colors.darkText : colors.text }]}>
+                    {ride.arrivalCity}
+                  </Text>
                 </View>
 
                 {/* Details */}
                 <View style={styles.detailsSection}>
                   <View style={styles.detailRow}>
                     <IconSymbol
-                      ios_icon_name="clock"
-                      android_material_icon_name="access-time"
+                      ios_icon_name="person.fill"
+                      android_material_icon_name="person"
+                      size={16}
+                      color={colors.textSecondary}
+                    />
+                    <Text style={[styles.detailText, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+                      {ride.driverName}
+                    </Text>
+                  </View>
+
+                  <View style={styles.detailRow}>
+                    <IconSymbol
+                      ios_icon_name="calendar"
+                      android_material_icon_name="calendar-today"
                       size={16}
                       color={colors.textSecondary}
                     />
@@ -185,42 +212,42 @@ export default function SearchResultsScreen() {
                       color={colors.textSecondary}
                     />
                     <Text style={[styles.detailText, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-                      {ride.availableSeats} place(s) restante(s)
+                      {ride.availableSeats} place(s) disponible(s)
                     </Text>
                   </View>
 
-                  {ride.intermediateStops && (
+                  {ride.vehicleType && (
                     <View style={styles.detailRow}>
                       <IconSymbol
-                        ios_icon_name="location.fill"
-                        android_material_icon_name="place"
+                        ios_icon_name="car.fill"
+                        android_material_icon_name="directions-car"
                         size={16}
                         color={colors.textSecondary}
                       />
                       <Text style={[styles.detailText, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-                        Arrêts: {ride.intermediateStops}
+                        {ride.vehicleType}
                       </Text>
                     </View>
                   )}
                 </View>
 
-                {/* Price and Reserve Button */}
+                {/* Price and Book Button */}
                 <View style={styles.footer}>
                   <View style={styles.priceContainer}>
                     <Text style={[styles.priceLabel, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-                      Prix par passager
+                      Prix total
                     </Text>
                     <Text style={[styles.priceText, { color: colors.primary }]}>
-                      {ride.pricePerPassenger} FCFA
+                      {ride.pricePerPassenger * passengers} FCFA
                     </Text>
                   </View>
 
                   <TouchableOpacity
-                    style={[styles.reserveButton, { backgroundColor: colors.primary }]}
-                    onPress={() => handleReserve(ride)}
+                    style={[styles.bookButton, { backgroundColor: colors.primary }]}
+                    onPress={() => handleBookRide(ride)}
                     activeOpacity={0.7}
                   >
-                    <Text style={styles.reserveButtonText}>Réserver</Text>
+                    <Text style={styles.bookButtonText}>Réserver</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -268,6 +295,23 @@ const styles = StyleSheet.create({
   content: {
     padding: 20,
   },
+  summaryCard: {
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 20,
+    gap: 8,
+    boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.08)',
+    elevation: 3,
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  summaryText: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
   emptyCard: {
     borderRadius: 16,
     padding: 40,
@@ -292,42 +336,15 @@ const styles = StyleSheet.create({
     boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.08)',
     elevation: 3,
   },
-  driverSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  driverAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: colors.primary + '20',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  driverInfo: {
-    flex: 1,
-  },
-  driverName: {
-    fontSize: 16,
-    fontWeight: '700',
-    marginBottom: 2,
-  },
-  vehicleType: {
-    fontSize: 13,
-  },
-  routeSection: {
-    marginBottom: 16,
-  },
   routeContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    marginBottom: 16,
   },
   cityText: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   detailsSection: {
     gap: 8,
@@ -345,9 +362,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    paddingTop: 16,
     borderTopWidth: 1,
     borderTopColor: colors.border,
-    paddingTop: 16,
   },
   priceContainer: {
     flex: 1,
@@ -360,14 +377,14 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '700',
   },
-  reserveButton: {
+  bookButton: {
     paddingVertical: 12,
     paddingHorizontal: 24,
     borderRadius: 12,
   },
-  reserveButtonText: {
+  bookButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: '600',
   },
 });
