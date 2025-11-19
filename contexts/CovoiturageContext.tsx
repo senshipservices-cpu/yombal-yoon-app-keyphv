@@ -80,6 +80,8 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
 
   const loadData = async () => {
     try {
+      console.log('Loading data from Supabase...');
+      
       // Fetch rides from Supabase
       const { data: supabaseRides, error: ridesError } = await supabase
         .from('carpool_rides')
@@ -116,6 +118,7 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
           };
         });
 
+        console.log('Converted rides:', convertedRides.map(r => ({ id: r.id, status: r.status })));
         setRides(convertedRides);
         await AsyncStorage.setItem(RIDES_STORAGE_KEY, JSON.stringify(convertedRides));
         console.log('Rides loaded from Supabase:', convertedRides.length);
@@ -173,6 +176,7 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
   };
 
   const refreshData = async () => {
+    console.log('Refreshing data...');
     await loadData();
   };
 
@@ -239,7 +243,7 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
       };
 
       // Update local state
-      const updatedRides = [...rides, newRide];
+      const updatedRides = [newRide, ...rides];
       setRides(updatedRides);
       await AsyncStorage.setItem(RIDES_STORAGE_KEY, JSON.stringify(updatedRides));
       console.log('Ride added to Supabase:', newRide);
@@ -515,18 +519,25 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
     onNotify?: (type: 'ride_cancelled', passengerIds: string[], rideDetails: any) => void
   ): Promise<{ success: boolean; message?: string }> => {
     try {
-      console.log('Starting cancelRide for rideId:', rideId);
+      console.log('=== CANCEL RIDE START ===');
+      console.log('Ride ID to cancel:', rideId);
       
       const ride = rides.find(r => r.id === rideId);
       
       if (!ride) {
-        console.log('Ride not found:', rideId);
+        console.log('ERROR: Ride not found in local state:', rideId);
         return { success: false, message: 'Trajet introuvable' };
       }
 
-      console.log('Found ride to cancel:', ride);
+      console.log('Found ride to cancel:', {
+        id: ride.id,
+        departureCity: ride.departureCity,
+        arrivalCity: ride.arrivalCity,
+        currentStatus: ride.status,
+      });
 
       // Update ride status in Supabase
+      console.log('Updating ride status in Supabase...');
       const { data: updatedRide, error: updateError } = await supabase
         .from('carpool_rides')
         .update({ 
@@ -538,19 +549,11 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
         .single();
 
       if (updateError) {
-        console.error('Error updating ride in Supabase:', updateError);
-        return { success: false, message: 'Erreur lors de l\'annulation du trajet' };
+        console.error('ERROR: Supabase update failed:', updateError);
+        return { success: false, message: 'Erreur lors de l\'annulation du trajet dans la base de données' };
       }
 
-      console.log('Ride updated in Supabase:', updatedRide);
-
-      // Update ride status locally
-      const updatedRides = rides.map(r => {
-        if (r.id === rideId) {
-          return { ...r, status: 'cancelled' as const, availableSeats: 0 };
-        }
-        return r;
-      });
+      console.log('Supabase update successful:', updatedRide);
 
       // Get all reservations for this ride
       const rideReservations = reservations.filter(r => r.rideId === rideId);
@@ -561,17 +564,28 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
       // Update all bookings to refused in Supabase
       if (rideReservations.length > 0) {
         const bookingIds = rideReservations.map(r => r.id);
+        console.log('Updating bookings in Supabase:', bookingIds);
+        
         const { error: bookingsError } = await supabase
           .from('carpool_bookings')
           .update({ status: 'refused' })
           .in('id', bookingIds);
 
         if (bookingsError) {
-          console.error('Error updating bookings in Supabase:', bookingsError);
+          console.error('ERROR: Failed to update bookings:', bookingsError);
         } else {
-          console.log('Bookings updated in Supabase');
+          console.log('Bookings updated successfully in Supabase');
         }
       }
+
+      // Update ride status locally
+      console.log('Updating local state...');
+      const updatedRides = rides.map(r => {
+        if (r.id === rideId) {
+          return { ...r, status: 'cancelled' as const, availableSeats: 0 };
+        }
+        return r;
+      });
 
       // Set all reservations to refused locally
       const updatedReservations = reservations.map(r => {
@@ -581,18 +595,23 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
         return r;
       });
 
+      // Update state immediately
+      console.log('Setting state with updated data...');
       setRides(updatedRides);
       setReservations(updatedReservations);
 
+      // Save to AsyncStorage
+      console.log('Saving to AsyncStorage...');
       await Promise.all([
         AsyncStorage.setItem(RIDES_STORAGE_KEY, JSON.stringify(updatedRides)),
         AsyncStorage.setItem(RESERVATIONS_STORAGE_KEY, JSON.stringify(updatedReservations)),
       ]);
 
-      console.log('Ride cancelled successfully:', rideId);
+      console.log('AsyncStorage updated successfully');
 
       // Notify all passengers
       if (onNotify && passengerIds.length > 0) {
+        console.log('Sending notifications to passengers...');
         onNotify('ride_cancelled', passengerIds, {
           ride: {
             departureCity: ride.departureCity,
@@ -603,9 +622,11 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
         });
       }
 
+      console.log('=== CANCEL RIDE SUCCESS ===');
       return { success: true };
     } catch (error) {
-      console.error('Error cancelling ride:', error);
+      console.error('=== CANCEL RIDE ERROR ===');
+      console.error('Error details:', error);
       return { success: false, message: 'Erreur lors de l\'annulation du trajet' };
     }
   };
