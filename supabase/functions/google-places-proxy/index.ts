@@ -21,17 +21,11 @@ Deno.serve(async (req) => {
 
     switch (action) {
       case 'autocomplete': {
-        // Build autocomplete URL with all parameters
-        const baseUrl = 'https://maps.googleapis.com/maps/api/place/autocomplete/json';
-        const urlParams = new URLSearchParams({
-          input: params.input,
-          key: GOOGLE_MAPS_API_KEY,
-        });
-
-        // CONFIGURATION POUR DAKAR MÉTROPOLITAINE
-        // ========================================
-        // Zone couverte : Dakar, Parcelles, Pikine, Guédiawaye, Keur Massar, 
-        // Mbao, Bargny, Rufisque, Sébikotane, Bambilor, Diamaguène, Diamniadio
+        // AUTOCOMPLÉTION D'ADRESSES (Module "Envoi de Colis")
+        // ===================================================
+        // Zone couverte : Dakar métropolitaine uniquement
+        // (Dakar, Parcelles, Pikine, Guédiawaye, Keur Massar, 
+        // Mbao, Bargny, Rufisque, Sébikotane, Bambilor, Diamaguène, Diamniadio)
         
         // Types de lieux inclus :
         // - Adresses et rues (types=address)
@@ -44,6 +38,12 @@ Deno.serve(async (req) => {
         // - Bâtiments administratifs et services publics
         // - Usines, zones industrielles et points de repère majeurs
 
+        const baseUrl = 'https://maps.googleapis.com/maps/api/place/autocomplete/json';
+        const urlParams = new URLSearchParams({
+          input: params.input,
+          key: GOOGLE_MAPS_API_KEY,
+        });
+
         // Paramètre types : address pour inclure toutes les adresses et points de repère
         if (params.types) {
           urlParams.append('types', params.types);
@@ -53,7 +53,6 @@ Deno.serve(async (req) => {
         }
 
         // Location bias centré sur Dakar (14.6928°N, 17.4467°W)
-        // Ceci garantit que les résultats sont prioritairement dans la zone de Dakar
         if (params.location) {
           urlParams.append('location', params.location);
         } else {
@@ -62,7 +61,6 @@ Deno.serve(async (req) => {
         }
 
         // Radius de 45 km pour couvrir toute la zone métropolitaine de Dakar
-        // Ceci inclut toutes les communes et localités mentionnées
         if (params.radius) {
           urlParams.append('radius', params.radius.toString());
         } else {
@@ -84,7 +82,6 @@ Deno.serve(async (req) => {
         }
 
         // Strictbounds pour limiter strictement aux résultats dans le rayon spécifié
-        // Ceci empêche les résultats en dehors de la zone métropolitaine de Dakar
         if (params.strictbounds !== undefined) {
           urlParams.append('strictbounds', params.strictbounds.toString());
         } else {
@@ -93,6 +90,30 @@ Deno.serve(async (req) => {
 
         url = `${baseUrl}?${urlParams.toString()}`;
         console.log('Autocomplete URL:', url);
+        response = await fetch(url);
+        break;
+      }
+
+      case 'city_autocomplete': {
+        // AUTOCOMPLÉTION DE VILLES (Module "Covoiturage")
+        // ================================================
+        // Suggère les villes au Sénégal uniquement
+        // Paramètres :
+        // - types=(cities) : pour ne suggérer que des villes
+        // - components=country:sn : restriction au Sénégal
+        // - language=fr : langue française
+        
+        const baseUrl = 'https://maps.googleapis.com/maps/api/place/autocomplete/json';
+        const urlParams = new URLSearchParams({
+          input: params.input,
+          types: '(cities)',
+          components: 'country:sn',
+          language: 'fr',
+          key: GOOGLE_MAPS_API_KEY,
+        });
+
+        url = `${baseUrl}?${urlParams.toString()}`;
+        console.log('City Autocomplete URL:', url);
         response = await fetch(url);
         break;
       }
@@ -115,26 +136,30 @@ Deno.serve(async (req) => {
         // =========================================================
         // Calcule la distance et la durée entre deux points
         // Paramètres :
-        // - origins : pickupLat,pickupLng
-        // - destinations : dropoffLat,dropoffLng
+        // - origins : lat,lng du point de départ
+        // - destinations : lat,lng du point d'arrivée
         // - mode : driving (par défaut)
         // - language : fr
         
-        const origins = params.origins;
-        const destinations = params.destinations;
+        let origins: string;
+        let destinations: string;
+
+        // Support for both formats: direct lat/lng or separate parameters
+        if (params.origins && params.destinations) {
+          origins = params.origins;
+          destinations = params.destinations;
+        } else if (params.originLat && params.originLng && params.destLat && params.destLng) {
+          origins = `${params.originLat},${params.originLng}`;
+          destinations = `${params.destLat},${params.destLng}`;
+        } else {
+          throw new Error('Missing required parameters: origins/destinations or originLat/originLng/destLat/destLng');
+        }
+
         const mode = params.mode || 'driving';
         const language = params.language || 'fr';
 
         url = `https://maps.googleapis.com/maps/api/distancematrix/json?origins=${origins}&destinations=${destinations}&mode=${mode}&language=${language}&key=${GOOGLE_MAPS_API_KEY}`;
         console.log('Distance Matrix URL:', url);
-        response = await fetch(url);
-        break;
-      }
-
-      case 'city_autocomplete': {
-        // City autocomplete (pour covoiturage - villes du Sénégal)
-        url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(params.input)}&types=(cities)&language=fr&components=country:sn&key=${GOOGLE_MAPS_API_KEY}`;
-        console.log('City Autocomplete URL:', url);
         response = await fetch(url);
         break;
       }

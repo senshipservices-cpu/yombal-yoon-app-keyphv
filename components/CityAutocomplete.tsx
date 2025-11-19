@@ -59,9 +59,11 @@ export default function CityAutocomplete({
     try {
       console.log('Fetching city suggestions for:', input);
 
+      // Use city_autocomplete action for Covoiturage module
+      // This ensures we only get cities in Senegal
       const { data, error } = await supabase.functions.invoke('google-places-proxy', {
         body: {
-          action: 'autocomplete',
+          action: 'city_autocomplete',
           input: input,
         },
       });
