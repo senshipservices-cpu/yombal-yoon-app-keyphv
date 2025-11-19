@@ -19,7 +19,7 @@ import { useNotifications } from '@/contexts/NotificationContext';
 import EmptyState from '@/components/EmptyState';
 import ErrorState from '@/components/ErrorState';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
-import { demoMode, demoRides } from '@/config/demoMode';
+import { demoMode, demoRides, calculateEconomy } from '@/config/demoMode';
 
 export default function SearchResultsScreen() {
   const theme = useTheme();
@@ -187,145 +187,166 @@ export default function SearchResultsScreen() {
               message="Aucun trajet ne correspond à votre recherche. Essayez de modifier vos critères ou revenez plus tard."
             />
           ) : (
-            rides.map((ride, index) => (
-              <View
-                key={index}
-                style={[styles.rideCard, { backgroundColor: isDark ? colors.darkCard : colors.card }]}
-              >
-                <View style={styles.rideHeader}>
-                  <View style={[styles.driverAvatar, { backgroundColor: colors.primary + '20' }]}>
-                    <IconSymbol
-                      ios_icon_name="person.fill"
-                      android_material_icon_name="person"
-                      size={24}
-                      color={colors.primary}
-                    />
-                  </View>
-                  <View style={styles.driverInfo}>
-                    <Text style={[styles.driverName, { color: isDark ? colors.darkText : colors.text }]}>
-                      {ride.driverName}
-                    </Text>
-                    {ride.vehicleType && (
-                      <Text style={[styles.vehicleType, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-                        {ride.vehicleType}
+            rides.map((ride, index) => {
+              // Calculate economy for this ride
+              const totalPrice = ride.pricePerPassenger * (passengers || 1);
+              const economy = calculateEconomy(ride.departureCity, ride.arrivalCity, totalPrice);
+
+              return (
+                <View
+                  key={index}
+                  style={[styles.rideCard, { backgroundColor: isDark ? colors.darkCard : colors.card }]}
+                >
+                  <View style={styles.rideHeader}>
+                    <View style={[styles.driverAvatar, { backgroundColor: colors.primary + '20' }]}>
+                      <IconSymbol
+                        ios_icon_name="person.fill"
+                        android_material_icon_name="person"
+                        size={24}
+                        color={colors.primary}
+                      />
+                    </View>
+                    <View style={styles.driverInfo}>
+                      <Text style={[styles.driverName, { color: isDark ? colors.darkText : colors.text }]}>
+                        {ride.driverName}
                       </Text>
-                    )}
-                  </View>
-                </View>
-
-                <View style={styles.rideDetails}>
-                  <View style={styles.detailRow}>
-                    <IconSymbol
-                      ios_icon_name="calendar"
-                      android_material_icon_name="calendar-today"
-                      size={16}
-                      color={colors.textSecondary}
-                    />
-                    <Text style={[styles.detailText, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-                      {new Date(ride.date).toLocaleDateString('fr-FR')} à {ride.time}
-                    </Text>
+                      {ride.vehicleType && (
+                        <Text style={[styles.vehicleType, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+                          {ride.vehicleType}
+                        </Text>
+                      )}
+                    </View>
                   </View>
 
-                  <View style={styles.detailRow}>
-                    <IconSymbol
-                      ios_icon_name="person.2.fill"
-                      android_material_icon_name="people"
-                      size={16}
-                      color={colors.textSecondary}
-                    />
-                    <Text style={[styles.detailText, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-                      {ride.availableSeats} place(s) disponible(s)
-                    </Text>
-                  </View>
-
-                  <View style={styles.detailRow}>
-                    <IconSymbol
-                      ios_icon_name="banknote"
-                      android_material_icon_name="attach-money"
-                      size={16}
-                      color={colors.textSecondary}
-                    />
-                    <Text style={[styles.detailText, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-                      {ride.pricePerPassenger * (passengers || 1)} FCFA ({passengers || 1} passager(s))
-                    </Text>
-                  </View>
-
-                  {ride.intermediateStops && (
+                  <View style={styles.rideDetails}>
                     <View style={styles.detailRow}>
                       <IconSymbol
-                        ios_icon_name="mappin.circle.fill"
-                        android_material_icon_name="place"
+                        ios_icon_name="calendar"
+                        android_material_icon_name="calendar-today"
                         size={16}
                         color={colors.textSecondary}
                       />
                       <Text style={[styles.detailText, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-                        Arrêts: {ride.intermediateStops}
+                        {new Date(ride.date).toLocaleDateString('fr-FR')} à {ride.time}
                       </Text>
                     </View>
+
+                    <View style={styles.detailRow}>
+                      <IconSymbol
+                        ios_icon_name="person.2.fill"
+                        android_material_icon_name="people"
+                        size={16}
+                        color={colors.textSecondary}
+                      />
+                      <Text style={[styles.detailText, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+                        {ride.availableSeats} place(s) disponible(s)
+                      </Text>
+                    </View>
+
+                    <View style={styles.detailRow}>
+                      <IconSymbol
+                        ios_icon_name="banknote"
+                        android_material_icon_name="attach-money"
+                        size={16}
+                        color={colors.textSecondary}
+                      />
+                      <Text style={[styles.detailText, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+                        {totalPrice} FCFA ({passengers || 1} passager(s))
+                      </Text>
+                    </View>
+
+                    {ride.intermediateStops && (
+                      <View style={styles.detailRow}>
+                        <IconSymbol
+                          ios_icon_name="mappin.circle.fill"
+                          android_material_icon_name="place"
+                          size={16}
+                          color={colors.textSecondary}
+                        />
+                        <Text style={[styles.detailText, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+                          Arrêts: {ride.intermediateStops}
+                        </Text>
+                      </View>
+                    )}
+
+                    {/* Display economy if available */}
+                    {economy !== null && (
+                      <View style={[styles.economyBadge, { backgroundColor: colors.primary + '15' }]}>
+                        <IconSymbol
+                          ios_icon_name="checkmark.circle.fill"
+                          android_material_icon_name="check-circle"
+                          size={16}
+                          color={colors.primary}
+                        />
+                        <Text style={[styles.economyText, { color: colors.primary }]}>
+                          Économie estimée : {economy.toLocaleString('fr-FR')} FCFA par rapport à un taxi classique
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+
+                  {selectedRideId === ride.id ? (
+                    <View style={styles.bookingForm}>
+                      <Text style={[styles.formLabel, { color: isDark ? colors.darkText : colors.text }]}>
+                        Votre nom complet
+                      </Text>
+                      <TextInput
+                        style={[
+                          styles.input,
+                          {
+                            backgroundColor: isDark ? colors.darkBackground : colors.background,
+                            color: isDark ? colors.darkText : colors.text,
+                            borderColor: isDark ? colors.darkCard : colors.border,
+                          },
+                        ]}
+                        placeholder="Entrez votre nom"
+                        placeholderTextColor={isDark ? colors.darkTextSecondary : colors.textSecondary}
+                        value={passengerName}
+                        onChangeText={setPassengerName}
+                      />
+
+                      <View style={styles.bookingActions}>
+                        <TouchableOpacity
+                          style={[styles.actionButton, styles.cancelButton, { borderColor: colors.textSecondary }]}
+                          onPress={() => {
+                            setSelectedRideId(null);
+                            setPassengerName('');
+                          }}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={[styles.cancelButtonText, { color: isDark ? colors.darkText : colors.text }]}>
+                            Annuler
+                          </Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                          style={[
+                            styles.actionButton,
+                            styles.confirmButton,
+                            { backgroundColor: passengerName.trim() ? colors.primary : colors.border },
+                          ]}
+                          onPress={() => handleBookRide(ride.id)}
+                          disabled={!passengerName.trim() || isBooking}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={styles.confirmButtonText}>
+                            {isBooking ? 'Réservation...' : 'Confirmer'}
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  ) : (
+                    <TouchableOpacity
+                      style={[styles.bookButton, { backgroundColor: colors.primary }]}
+                      onPress={() => setSelectedRideId(ride.id)}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={styles.bookButtonText}>Réserver ce trajet</Text>
+                    </TouchableOpacity>
                   )}
                 </View>
-
-                {selectedRideId === ride.id ? (
-                  <View style={styles.bookingForm}>
-                    <Text style={[styles.formLabel, { color: isDark ? colors.darkText : colors.text }]}>
-                      Votre nom complet
-                    </Text>
-                    <TextInput
-                      style={[
-                        styles.input,
-                        {
-                          backgroundColor: isDark ? colors.darkBackground : colors.background,
-                          color: isDark ? colors.darkText : colors.text,
-                          borderColor: isDark ? colors.darkCard : colors.border,
-                        },
-                      ]}
-                      placeholder="Entrez votre nom"
-                      placeholderTextColor={isDark ? colors.darkTextSecondary : colors.textSecondary}
-                      value={passengerName}
-                      onChangeText={setPassengerName}
-                    />
-
-                    <View style={styles.bookingActions}>
-                      <TouchableOpacity
-                        style={[styles.actionButton, styles.cancelButton, { borderColor: colors.textSecondary }]}
-                        onPress={() => {
-                          setSelectedRideId(null);
-                          setPassengerName('');
-                        }}
-                        activeOpacity={0.7}
-                      >
-                        <Text style={[styles.cancelButtonText, { color: isDark ? colors.darkText : colors.text }]}>
-                          Annuler
-                        </Text>
-                      </TouchableOpacity>
-
-                      <TouchableOpacity
-                        style={[
-                          styles.actionButton,
-                          styles.confirmButton,
-                          { backgroundColor: passengerName.trim() ? colors.primary : colors.border },
-                        ]}
-                        onPress={() => handleBookRide(ride.id)}
-                        disabled={!passengerName.trim() || isBooking}
-                        activeOpacity={0.7}
-                      >
-                        <Text style={styles.confirmButtonText}>
-                          {isBooking ? 'Réservation...' : 'Confirmer'}
-                        </Text>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                ) : (
-                  <TouchableOpacity
-                    style={[styles.bookButton, { backgroundColor: colors.primary }]}
-                    onPress={() => setSelectedRideId(ride.id)}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.bookButtonText}>Réserver ce trajet</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-            ))
+              );
+            })
           )}
         </View>
       </ScrollView>
@@ -443,6 +464,19 @@ const styles = StyleSheet.create({
   },
   detailText: {
     fontSize: 14,
+  },
+  economyBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    padding: 12,
+    borderRadius: 10,
+    marginTop: 4,
+  },
+  economyText: {
+    fontSize: 13,
+    fontWeight: '600',
+    flex: 1,
   },
   bookingForm: {
     marginTop: 8,

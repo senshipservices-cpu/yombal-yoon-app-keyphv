@@ -4,6 +4,129 @@
 
 export const demoMode = true;
 
+// Estimated taxi price per kilometer in FCFA
+export const estimatedTaxiPricePerKm = 500;
+
+// Approximate distances between major cities in Senegal (in kilometers)
+export const approxDistances: { [key: string]: number } = {
+  // Dakar connections
+  'Dakar-Thiès': 70,
+  'Dakar-Mbour': 80,
+  'Dakar-Saint-Louis': 260,
+  'Dakar-Kaolack': 190,
+  'Dakar-Ziguinchor': 450,
+  'Dakar-Tambacounda': 460,
+  'Dakar-Kolda': 380,
+  'Dakar-Louga': 200,
+  'Dakar-Fatick': 150,
+  'Dakar-Diourbel': 145,
+  'Dakar-Matam': 520,
+  'Dakar-Kaffrine': 240,
+  'Dakar-Kédougou': 700,
+  'Dakar-Sédhiou': 420,
+  'Dakar-Rufisque': 25,
+  'Dakar-Pikine': 15,
+  'Dakar-Guédiawaye': 18,
+  'Dakar-Touba': 190,
+  
+  // Pikine connections
+  'Pikine-Rufisque': 15,
+  'Pikine-Thiès': 60,
+  'Pikine-Mbour': 70,
+  'Pikine-Guédiawaye': 8,
+  
+  // Thiès connections
+  'Thiès-Mbour': 50,
+  'Thiès-Saint-Louis': 200,
+  'Thiès-Kaolack': 130,
+  'Thiès-Louga': 140,
+  'Thiès-Diourbel': 80,
+  'Thiès-Touba': 130,
+  
+  // Mbour connections
+  'Mbour-Fatick': 80,
+  'Mbour-Kaolack': 120,
+  'Mbour-Thiès': 50,
+  
+  // Saint-Louis connections
+  'Saint-Louis-Louga': 90,
+  'Saint-Louis-Matam': 280,
+  'Saint-Louis-Richard-Toll': 60,
+  
+  // Kaolack connections
+  'Kaolack-Fatick': 60,
+  'Kaolack-Kaffrine': 80,
+  'Kaolack-Tambacounda': 280,
+  'Kaolack-Kolda': 200,
+  'Kaolack-Diourbel': 90,
+  'Kaolack-Touba': 100,
+  
+  // Other connections
+  'Ziguinchor-Kolda': 150,
+  'Ziguinchor-Sédhiou': 90,
+  'Tambacounda-Kédougou': 250,
+  'Tambacounda-Matam': 200,
+  'Kolda-Sédhiou': 80,
+  'Diourbel-Touba': 50,
+  'Louga-Matam': 240,
+};
+
+// Helper function to get distance between two cities (bidirectional)
+export const getDistance = (city1: string, city2: string): number | null => {
+  // Normalize city names (remove accents, trim, lowercase)
+  const normalize = (str: string) => 
+    str.trim().toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
+  
+  const normalizedCity1 = normalize(city1);
+  const normalizedCity2 = normalize(city2);
+  
+  // Try both directions
+  const key1 = `${city1}-${city2}`;
+  const key2 = `${city2}-${city1}`;
+  
+  if (approxDistances[key1]) {
+    return approxDistances[key1];
+  }
+  
+  if (approxDistances[key2]) {
+    return approxDistances[key2];
+  }
+  
+  // Try with normalized names
+  for (const key in approxDistances) {
+    const [keyCity1, keyCity2] = key.split('-').map(normalize);
+    if (
+      (keyCity1 === normalizedCity1 && keyCity2 === normalizedCity2) ||
+      (keyCity1 === normalizedCity2 && keyCity2 === normalizedCity1)
+    ) {
+      return approxDistances[key];
+    }
+  }
+  
+  return null;
+};
+
+// Helper function to calculate economy compared to taxi
+export const calculateEconomy = (
+  departureCity: string,
+  arrivalCity: string,
+  ridePrice: number
+): number | null => {
+  const distance = getDistance(departureCity, arrivalCity);
+  
+  if (!distance) {
+    return null;
+  }
+  
+  const estimatedTaxiPrice = distance * estimatedTaxiPricePerKm;
+  const economy = estimatedTaxiPrice - ridePrice;
+  
+  // Only return positive economy
+  return economy > 0 ? Math.round(economy) : null;
+};
+
 // Demo data for Covoiturage module
 export const demoRides = [
   {
