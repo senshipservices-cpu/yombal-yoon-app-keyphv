@@ -193,7 +193,7 @@ export default function PublishRideScreen() {
       // Save as favorite route
       await saveFavoriteRoute();
 
-      Alert.alert('Succès', 'Votre trajet a été publié avec succès !', [
+      Alert.alert('Succès', 'Trajet publié avec succès.', [
         {
           text: 'OK',
           onPress: () => router.push('/covoiturage/my-rides'),
@@ -201,7 +201,7 @@ export default function PublishRideScreen() {
       ]);
     } catch (error) {
       console.error('Error publishing ride:', error);
-      Alert.alert('Erreur', 'Une erreur est survenue lors de la publication du trajet.');
+      Alert.alert('Erreur', 'Erreur lors de la publication du trajet.');
     }
   };
 

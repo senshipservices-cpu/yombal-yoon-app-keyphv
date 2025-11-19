@@ -15,6 +15,92 @@ export type Database = {
   }
   public: {
     Tables: {
+      carpool_bookings: {
+        Row: {
+          created_at: string | null
+          id: string
+          number_of_passengers: number
+          passenger_name: string
+          passenger_phone: string
+          ride_id: string
+          status: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          number_of_passengers: number
+          passenger_name: string
+          passenger_phone: string
+          ride_id: string
+          status?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          number_of_passengers?: number
+          passenger_name?: string
+          passenger_phone?: string
+          ride_id?: string
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "carpool_bookings_ride_id_fkey"
+            columns: ["ride_id"]
+            isOneToOne: false
+            referencedRelation: "carpool_rides"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      carpool_rides: {
+        Row: {
+          arrival_city: string
+          created_at: string | null
+          departure_city: string
+          departure_datetime: string
+          driver_name: string
+          driver_phone: string
+          id: string
+          price_per_seat: number
+          seats_available: number
+          seats_total: number
+          status: string | null
+          stops: string | null
+          vehicle_type: string | null
+        }
+        Insert: {
+          arrival_city: string
+          created_at?: string | null
+          departure_city: string
+          departure_datetime: string
+          driver_name: string
+          driver_phone: string
+          id?: string
+          price_per_seat: number
+          seats_available: number
+          seats_total: number
+          status?: string | null
+          stops?: string | null
+          vehicle_type?: string | null
+        }
+        Update: {
+          arrival_city?: string
+          created_at?: string | null
+          departure_city?: string
+          departure_datetime?: string
+          driver_name?: string
+          driver_phone?: string
+          id?: string
+          price_per_seat?: number
+          seats_available?: number
+          seats_total?: number
+          status?: string | null
+          stops?: string | null
+          vehicle_type?: string | null
+        }
+        Relationships: []
+      }
       intercity_deliveries: {
         Row: {
           created_at: string | null

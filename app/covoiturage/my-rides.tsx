@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   Platform,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { useTheme } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
@@ -20,13 +21,21 @@ export default function MyRidesScreen() {
   const theme = useTheme();
   const isDark = theme.dark;
   const router = useRouter();
-  const { rides, getReservationsByRide, updateReservationStatus, cancelRide } = useCovoiturage();
+  const { rides, getReservationsByRide, updateReservationStatus, cancelRide, isLoading } = useCovoiturage();
   const { sendLocalNotification, registerForPushNotifications } = useNotifications();
+  const [refreshing, setRefreshing] = React.useState(false);
 
   useEffect(() => {
     // Register for push notifications when screen loads
     registerForPushNotifications();
   }, []);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    // The data will be refreshed automatically by the context
+    // when the component remounts or when new data is added
+    setTimeout(() => setRefreshing(false), 1000);
+  };
 
   // For demo purposes, we'll show all rides. In production, filter by driverId
   const myRides = rides;
@@ -172,7 +181,14 @@ export default function MyRidesScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.content}>
-          {myRides.length === 0 ? (
+          {isLoading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color={colors.primary} />
+              <Text style={[styles.loadingText, { color: isDark ? colors.darkText : colors.text }]}>
+                Chargement des trajets...
+              </Text>
+            </View>
+          ) : myRides.length === 0 ? (
             <View style={[styles.emptyCard, { backgroundColor: isDark ? colors.darkCard : colors.card }]}>
               <IconSymbol
                 ios_icon_name="car.fill"
@@ -358,6 +374,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 20,
     paddingTop: Platform.OS === 'android' ? 68 : 60,
+  },
+  loadingContainer: {
+    padding: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    fontWeight: '600',
   },
   backButton: {
     marginRight: 12,
