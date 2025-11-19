@@ -10,11 +10,13 @@ import {
   Platform,
   Alert,
   Modal,
+  Animated,
 } from 'react-native';
 import { useTheme } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Haptics from 'expo-haptics';
 import { colors } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
 import { useCovoiturage } from '@/contexts/CovoiturageContext';
@@ -64,6 +66,9 @@ export default function PublishRideScreen() {
   const [showNoFavoriteMessage, setShowNoFavoriteMessage] = useState(false);
 
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
+
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [successAnimation] = useState(new Animated.Value(0));
 
   useEffect(() => {
     loadFavoriteRoute();
@@ -366,6 +371,31 @@ export default function PublishRideScreen() {
     return validation.isValid;
   };
 
+  const showSuccessMessage = () => {
+    setShowSuccessModal(true);
+
+    if (Platform.OS !== 'web') {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    }
+
+    Animated.sequence([
+      Animated.timing(successAnimation, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+      Animated.delay(2000),
+      Animated.timing(successAnimation, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      setShowSuccessModal(false);
+      router.push('/covoiturage/my-rides');
+    });
+  };
+
   const handleSubmit = async () => {
     console.log('Submit button pressed');
     console.log('Form state:', {
@@ -386,6 +416,10 @@ export default function PublishRideScreen() {
     if (!validation.isValid) {
       console.log('Validation errors:', validation.errors);
       setValidationErrors(validation.errors);
+      
+      if (Platform.OS !== 'web') {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      }
       
       Alert.alert(
         'Formulaire incomplet',
@@ -443,14 +477,15 @@ export default function PublishRideScreen() {
 
       await saveFavoriteRoute();
 
-      Alert.alert('Succès', 'Trajet publié avec succès.', [
-        {
-          text: 'OK',
-          onPress: () => router.push('/covoiturage/my-rides'),
-        },
-      ]);
+      console.log('Ride published successfully!');
+      showSuccessMessage();
     } catch (error) {
       console.error('Error publishing ride:', error);
+      
+      if (Platform.OS !== 'web') {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      }
+      
       Alert.alert('Erreur', 'Erreur lors de la publication du trajet. Veuillez réessayer.');
     }
   };
@@ -682,6 +717,97 @@ export default function PublishRideScreen() {
     }
 
     return picker;
+  };
+
+  const renderSuccessModal = () => {
+    if (!showSuccessModal) return null;
+
+    const scale = successAnimation.interpolate({
+      inputRange: [0, 0.5, 1],
+      outputRange: [0.3, 1.1, 1],
+    });
+
+    const opacity = successAnimation.interpolate({
+      inputRange: [0, 1],
+      outputRange: [0, 1],
+    });
+
+    return (
+      <Modal
+        visible={showSuccessModal}
+        transparent={true}
+        animationType="none"
+        onRequestClose={() => {}}
+      >
+        <View style={styles.successModalOverlay}>
+          <Animated.View
+            style={[
+              styles.successModalContent,
+              {
+                backgroundColor: isDark ? colors.darkCard : '#FFFFFF',
+                transform: [{ scale }],
+                opacity,
+              },
+            ]}
+          >
+            <View style={[styles.successIconContainer, { backgroundColor: colors.success + '20' }]}>
+              <IconSymbol
+                ios_icon_name="checkmark.circle.fill"
+                android_material_icon_name="check-circle"
+                size={64}
+                color={colors.success}
+              />
+            </View>
+            
+            <Text style={[styles.successTitle, { color: isDark ? colors.darkText : colors.text }]}>
+              Trajet publié avec succès !
+            </Text>
+            
+            <Text style={[styles.successMessage, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+              Votre trajet est maintenant visible dans &quot;Mes trajets publiés&quot;
+            </Text>
+
+            <View style={[styles.successDetailsCard, { backgroundColor: isDark ? colors.darkBackground : colors.background }]}>
+              <View style={styles.successDetailRow}>
+                <IconSymbol
+                  ios_icon_name="location.fill"
+                  android_material_icon_name="place"
+                  size={20}
+                  color={colors.primary}
+                />
+                <Text style={[styles.successDetailText, { color: isDark ? colors.darkText : colors.text }]}>
+                  {departureCity} → {arrivalCity}
+                </Text>
+              </View>
+              
+              <View style={styles.successDetailRow}>
+                <IconSymbol
+                  ios_icon_name="calendar"
+                  android_material_icon_name="calendar-today"
+                  size={20}
+                  color={colors.primary}
+                />
+                <Text style={[styles.successDetailText, { color: isDark ? colors.darkText : colors.text }]}>
+                  {departureDate && formatDate(departureDate)} à {departureTime && formatTime(departureTime)}
+                </Text>
+              </View>
+              
+              <View style={styles.successDetailRow}>
+                <IconSymbol
+                  ios_icon_name="person.2.fill"
+                  android_material_icon_name="people"
+                  size={20}
+                  color={colors.primary}
+                />
+                <Text style={[styles.successDetailText, { color: isDark ? colors.darkText : colors.text }]}>
+                  {availableSeats} place{parseInt(availableSeats) > 1 ? 's' : ''} disponible{parseInt(availableSeats) > 1 ? 's' : ''}
+                </Text>
+              </View>
+            </View>
+          </Animated.View>
+        </View>
+      </Modal>
+    );
   };
 
   const isButtonEnabled = canSubmit();
@@ -1015,6 +1141,7 @@ export default function PublishRideScreen() {
 
       {renderDatePicker()}
       {renderTimePicker()}
+      {renderSuccessModal()}
     </View>
   );
 }
@@ -1236,5 +1363,63 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: '#FFFFFF',
+  },
+  successModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  successModalContent: {
+    borderRadius: 24,
+    padding: 32,
+    alignItems: 'center',
+    maxWidth: 400,
+    width: '100%',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 10,
+  },
+  successIconContainer: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  successTitle: {
+    fontSize: 24,
+    fontWeight: '800',
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+  successMessage: {
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 24,
+    lineHeight: 22,
+  },
+  successDetailsCard: {
+    width: '100%',
+    borderRadius: 16,
+    padding: 20,
+    gap: 16,
+  },
+  successDetailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  successDetailText: {
+    fontSize: 15,
+    fontWeight: '600',
+    flex: 1,
   },
 });
