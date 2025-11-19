@@ -250,6 +250,27 @@ export default function PublishRideScreen() {
     }
   };
 
+  const handleWebDateChange = (e: any) => {
+    const dateValue = e.target.value;
+    if (dateValue) {
+      const date = new Date(dateValue + 'T00:00:00');
+      setDepartureDate(date);
+      console.log('Web date selected:', date);
+    }
+  };
+
+  const handleWebTimeChange = (e: any) => {
+    const timeValue = e.target.value;
+    if (timeValue) {
+      const [hours, minutes] = timeValue.split(':');
+      const time = new Date();
+      time.setHours(parseInt(hours, 10));
+      time.setMinutes(parseInt(minutes, 10));
+      setDepartureTime(time);
+      console.log('Web time selected:', time);
+    }
+  };
+
   const confirmDateSelection = () => {
     setShowDatePicker(false);
     console.log('Date confirmed:', departureDate);
@@ -268,11 +289,24 @@ export default function PublishRideScreen() {
     });
   };
 
+  const formatDateForInput = (date: Date): string => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
   const formatTime = (time: Date): string => {
     return time.toLocaleTimeString('fr-FR', {
       hour: '2-digit',
       minute: '2-digit',
     });
+  };
+
+  const formatTimeForInput = (time: Date): string => {
+    const hours = String(time.getHours()).padStart(2, '0');
+    const minutes = String(time.getMinutes()).padStart(2, '0');
+    return `${hours}:${minutes}`;
   };
 
   const formatDuration = (minutes: number): string => {
@@ -351,6 +385,64 @@ export default function PublishRideScreen() {
   const renderDatePicker = () => {
     if (!showDatePicker) return null;
 
+    // Web: Use HTML5 date input
+    if (Platform.OS === 'web') {
+      return (
+        <Modal
+          visible={showDatePicker}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setShowDatePicker(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalContent, { backgroundColor: isDark ? colors.darkCard : '#FFFFFF' }]}>
+              <View style={styles.modalHeader}>
+                <Text style={[styles.modalTitle, { color: isDark ? colors.darkText : colors.text }]}>
+                  Sélectionner une date
+                </Text>
+              </View>
+              
+              <View style={styles.webPickerContainer}>
+                <input
+                  type="date"
+                  value={departureDate ? formatDateForInput(departureDate) : ''}
+                  onChange={handleWebDateChange}
+                  min={formatDateForInput(new Date())}
+                  style={{
+                    width: '100%',
+                    padding: 16,
+                    fontSize: 16,
+                    borderRadius: 8,
+                    border: `1px solid ${colors.border}`,
+                    backgroundColor: isDark ? colors.darkCard : '#FFFFFF',
+                    color: isDark ? colors.darkText : colors.text,
+                  }}
+                />
+              </View>
+              
+              <View style={styles.modalButtons}>
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.modalButtonCancel]}
+                  onPress={() => setShowDatePicker(false)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.modalButtonCancelText}>Annuler</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.modalButtonConfirm, { backgroundColor: colors.primary }]}
+                  onPress={confirmDateSelection}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.modalButtonConfirmText}>Confirmer</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+      );
+    }
+
     const picker = (
       <DateTimePicker
         value={departureDate || new Date()}
@@ -410,6 +502,63 @@ export default function PublishRideScreen() {
 
   const renderTimePicker = () => {
     if (!showTimePicker) return null;
+
+    // Web: Use HTML5 time input
+    if (Platform.OS === 'web') {
+      return (
+        <Modal
+          visible={showTimePicker}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setShowTimePicker(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalContent, { backgroundColor: isDark ? colors.darkCard : '#FFFFFF' }]}>
+              <View style={styles.modalHeader}>
+                <Text style={[styles.modalTitle, { color: isDark ? colors.darkText : colors.text }]}>
+                  Sélectionner une heure
+                </Text>
+              </View>
+              
+              <View style={styles.webPickerContainer}>
+                <input
+                  type="time"
+                  value={departureTime ? formatTimeForInput(departureTime) : ''}
+                  onChange={handleWebTimeChange}
+                  style={{
+                    width: '100%',
+                    padding: 16,
+                    fontSize: 16,
+                    borderRadius: 8,
+                    border: `1px solid ${colors.border}`,
+                    backgroundColor: isDark ? colors.darkCard : '#FFFFFF',
+                    color: isDark ? colors.darkText : colors.text,
+                  }}
+                />
+              </View>
+              
+              <View style={styles.modalButtons}>
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.modalButtonCancel]}
+                  onPress={() => setShowTimePicker(false)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.modalButtonCancelText}>Annuler</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.modalButtonConfirm, { backgroundColor: colors.primary }]}
+                  onPress={confirmTimeSelection}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.modalButtonConfirmText}>Confirmer</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+      );
+    }
 
     const picker = (
       <DateTimePicker
@@ -918,6 +1067,9 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     textAlign: 'center',
+  },
+  webPickerContainer: {
+    padding: 20,
   },
   modalButtons: {
     flexDirection: 'row',
