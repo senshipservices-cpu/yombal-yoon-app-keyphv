@@ -41,116 +41,216 @@ export default function MyRidesScreen() {
   const myRides = rides;
 
   const handleAcceptReservation = async (reservationId: string, passengerName: string) => {
-    Alert.alert(
-      'Accepter la réservation',
-      `Voulez-vous accepter la réservation de ${passengerName} ?`,
-      [
-        { text: 'Annuler', style: 'cancel' },
-        {
-          text: 'Accepter',
-          onPress: async () => {
-            const result = await updateReservationStatus(
-              reservationId,
-              'accepted',
-              (type, passengerId, rideDetails) => {
-                // Send notification to passenger
-                sendLocalNotification(
-                  'Réservation acceptée ! 🎉',
-                  `Votre réservation pour ${rideDetails.ride.departureCity} → ${rideDetails.ride.arrivalCity} a été acceptée`,
-                  { type, reservationId, ...rideDetails }
-                );
-              }
-            );
+    if (Platform.OS === 'web') {
+      const confirmed = window.confirm(`Voulez-vous accepter la réservation de ${passengerName} ?`);
+      if (!confirmed) return;
 
-            if (result.success) {
-              Alert.alert('Succès', 'Réservation acceptée !');
-              await refreshData();
-            } else {
-              Alert.alert('Erreur', result.message || 'Impossible d\'accepter la réservation');
-            }
+      const result = await updateReservationStatus(
+        reservationId,
+        'accepted',
+        (type, passengerId, rideDetails) => {
+          // Send notification to passenger
+          sendLocalNotification(
+            'Réservation acceptée ! 🎉',
+            `Votre réservation pour ${rideDetails.ride.departureCity} → ${rideDetails.ride.arrivalCity} a été acceptée`,
+            { type, reservationId, ...rideDetails }
+          );
+        }
+      );
+
+      if (result.success) {
+        window.alert('Réservation acceptée !');
+        await refreshData();
+      } else {
+        window.alert(result.message || 'Impossible d\'accepter la réservation');
+      }
+    } else {
+      Alert.alert(
+        'Accepter la réservation',
+        `Voulez-vous accepter la réservation de ${passengerName} ?`,
+        [
+          { text: 'Annuler', style: 'cancel' },
+          {
+            text: 'Accepter',
+            onPress: async () => {
+              const result = await updateReservationStatus(
+                reservationId,
+                'accepted',
+                (type, passengerId, rideDetails) => {
+                  // Send notification to passenger
+                  sendLocalNotification(
+                    'Réservation acceptée ! 🎉',
+                    `Votre réservation pour ${rideDetails.ride.departureCity} → ${rideDetails.ride.arrivalCity} a été acceptée`,
+                    { type, reservationId, ...rideDetails }
+                  );
+                }
+              );
+
+              if (result.success) {
+                Alert.alert('Succès', 'Réservation acceptée !');
+                await refreshData();
+              } else {
+                Alert.alert('Erreur', result.message || 'Impossible d\'accepter la réservation');
+              }
+            },
           },
-        },
-      ]
-    );
+        ]
+      );
+    }
   };
 
   const handleRefuseReservation = async (reservationId: string, passengerName: string) => {
-    Alert.alert(
-      'Refuser la réservation',
-      `Voulez-vous refuser la réservation de ${passengerName} ?`,
-      [
-        { text: 'Annuler', style: 'cancel' },
-        {
-          text: 'Refuser',
-          style: 'destructive',
-          onPress: async () => {
-            const result = await updateReservationStatus(
-              reservationId,
-              'refused',
-              (type, passengerId, rideDetails) => {
-                // Send notification to passenger
-                sendLocalNotification(
-                  'Réservation refusée',
-                  `Votre réservation pour ${rideDetails.ride.departureCity} → ${rideDetails.ride.arrivalCity} a été refusée`,
-                  { type, reservationId, ...rideDetails }
-                );
-              }
-            );
+    if (Platform.OS === 'web') {
+      const confirmed = window.confirm(`Voulez-vous refuser la réservation de ${passengerName} ?`);
+      if (!confirmed) return;
 
-            if (result.success) {
-              Alert.alert('Succès', 'Réservation refusée.');
-              await refreshData();
-            } else {
-              Alert.alert('Erreur', result.message || 'Impossible de refuser la réservation');
-            }
-          },
-        },
-      ]
-    );
-  };
+      const result = await updateReservationStatus(
+        reservationId,
+        'refused',
+        (type, passengerId, rideDetails) => {
+          // Send notification to passenger
+          sendLocalNotification(
+            'Réservation refusée',
+            `Votre réservation pour ${rideDetails.ride.departureCity} → ${rideDetails.ride.arrivalCity} a été refusée`,
+            { type, reservationId, ...rideDetails }
+          );
+        }
+      );
 
-  const handleCancelRide = (rideId: string, rideDetails: any) => {
-    Alert.alert(
-      'Annuler le trajet',
-      'Êtes-vous sûr de vouloir annuler ce trajet ? Toutes les réservations seront refusées et les passagers seront notifiés.',
-      [
-        { text: 'Non', style: 'cancel' },
-        {
-          text: 'Oui, annuler',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              console.log('User confirmed cancellation for ride:', rideId);
-              setCancellingRideId(rideId);
-
-              const result = await cancelRide(rideId, (type, passengerIds, details) => {
-                // Send notification to all passengers
-                passengerIds.forEach(() => {
+      if (result.success) {
+        window.alert('Réservation refusée.');
+        await refreshData();
+      } else {
+        window.alert(result.message || 'Impossible de refuser la réservation');
+      }
+    } else {
+      Alert.alert(
+        'Refuser la réservation',
+        `Voulez-vous refuser la réservation de ${passengerName} ?`,
+        [
+          { text: 'Annuler', style: 'cancel' },
+          {
+            text: 'Refuser',
+            style: 'destructive',
+            onPress: async () => {
+              const result = await updateReservationStatus(
+                reservationId,
+                'refused',
+                (type, passengerId, rideDetails) => {
+                  // Send notification to passenger
                   sendLocalNotification(
-                    'Trajet annulé ⚠️',
-                    `Le trajet ${details.ride.departureCity} → ${details.ride.arrivalCity} du ${new Date(details.ride.date).toLocaleDateString('fr-FR')} a été annulé par le conducteur`,
-                    { type, rideId, ...details }
+                    'Réservation refusée',
+                    `Votre réservation pour ${rideDetails.ride.departureCity} → ${rideDetails.ride.arrivalCity} a été refusée`,
+                    { type, reservationId, ...rideDetails }
                   );
-                });
-              });
-
-              setCancellingRideId(null);
+                }
+              );
 
               if (result.success) {
-                Alert.alert('Succès', 'Trajet annulé. Les passagers ont été notifiés.');
+                Alert.alert('Succès', 'Réservation refusée.');
                 await refreshData();
               } else {
-                Alert.alert('Erreur', result.message || 'Impossible d\'annuler le trajet');
+                Alert.alert('Erreur', result.message || 'Impossible de refuser la réservation');
               }
-            } catch (error) {
-              console.error('Error in handleCancelRide:', error);
-              setCancellingRideId(null);
-              Alert.alert('Erreur', 'Une erreur est survenue lors de l\'annulation du trajet');
-            }
+            },
           },
-        },
-      ]
-    );
+        ]
+      );
+    }
+  };
+
+  const handleCancelRide = async (rideId: string, rideDetails: any) => {
+    console.log('=== handleCancelRide CALLED ===');
+    console.log('Platform:', Platform.OS);
+    console.log('Ride ID:', rideId);
+    console.log('Ride details:', rideDetails);
+
+    if (Platform.OS === 'web') {
+      // Use native browser confirm for web
+      const confirmed = window.confirm(
+        'Êtes-vous sûr de vouloir annuler ce trajet ? Toutes les réservations seront refusées et les passagers seront notifiés.'
+      );
+      
+      console.log('User confirmation (web):', confirmed);
+      
+      if (!confirmed) {
+        console.log('User cancelled the action');
+        return;
+      }
+
+      try {
+        console.log('Starting cancellation process...');
+        setCancellingRideId(rideId);
+
+        const result = await cancelRide(rideId, (type, passengerIds, details) => {
+          // Send notification to all passengers
+          passengerIds.forEach(() => {
+            sendLocalNotification(
+              'Trajet annulé ⚠️',
+              `Le trajet ${details.ride.departureCity} → ${details.ride.arrivalCity} du ${new Date(details.ride.date).toLocaleDateString('fr-FR')} a été annulé par le conducteur`,
+              { type, rideId, ...details }
+            );
+          });
+        });
+
+        console.log('Cancel result:', result);
+        setCancellingRideId(null);
+
+        if (result.success) {
+          window.alert('Trajet annulé. Les passagers ont été notifiés.');
+          await refreshData();
+        } else {
+          window.alert(result.message || 'Impossible d\'annuler le trajet');
+        }
+      } catch (error) {
+        console.error('Error in handleCancelRide:', error);
+        setCancellingRideId(null);
+        window.alert('Une erreur est survenue lors de l\'annulation du trajet');
+      }
+    } else {
+      // Native Alert for iOS/Android
+      Alert.alert(
+        'Annuler le trajet',
+        'Êtes-vous sûr de vouloir annuler ce trajet ? Toutes les réservations seront refusées et les passagers seront notifiés.',
+        [
+          { text: 'Non', style: 'cancel' },
+          {
+            text: 'Oui, annuler',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                console.log('User confirmed cancellation for ride:', rideId);
+                setCancellingRideId(rideId);
+
+                const result = await cancelRide(rideId, (type, passengerIds, details) => {
+                  // Send notification to all passengers
+                  passengerIds.forEach(() => {
+                    sendLocalNotification(
+                      'Trajet annulé ⚠️',
+                      `Le trajet ${details.ride.departureCity} → ${details.ride.arrivalCity} du ${new Date(details.ride.date).toLocaleDateString('fr-FR')} a été annulé par le conducteur`,
+                      { type, rideId, ...details }
+                    );
+                  });
+                });
+
+                setCancellingRideId(null);
+
+                if (result.success) {
+                  Alert.alert('Succès', 'Trajet annulé. Les passagers ont été notifiés.');
+                  await refreshData();
+                } else {
+                  Alert.alert('Erreur', result.message || 'Impossible d\'annuler le trajet');
+                }
+              } catch (error) {
+                console.error('Error in handleCancelRide:', error);
+                setCancellingRideId(null);
+                Alert.alert('Erreur', 'Une erreur est survenue lors de l\'annulation du trajet');
+              }
+            },
+          },
+        ]
+      );
+    }
   };
 
   const getStatusColor = (status: string) => {
@@ -310,10 +410,14 @@ export default function MyRidesScreen() {
                         { 
                           backgroundColor: colors.accent + '20', 
                           borderColor: colors.accent,
-                          opacity: isCancelling ? 0.5 : 1
+                          opacity: isCancelling ? 0.5 : 1,
+                          cursor: Platform.OS === 'web' ? 'pointer' : undefined,
                         }
                       ]}
-                      onPress={() => handleCancelRide(ride.id, ride)}
+                      onPress={() => {
+                        console.log('Cancel button pressed for ride:', ride.id);
+                        handleCancelRide(ride.id, ride);
+                      }}
                       activeOpacity={0.7}
                       disabled={isCancelling}
                     >
