@@ -1,42 +1,76 @@
 
-import React from "react";
-import { View, Text, StyleSheet, ScrollView, Platform, TouchableOpacity } from "react-native";
+import React, { useState } from "react";
+import { View, Text, StyleSheet, ScrollView, Platform, TouchableOpacity, TextInput, Switch, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { IconSymbol } from "@/components/IconSymbol";
 import { useTheme } from "@react-navigation/native";
 import { colors } from "@/styles/commonStyles";
 import { LinearGradient } from "expo-linear-gradient";
+import { useProfile } from "@/contexts/ProfileContext";
+import { useRouter } from "expo-router";
 
 export default function ProfileScreen() {
   const theme = useTheme();
   const isDark = theme.dark;
+  const router = useRouter();
+  const { profile, updateProfile, resetProfile, isLoading } = useProfile();
 
-  const menuItems = [
-    {
-      id: 1,
-      title: "Mes Trajets",
-      icon: "history" as const,
-      color: colors.primary,
-    },
-    {
-      id: 2,
-      title: "Paiements",
-      icon: "payment" as const,
-      color: colors.accent,
-    },
-    {
-      id: 3,
-      title: "Paramètres",
-      icon: "settings" as const,
-      color: colors.textSecondary,
-    },
-    {
-      id: 4,
-      title: "Aide & Support",
-      icon: "help" as const,
-      color: colors.primary,
-    },
-  ];
+  const [fullName, setFullName] = useState(profile.fullName);
+  const [phone, setPhone] = useState(profile.phone);
+  const [isDriver, setIsDriver] = useState(profile.roles.driver);
+  const [isPassenger, setIsPassenger] = useState(profile.roles.passenger);
+  const [isDelivery, setIsDelivery] = useState(profile.roles.delivery);
+
+  const handleSave = async () => {
+    await updateProfile({
+      fullName,
+      phone,
+      roles: {
+        driver: isDriver,
+        passenger: isPassenger,
+        delivery: isDelivery,
+      },
+    });
+    Alert.alert("Succès", "Votre profil a été mis à jour");
+  };
+
+  const handleReset = () => {
+    Alert.alert(
+      "Réinitialiser le profil",
+      "Êtes-vous sûr de vouloir réinitialiser votre profil ? Cette action est irréversible.",
+      [
+        { text: "Annuler", style: "cancel" },
+        {
+          text: "Réinitialiser",
+          style: "destructive",
+          onPress: async () => {
+            await resetProfile();
+            setFullName('');
+            setPhone('');
+            setIsDriver(false);
+            setIsPassenger(false);
+            setIsDelivery(false);
+            Alert.alert("Succès", "Votre profil a été réinitialisé");
+          },
+        },
+      ]
+    );
+  };
+
+  if (isLoading) {
+    return (
+      <SafeAreaView 
+        style={[styles.safeArea, { backgroundColor: isDark ? colors.darkBackground : colors.background }]} 
+        edges={['top']}
+      >
+        <View style={styles.loadingContainer}>
+          <Text style={[styles.loadingText, { color: isDark ? colors.darkText : colors.text }]}>
+            Chargement...
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView 
@@ -66,69 +100,165 @@ export default function ProfileScreen() {
               color="#FFFFFF" 
             />
           </LinearGradient>
-          <Text style={[styles.name, { color: isDark ? colors.darkText : colors.text }]}>
-            Utilisateur Yombal
-          </Text>
-          <Text style={[styles.email, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-            utilisateur@yombalyoon.sn
+          <Text style={[styles.headerTitle, { color: isDark ? colors.darkText : colors.text }]}>
+            Mon Profil
           </Text>
         </View>
 
-        {/* Stats Card */}
-        <View style={[styles.statsCard, { backgroundColor: isDark ? colors.darkCard : colors.card }]}>
-          <View style={styles.statItem}>
-            <Text style={[styles.statValue, { color: colors.primary }]}>0</Text>
-            <Text style={[styles.statLabel, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-              Trajets
+        {/* Wallet Button */}
+        <TouchableOpacity
+          style={[styles.walletButton, { backgroundColor: colors.primary }]}
+          activeOpacity={0.8}
+          onPress={() => router.push('/wallet')}
+        >
+          <IconSymbol
+            ios_icon_name="wallet.pass.fill"
+            android_material_icon_name="account-balance-wallet"
+            size={24}
+            color="#FFFFFF"
+          />
+          <Text style={styles.walletButtonText}>Mon Wallet</Text>
+          <IconSymbol
+            ios_icon_name="chevron.right"
+            android_material_icon_name="chevron-right"
+            size={24}
+            color="#FFFFFF"
+          />
+        </TouchableOpacity>
+
+        {/* Profile Form */}
+        <View style={[styles.formCard, { backgroundColor: isDark ? colors.darkCard : colors.card }]}>
+          <Text style={[styles.sectionTitle, { color: isDark ? colors.darkText : colors.text }]}>
+            Informations personnelles
+          </Text>
+
+          <View style={styles.inputGroup}>
+            <Text style={[styles.label, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+              Nom complet
             </Text>
+            <TextInput
+              style={[
+                styles.input,
+                {
+                  backgroundColor: isDark ? colors.darkBackground : colors.background,
+                  color: isDark ? colors.darkText : colors.text,
+                  borderColor: isDark ? colors.darkTextSecondary + '30' : colors.border,
+                },
+              ]}
+              value={fullName}
+              onChangeText={setFullName}
+              placeholder="Entrez votre nom complet"
+              placeholderTextColor={isDark ? colors.darkTextSecondary : colors.textSecondary}
+            />
           </View>
-          <View style={[styles.statDivider, { backgroundColor: isDark ? colors.darkTextSecondary + '30' : colors.border }]} />
-          <View style={styles.statItem}>
-            <Text style={[styles.statValue, { color: colors.accent }]}>0</Text>
-            <Text style={[styles.statLabel, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-              Livraisons
+
+          <View style={styles.inputGroup}>
+            <Text style={[styles.label, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+              Téléphone
             </Text>
-          </View>
-          <View style={[styles.statDivider, { backgroundColor: isDark ? colors.darkTextSecondary + '30' : colors.border }]} />
-          <View style={styles.statItem}>
-            <Text style={[styles.statValue, { color: colors.primary }]}>0</Text>
-            <Text style={[styles.statLabel, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-              Points
-            </Text>
+            <TextInput
+              style={[
+                styles.input,
+                {
+                  backgroundColor: isDark ? colors.darkBackground : colors.background,
+                  color: isDark ? colors.darkText : colors.text,
+                  borderColor: isDark ? colors.darkTextSecondary + '30' : colors.border,
+                },
+              ]}
+              value={phone}
+              onChangeText={setPhone}
+              placeholder="+221 XX XXX XX XX"
+              placeholderTextColor={isDark ? colors.darkTextSecondary : colors.textSecondary}
+              keyboardType="phone-pad"
+            />
           </View>
         </View>
 
-        {/* Menu Items */}
-        <View style={styles.menuSection}>
-          {menuItems.map((item, index) => (
-            <React.Fragment key={index}>
-              <TouchableOpacity
-                key={item.id}
-                style={[styles.menuItem, { backgroundColor: isDark ? colors.darkCard : colors.card }]}
-                activeOpacity={0.7}
-                onPress={() => console.log(`Menu item ${item.title} pressed`)}
-              >
-                <View style={[styles.menuIconContainer, { backgroundColor: item.color + '20' }]}>
-                  <IconSymbol
-                    ios_icon_name="star.fill"
-                    android_material_icon_name={item.icon}
-                    size={24}
-                    color={item.color}
-                  />
-                </View>
-                <Text style={[styles.menuTitle, { color: isDark ? colors.darkText : colors.text }]}>
-                  {item.title}
-                </Text>
-                <IconSymbol
-                  ios_icon_name="chevron.right"
-                  android_material_icon_name="chevron-right"
-                  size={24}
-                  color={isDark ? colors.darkTextSecondary : colors.textSecondary}
-                />
-              </TouchableOpacity>
-            </React.Fragment>
-          ))}
+        {/* Roles Section */}
+        <View style={[styles.formCard, { backgroundColor: isDark ? colors.darkCard : colors.card }]}>
+          <Text style={[styles.sectionTitle, { color: isDark ? colors.darkText : colors.text }]}>
+            Mes rôles
+          </Text>
+
+          <View style={styles.roleItem}>
+            <View style={styles.roleInfo}>
+              <IconSymbol
+                ios_icon_name="car.fill"
+                android_material_icon_name="directions-car"
+                size={24}
+                color={colors.primary}
+              />
+              <Text style={[styles.roleLabel, { color: isDark ? colors.darkText : colors.text }]}>
+                Conducteur
+              </Text>
+            </View>
+            <Switch
+              value={isDriver}
+              onValueChange={setIsDriver}
+              trackColor={{ false: colors.border, true: colors.primary + '80' }}
+              thumbColor={isDriver ? colors.primary : colors.textSecondary}
+            />
+          </View>
+
+          <View style={styles.roleItem}>
+            <View style={styles.roleInfo}>
+              <IconSymbol
+                ios_icon_name="person.2.fill"
+                android_material_icon_name="people"
+                size={24}
+                color={colors.accent}
+              />
+              <Text style={[styles.roleLabel, { color: isDark ? colors.darkText : colors.text }]}>
+                Passager
+              </Text>
+            </View>
+            <Switch
+              value={isPassenger}
+              onValueChange={setIsPassenger}
+              trackColor={{ false: colors.border, true: colors.accent + '80' }}
+              thumbColor={isPassenger ? colors.accent : colors.textSecondary}
+            />
+          </View>
+
+          <View style={styles.roleItem}>
+            <View style={styles.roleInfo}>
+              <IconSymbol
+                ios_icon_name="shippingbox.fill"
+                android_material_icon_name="local-shipping"
+                size={24}
+                color={colors.secondary}
+              />
+              <Text style={[styles.roleLabel, { color: isDark ? colors.darkText : colors.text }]}>
+                Livreur Colis
+              </Text>
+            </View>
+            <Switch
+              value={isDelivery}
+              onValueChange={setIsDelivery}
+              trackColor={{ false: colors.border, true: colors.secondary + '80' }}
+              thumbColor={isDelivery ? colors.secondary : colors.textSecondary}
+            />
+          </View>
         </View>
+
+        {/* Action Buttons */}
+        <TouchableOpacity
+          style={[styles.saveButton, { backgroundColor: colors.primary }]}
+          activeOpacity={0.8}
+          onPress={handleSave}
+        >
+          <Text style={styles.saveButtonText}>Enregistrer les modifications</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.resetButton, { borderColor: colors.accent }]}
+          activeOpacity={0.8}
+          onPress={handleReset}
+        >
+          <Text style={[styles.resetButtonText, { color: colors.accent }]}>
+            Réinitialiser mon profil
+          </Text>
+        </TouchableOpacity>
 
         {/* App Info */}
         <View style={[styles.infoCard, { backgroundColor: isDark ? colors.darkCard : colors.card }]}>
@@ -161,6 +291,14 @@ const styles = StyleSheet.create({
   contentContainerWithTabBar: {
     paddingBottom: 120,
   },
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingText: {
+    fontSize: 16,
+  },
   profileHeader: {
     alignItems: 'center',
     borderRadius: 16,
@@ -179,62 +317,93 @@ const styles = StyleSheet.create({
     boxShadow: '0px 4px 12px rgba(0, 128, 0, 0.3)',
     elevation: 5,
   },
-  name: {
+  headerTitle: {
     fontSize: 24,
     fontWeight: '700',
-    marginBottom: 4,
   },
-  email: {
-    fontSize: 16,
-  },
-  statsCard: {
+  walletButton: {
     flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
+    boxShadow: '0px 4px 12px rgba(0, 128, 0, 0.3)',
+    elevation: 5,
+  },
+  walletButtonText: {
+    flex: 1,
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginLeft: 12,
+  },
+  formCard: {
     borderRadius: 16,
     padding: 20,
     marginBottom: 16,
     boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.08)',
     elevation: 3,
   },
-  statItem: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  statValue: {
-    fontSize: 28,
+  sectionTitle: {
+    fontSize: 18,
     fontWeight: '700',
-    marginBottom: 4,
-  },
-  statLabel: {
-    fontSize: 14,
-  },
-  statDivider: {
-    width: 1,
-    height: '100%',
-  },
-  menuSection: {
     marginBottom: 16,
   },
-  menuItem: {
+  inputGroup: {
+    marginBottom: 16,
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  input: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 14,
+    fontSize: 16,
+  },
+  roleItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
-    boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.08)',
-    elevation: 3,
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border + '30',
   },
-  menuIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
+  roleInfo: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 16,
+    gap: 12,
   },
-  menuTitle: {
-    flex: 1,
+  roleLabel: {
     fontSize: 16,
     fontWeight: '600',
+  },
+  saveButton: {
+    borderRadius: 16,
+    padding: 18,
+    alignItems: 'center',
+    marginBottom: 12,
+    boxShadow: '0px 4px 12px rgba(0, 128, 0, 0.3)',
+    elevation: 5,
+  },
+  saveButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  resetButton: {
+    borderRadius: 16,
+    padding: 18,
+    alignItems: 'center',
+    marginBottom: 16,
+    borderWidth: 2,
+  },
+  resetButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
   },
   infoCard: {
     borderRadius: 16,
