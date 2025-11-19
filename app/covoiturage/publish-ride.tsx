@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -13,10 +13,20 @@ import {
 import { useTheme } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { colors } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
 import { useCovoiturage } from '@/contexts/CovoiturageContext';
 import { useProfile } from '@/contexts/ProfileContext';
+
+const FAVORITE_ROUTE_KEY = '@yombal_yoon_favorite_route';
+
+interface FavoriteRoute {
+  departureCity: string;
+  arrivalCity: string;
+  departureTime: string; // HH:MM format
+  vehicleType?: string;
+}
 
 export default function PublishRideScreen() {
   const theme = useTheme();
@@ -36,6 +46,80 @@ export default function PublishRideScreen() {
 
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
+
+  const [favoriteRoute, setFavoriteRoute] = useState<FavoriteRoute | null>(null);
+  const [showNoFavoriteMessage, setShowNoFavoriteMessage] = useState(false);
+
+  // Load favorite route on mount
+  useEffect(() => {
+    loadFavoriteRoute();
+  }, []);
+
+  const loadFavoriteRoute = async () => {
+    try {
+      const storedRoute = await AsyncStorage.getItem(FAVORITE_ROUTE_KEY);
+      if (storedRoute) {
+        const route: FavoriteRoute = JSON.parse(storedRoute);
+        setFavoriteRoute(route);
+        console.log('Favorite route loaded:', route);
+      }
+    } catch (error) {
+      console.error('Error loading favorite route:', error);
+    }
+  };
+
+  const saveFavoriteRoute = async () => {
+    try {
+      if (!time) return;
+
+      const route: FavoriteRoute = {
+        departureCity: departureCity.trim(),
+        arrivalCity: arrivalCity.trim(),
+        departureTime: formatTime(time),
+        vehicleType: vehicleType.trim() || undefined,
+      };
+
+      await AsyncStorage.setItem(FAVORITE_ROUTE_KEY, JSON.stringify(route));
+      setFavoriteRoute(route);
+      console.log('Favorite route saved:', route);
+    } catch (error) {
+      console.error('Error saving favorite route:', error);
+    }
+  };
+
+  const handleUseUsualRoute = () => {
+    if (!favoriteRoute) {
+      setShowNoFavoriteMessage(true);
+      setTimeout(() => setShowNoFavoriteMessage(false), 4000);
+      return;
+    }
+
+    // Pre-fill form fields
+    setDepartureCity(favoriteRoute.departureCity);
+    setArrivalCity(favoriteRoute.arrivalCity);
+    
+    // Set time from favorite (HH:MM format)
+    const [hours, minutes] = favoriteRoute.departureTime.split(':');
+    const newTime = new Date();
+    newTime.setHours(parseInt(hours, 10));
+    newTime.setMinutes(parseInt(minutes, 10));
+    setTime(newTime);
+
+    if (favoriteRoute.vehicleType) {
+      setVehicleType(favoriteRoute.vehicleType);
+    }
+
+    // Leave date empty for user to choose
+    setDate(null);
+
+    Alert.alert(
+      'Trajet habituel chargé',
+      'Veuillez sélectionner la date du trajet.',
+      [{ text: 'OK' }]
+    );
+
+    console.log('Usual route loaded into form');
+  };
 
   const handleDateChange = (event: any, selectedDate?: Date) => {
     setShowDatePicker(false);
@@ -106,6 +190,9 @@ export default function PublishRideScreen() {
         intermediateStops: intermediateStops.trim() || undefined,
       });
 
+      // Save as favorite route
+      await saveFavoriteRoute();
+
       Alert.alert('Succès', 'Votre trajet a été publié avec succès !', [
         {
           text: 'OK',
@@ -142,6 +229,44 @@ export default function PublishRideScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.content}>
+          {/* Usual Route Button */}
+          <TouchableOpacity
+            style={[
+              styles.usualRouteButton,
+              {
+                backgroundColor: isDark ? colors.darkCard : colors.card,
+                borderColor: colors.primary,
+              },
+            ]}
+            onPress={handleUseUsualRoute}
+            activeOpacity={0.7}
+          >
+            <IconSymbol
+              ios_icon_name="star.fill"
+              android_material_icon_name="star"
+              size={20}
+              color={colors.primary}
+            />
+            <Text style={[styles.usualRouteButtonText, { color: colors.primary }]}>
+              Utiliser mon trajet habituel
+            </Text>
+          </TouchableOpacity>
+
+          {/* No Favorite Message */}
+          {showNoFavoriteMessage && (
+            <View style={[styles.noFavoriteMessage, { backgroundColor: colors.warning + '20' }]}>
+              <IconSymbol
+                ios_icon_name="info.circle.fill"
+                android_material_icon_name="info"
+                size={20}
+                color={colors.warning}
+              />
+              <Text style={[styles.noFavoriteMessageText, { color: colors.warning }]}>
+                Vous n&apos;avez pas encore de trajet habituel. Publiez un premier trajet pour l&apos;enregistrer.
+              </Text>
+            </View>
+          )}
+
           {/* Departure City */}
           <View style={styles.inputGroup}>
             <Text style={[styles.label, { color: isDark ? colors.darkText : colors.text }]}>
@@ -406,6 +531,34 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 20,
+  },
+  usualRouteButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 20,
+    borderWidth: 2,
+    gap: 8,
+  },
+  usualRouteButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  noFavoriteMessage: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 20,
+    gap: 12,
+  },
+  noFavoriteMessageText: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '600',
+    lineHeight: 20,
   },
   inputGroup: {
     marginBottom: 20,
