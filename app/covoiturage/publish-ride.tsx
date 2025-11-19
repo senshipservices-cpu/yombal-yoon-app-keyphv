@@ -14,10 +14,12 @@ import { useTheme } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Constants from 'expo-constants';
 import { colors } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
 import { useCovoiturage } from '@/contexts/CovoiturageContext';
 import { useProfile } from '@/contexts/ProfileContext';
+import CityAutocomplete from '@/components/CityAutocomplete';
 
 const FAVORITE_ROUTE_KEY = '@yombal_yoon_favorite_route';
 
@@ -44,6 +46,17 @@ export default function PublishRideScreen() {
   const [vehicleType, setVehicleType] = useState('');
   const [intermediateStops, setIntermediateStops] = useState('');
 
+  // Google Maps related state
+  const [departurePlaceId, setDeparturePlaceId] = useState('');
+  const [arrivalPlaceId, setArrivalPlaceId] = useState('');
+  const [departureLat, setDepartureLat] = useState<number | null>(null);
+  const [departureLng, setDepartureLng] = useState<number | null>(null);
+  const [arrivalLat, setArrivalLat] = useState<number | null>(null);
+  const [arrivalLng, setArrivalLng] = useState<number | null>(null);
+  const [rideDistanceKm, setRideDistanceKm] = useState<number>(0);
+  const [rideDurationMinutes, setRideDurationMinutes] = useState<number>(0);
+  const [isCalculatingDistance, setIsCalculatingDistance] = useState(false);
+
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
 
@@ -54,6 +67,13 @@ export default function PublishRideScreen() {
   useEffect(() => {
     loadFavoriteRoute();
   }, []);
+
+  // Calculate distance and duration when all coordinates are available
+  useEffect(() => {
+    if (departureLat && departureLng && arrivalLat && arrivalLng) {
+      calculateDistanceAndDuration();
+    }
+  }, [departureLat, departureLng, arrivalLat, arrivalLng]);
 
   const loadFavoriteRoute = async () => {
     try {
@@ -84,6 +104,58 @@ export default function PublishRideScreen() {
       console.log('Favorite route saved:', route);
     } catch (error) {
       console.error('Error saving favorite route:', error);
+    }
+  };
+
+  const calculateDistanceAndDuration = async () => {
+    if (!departureLat || !departureLng || !arrivalLat || !arrivalLng) {
+      return;
+    }
+
+    setIsCalculatingDistance(true);
+
+    try {
+      const apiKey = Constants.expoConfig?.extra?.GOOGLE_MAPS_API_KEY;
+      
+      if (!apiKey) {
+        console.error('Google Maps API key not found');
+        return;
+      }
+
+      const url = `https://maps.googleapis.com/maps/api/distancematrix/json?origins=${departureLat},${departureLng}&destinations=${arrivalLat},${arrivalLng}&mode=driving&language=fr&key=${apiKey}`;
+
+      console.log('Calculating distance and duration...');
+
+      const response = await fetch(url);
+      const data = await response.json();
+
+      if (data.status === 'OK' && data.rows?.[0]?.elements?.[0]) {
+        const element = data.rows[0].elements[0];
+
+        if (element.status === 'OK') {
+          const distanceMeters = element.distance.value;
+          const durationSeconds = element.duration.value;
+
+          const distanceKm = Math.round((distanceMeters / 1000) * 10) / 10; // Round to 1 decimal
+          const durationMinutes = Math.round(durationSeconds / 60);
+
+          setRideDistanceKm(distanceKm);
+          setRideDurationMinutes(durationMinutes);
+
+          console.log('Distance and duration calculated:', {
+            distanceKm,
+            durationMinutes,
+          });
+        } else {
+          console.error('Distance Matrix element error:', element.status);
+        }
+      } else {
+        console.error('Distance Matrix API error:', data.status);
+      }
+    } catch (error) {
+      console.error('Error calculating distance and duration:', error);
+    } finally {
+      setIsCalculatingDistance(false);
     }
   };
 
@@ -121,6 +193,22 @@ export default function PublishRideScreen() {
     console.log('Usual route loaded into form');
   };
 
+  const handleSelectDepartureCity = (city: string, placeId: string, lat: number, lng: number) => {
+    setDepartureCity(city);
+    setDeparturePlaceId(placeId);
+    setDepartureLat(lat);
+    setDepartureLng(lng);
+    console.log('Departure city selected:', { city, lat, lng });
+  };
+
+  const handleSelectArrivalCity = (city: string, placeId: string, lat: number, lng: number) => {
+    setArrivalCity(city);
+    setArrivalPlaceId(placeId);
+    setArrivalLat(lat);
+    setArrivalLng(lng);
+    console.log('Arrival city selected:', { city, lat, lng });
+  };
+
   const handleDateChange = (event: any, selectedDate?: Date) => {
     setShowDatePicker(false);
     if (selectedDate) {
@@ -152,6 +240,16 @@ export default function PublishRideScreen() {
     });
   };
 
+  const formatDuration = (minutes: number): string => {
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    
+    if (hours > 0) {
+      return `${hours} h ${mins} min`;
+    }
+    return `${mins} min`;
+  };
+
   const canSubmit = (): boolean => {
     return (
       departureCity.trim() !== '' &&
@@ -162,7 +260,11 @@ export default function PublishRideScreen() {
       parseInt(availableSeats) >= 1 &&
       parseInt(availableSeats) <= 8 &&
       pricePerPassenger.trim() !== '' &&
-      parseInt(pricePerPassenger) > 0
+      parseInt(pricePerPassenger) > 0 &&
+      departureLat !== null &&
+      departureLng !== null &&
+      arrivalLat !== null &&
+      arrivalLng !== null
     );
   };
 
@@ -188,6 +290,12 @@ export default function PublishRideScreen() {
         pricePerPassenger: price,
         vehicleType: vehicleType.trim() || undefined,
         intermediateStops: intermediateStops.trim() || undefined,
+        departureLat: departureLat!,
+        departureLng: departureLng!,
+        arrivalLat: arrivalLat!,
+        arrivalLng: arrivalLng!,
+        distanceKm: rideDistanceKm,
+        durationMinutes: rideDurationMinutes,
       });
 
       // Save as favorite route
@@ -267,45 +375,58 @@ export default function PublishRideScreen() {
             </View>
           )}
 
-          {/* Departure City */}
-          <View style={styles.inputGroup}>
-            <Text style={[styles.label, { color: isDark ? colors.darkText : colors.text }]}>
-              Ville de départ *
-            </Text>
-            <TextInput
-              style={[
-                styles.input,
-                {
-                  backgroundColor: isDark ? colors.darkCard : colors.card,
-                  color: isDark ? colors.darkText : colors.text,
-                },
-              ]}
-              placeholder="Ex: Dakar"
-              placeholderTextColor={colors.textSecondary}
-              value={departureCity}
-              onChangeText={setDepartureCity}
-            />
-          </View>
+          {/* Departure City with Autocomplete */}
+          <CityAutocomplete
+            value={departureCity}
+            onChangeText={setDepartureCity}
+            onSelectCity={handleSelectDepartureCity}
+            placeholder="Ex: Dakar"
+            label="Ville de départ"
+          />
 
-          {/* Arrival City */}
-          <View style={styles.inputGroup}>
-            <Text style={[styles.label, { color: isDark ? colors.darkText : colors.text }]}>
-              Ville d&apos;arrivée *
-            </Text>
-            <TextInput
-              style={[
-                styles.input,
-                {
-                  backgroundColor: isDark ? colors.darkCard : colors.card,
-                  color: isDark ? colors.darkText : colors.text,
-                },
-              ]}
-              placeholder="Ex: Thiès"
-              placeholderTextColor={colors.textSecondary}
-              value={arrivalCity}
-              onChangeText={setArrivalCity}
-            />
-          </View>
+          {/* Arrival City with Autocomplete */}
+          <CityAutocomplete
+            value={arrivalCity}
+            onChangeText={setArrivalCity}
+            onSelectCity={handleSelectArrivalCity}
+            placeholder="Ex: Thiès"
+            label="Ville d'arrivée"
+          />
+
+          {/* Distance and Duration Display */}
+          {(rideDistanceKm > 0 || isCalculatingDistance) && (
+            <View style={[styles.distanceCard, { backgroundColor: isDark ? colors.darkCard : colors.card }]}>
+              <View style={styles.distanceRow}>
+                <IconSymbol
+                  ios_icon_name="map"
+                  android_material_icon_name="map"
+                  size={20}
+                  color={colors.primary}
+                />
+                <Text style={[styles.distanceLabel, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+                  Distance estimée :
+                </Text>
+                <Text style={[styles.distanceValue, { color: isDark ? colors.darkText : colors.text }]}>
+                  {isCalculatingDistance ? 'Calcul...' : `${rideDistanceKm} km`}
+                </Text>
+              </View>
+              
+              <View style={styles.distanceRow}>
+                <IconSymbol
+                  ios_icon_name="clock"
+                  android_material_icon_name="access-time"
+                  size={20}
+                  color={colors.primary}
+                />
+                <Text style={[styles.distanceLabel, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+                  Durée estimée :
+                </Text>
+                <Text style={[styles.distanceValue, { color: isDark ? colors.darkText : colors.text }]}>
+                  {isCalculatingDistance ? 'Calcul...' : formatDuration(rideDurationMinutes)}
+                </Text>
+              </View>
+            </View>
+          )}
 
           {/* Date */}
           <View style={styles.inputGroup}>
@@ -559,6 +680,28 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     lineHeight: 20,
+  },
+  distanceCard: {
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 20,
+    gap: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  distanceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  distanceLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  distanceValue: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginLeft: 'auto',
   },
   inputGroup: {
     marginBottom: 20,

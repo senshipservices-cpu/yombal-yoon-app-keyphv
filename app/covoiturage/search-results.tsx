@@ -36,6 +36,8 @@ interface RideResult {
   vehicle_type: string | null;
   stops: string | null;
   status: string;
+  distance_km: number | null;
+  duration_minutes: number | null;
 }
 
 export default function SearchResultsScreen() {
@@ -205,6 +207,16 @@ export default function SearchResultsScreen() {
     };
   };
 
+  const formatDuration = (minutes: number): string => {
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    
+    if (hours > 0) {
+      return `${hours} h ${mins} min`;
+    }
+    return `${mins} min`;
+  };
+
   if (!isConnected) {
     return (
       <View style={[styles.container, { backgroundColor: isDark ? colors.darkBackground : colors.background }]}>
@@ -322,6 +334,21 @@ export default function SearchResultsScreen() {
                       )}
                     </View>
                   </View>
+
+                  {/* Distance and Duration Badge */}
+                  {ride.distance_km && ride.duration_minutes && (
+                    <View style={[styles.distanceBadge, { backgroundColor: colors.primary + '15' }]}>
+                      <IconSymbol
+                        ios_icon_name="map"
+                        android_material_icon_name="map"
+                        size={16}
+                        color={colors.primary}
+                      />
+                      <Text style={[styles.distanceBadgeText, { color: colors.primary }]}>
+                        ≈ {ride.distance_km} km — {formatDuration(ride.duration_minutes)}
+                      </Text>
+                    </View>
+                  )}
 
                   <View style={styles.rideDetails}>
                     <View style={styles.detailRow}>
@@ -543,7 +570,7 @@ const styles = StyleSheet.create({
   rideHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 12,
     gap: 12,
   },
   driverAvatar: {
@@ -563,6 +590,20 @@ const styles = StyleSheet.create({
   },
   vehicleType: {
     fontSize: 13,
+  },
+  distanceBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    gap: 6,
+    marginBottom: 12,
+  },
+  distanceBadgeText: {
+    fontSize: 13,
+    fontWeight: '700',
   },
   rideDetails: {
     gap: 8,

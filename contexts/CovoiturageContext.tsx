@@ -19,6 +19,12 @@ export interface Ride {
   intermediateStops?: string;
   status: 'active' | 'cancelled';
   createdAt: string;
+  departureLat?: number;
+  departureLng?: number;
+  arrivalLat?: number;
+  arrivalLng?: number;
+  distanceKm?: number;
+  durationMinutes?: number;
 }
 
 export interface Reservation {
@@ -101,6 +107,12 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
             intermediateStops: ride.stops || undefined,
             status: ride.status === 'cancelled' ? 'cancelled' : 'active',
             createdAt: ride.created_at || new Date().toISOString(),
+            departureLat: ride.departure_lat || undefined,
+            departureLng: ride.departure_lng || undefined,
+            arrivalLat: ride.arrival_lat || undefined,
+            arrivalLng: ride.arrival_lng || undefined,
+            distanceKm: ride.distance_km || undefined,
+            durationMinutes: ride.duration_minutes || undefined,
           };
         });
 
@@ -182,6 +194,12 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
         vehicle_type: rideData.vehicleType || null,
         stops: rideData.intermediateStops || null,
         status: 'open',
+        departure_lat: rideData.departureLat || null,
+        departure_lng: rideData.departureLng || null,
+        arrival_lat: rideData.arrivalLat || null,
+        arrival_lng: rideData.arrivalLng || null,
+        distance_km: rideData.distanceKm || null,
+        duration_minutes: rideData.durationMinutes || null,
       };
 
       // Insert into Supabase
@@ -212,6 +230,12 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
         intermediateStops: data.stops || undefined,
         status: 'active',
         createdAt: data.created_at || new Date().toISOString(),
+        departureLat: data.departure_lat || undefined,
+        departureLng: data.departure_lng || undefined,
+        arrivalLat: data.arrival_lat || undefined,
+        arrivalLng: data.arrival_lng || undefined,
+        distanceKm: data.distance_km || undefined,
+        durationMinutes: data.duration_minutes || undefined,
       };
 
       // Update local state

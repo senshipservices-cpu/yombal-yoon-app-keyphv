@@ -56,11 +56,17 @@ export type Database = {
       carpool_rides: {
         Row: {
           arrival_city: string
+          arrival_lat: number | null
+          arrival_lng: number | null
           created_at: string | null
           departure_city: string
           departure_datetime: string
+          departure_lat: number | null
+          departure_lng: number | null
+          distance_km: number | null
           driver_name: string
           driver_phone: string
+          duration_minutes: number | null
           id: string
           price_per_seat: number
           seats_available: number
@@ -71,11 +77,17 @@ export type Database = {
         }
         Insert: {
           arrival_city: string
+          arrival_lat?: number | null
+          arrival_lng?: number | null
           created_at?: string | null
           departure_city: string
           departure_datetime: string
+          departure_lat?: number | null
+          departure_lng?: number | null
+          distance_km?: number | null
           driver_name: string
           driver_phone: string
+          duration_minutes?: number | null
           id?: string
           price_per_seat: number
           seats_available: number
@@ -86,11 +98,17 @@ export type Database = {
         }
         Update: {
           arrival_city?: string
+          arrival_lat?: number | null
+          arrival_lng?: number | null
           created_at?: string | null
           departure_city?: string
           departure_datetime?: string
+          departure_lat?: number | null
+          departure_lng?: number | null
+          distance_km?: number | null
           driver_name?: string
           driver_phone?: string
+          duration_minutes?: number | null
           id?: string
           price_per_seat?: number
           seats_available?: number
@@ -164,6 +182,72 @@ export type Database = {
           destination_city?: string | null
           destination_region?: string
           id?: string
+          price_fcfa?: number | null
+          recipient_name?: string
+          recipient_phone?: string
+          sender_name?: string
+          sender_phone?: string
+          status?: string | null
+        }
+        Relationships: []
+      }
+      parcels: {
+        Row: {
+          assigned_at: string | null
+          created_at: string | null
+          delivered_at: string | null
+          description: string | null
+          distance_km: number | null
+          dropoff_address: string
+          dropoff_lat: number | null
+          dropoff_lng: number | null
+          id: string
+          picked_up_at: string | null
+          pickup_address: string
+          pickup_lat: number | null
+          pickup_lng: number | null
+          price_fcfa: number | null
+          recipient_name: string
+          recipient_phone: string
+          sender_name: string
+          sender_phone: string
+          status: string | null
+        }
+        Insert: {
+          assigned_at?: string | null
+          created_at?: string | null
+          delivered_at?: string | null
+          description?: string | null
+          distance_km?: number | null
+          dropoff_address: string
+          dropoff_lat?: number | null
+          dropoff_lng?: number | null
+          id?: string
+          picked_up_at?: string | null
+          pickup_address: string
+          pickup_lat?: number | null
+          pickup_lng?: number | null
+          price_fcfa?: number | null
+          recipient_name: string
+          recipient_phone: string
+          sender_name: string
+          sender_phone: string
+          status?: string | null
+        }
+        Update: {
+          assigned_at?: string | null
+          created_at?: string | null
+          delivered_at?: string | null
+          description?: string | null
+          distance_km?: number | null
+          dropoff_address?: string
+          dropoff_lat?: number | null
+          dropoff_lng?: number | null
+          id?: string
+          picked_up_at?: string | null
+          pickup_address?: string
+          pickup_lat?: number | null
+          pickup_lng?: number | null
           price_fcfa?: number | null
           recipient_name?: string
           recipient_phone?: string
