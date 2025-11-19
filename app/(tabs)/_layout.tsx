@@ -13,6 +13,24 @@ export default function TabLayout() {
       label: 'Accueil',
     },
     {
+      name: 'covoiturage',
+      route: '/(tabs)/covoiturage',
+      icon: 'directions-car',
+      label: 'Covoiturage',
+    },
+    {
+      name: 'colis',
+      route: '/(tabs)/colis',
+      icon: 'local-shipping',
+      label: 'Colis',
+    },
+    {
+      name: 'livraison',
+      route: '/(tabs)/livraison',
+      icon: 'flash-on',
+      label: 'Livraison',
+    },
+    {
       name: 'profile',
       route: '/(tabs)/profile',
       icon: 'person',
@@ -29,9 +47,12 @@ export default function TabLayout() {
         }}
       >
         <Stack.Screen key="home" name="(home)" />
+        <Stack.Screen key="covoiturage" name="covoiturage" />
+        <Stack.Screen key="colis" name="colis" />
+        <Stack.Screen key="livraison" name="livraison" />
         <Stack.Screen key="profile" name="profile" />
       </Stack>
-      <FloatingTabBar tabs={tabs} />
+      <FloatingTabBar tabs={tabs} containerWidth={380} />
     </>
   );
 }

@@ -35,6 +35,48 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="covoiturage"
+        options={{
+          title: 'Covoiturage',
+          tabBarIcon: ({ color }) => (
+            <IconSymbol
+              ios_icon_name="car.fill"
+              android_material_icon_name="directions-car"
+              color={color}
+              size={24}
+            />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="colis"
+        options={{
+          title: 'Colis',
+          tabBarIcon: ({ color }) => (
+            <IconSymbol
+              ios_icon_name="shippingbox.fill"
+              android_material_icon_name="local-shipping"
+              color={color}
+              size={24}
+            />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="livraison"
+        options={{
+          title: 'Livraison',
+          tabBarIcon: ({ color }) => (
+            <IconSymbol
+              ios_icon_name="bolt.fill"
+              android_material_icon_name="flash-on"
+              color={color}
+              size={24}
+            />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="profile"
         options={{
           title: 'Profil',
