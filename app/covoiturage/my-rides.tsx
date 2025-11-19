@@ -1,5 +1,5 @@
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -26,10 +26,14 @@ export default function MyRidesScreen() {
   const [refreshing, setRefreshing] = React.useState(false);
   const [cancellingRideId, setCancellingRideId] = React.useState<string | null>(null);
 
-  useEffect(() => {
-    // Register for push notifications when screen loads
+  const registerNotifications = useCallback(() => {
     registerForPushNotifications();
   }, [registerForPushNotifications]);
+
+  useEffect(() => {
+    // Register for push notifications when screen loads
+    registerNotifications();
+  }, [registerNotifications]);
 
   const handleRefresh = async () => {
     setRefreshing(true);

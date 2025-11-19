@@ -5,23 +5,21 @@ import {
   Text,
   StyleSheet,
   ScrollView,
+  TextInput,
   TouchableOpacity,
   Platform,
   Alert,
-  TextInput,
   ActivityIndicator,
 } from 'react-native';
 import { useTheme } from '@react-navigation/native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { colors } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
-import { useCovoiturage } from '@/contexts/CovoiturageContext';
 import { useNotifications } from '@/contexts/NotificationContext';
 import EmptyState from '@/components/EmptyState';
 import ErrorState from '@/components/ErrorState';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { supabase } from '@/app/integrations/supabase/client';
-import type { Tables } from '@/app/integrations/supabase/types';
 
 interface RideResult {
   id: string;
@@ -61,10 +59,6 @@ export default function SearchResultsScreen() {
   const [passengerPhone, setPassengerPhone] = useState('');
   const [isBooking, setIsBooking] = useState(false);
 
-  useEffect(() => {
-    searchRides();
-  }, [searchRides]);
-
   const searchRides = useCallback(async () => {
     setIsLoading(true);
     setError(null);
@@ -78,7 +72,7 @@ export default function SearchResultsScreen() {
       });
 
       // Build the query
-      let query = supabase
+      const query = supabase
         .from('carpool_rides')
         .select('*')
         .eq('departure_city', departureCity)
@@ -105,6 +99,10 @@ export default function SearchResultsScreen() {
       setIsLoading(false);
     }
   }, [departureCity, arrivalCity, searchDate, passengers]);
+
+  useEffect(() => {
+    searchRides();
+  }, [searchRides]);
 
   const handleBookRide = async (ride: RideResult) => {
     if (!passengerName.trim()) {

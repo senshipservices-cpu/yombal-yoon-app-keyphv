@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from "react-native";
 import { useTheme } from "@react-navigation/native";
 import { useRouter } from "expo-router";
@@ -29,7 +29,7 @@ export default function HomeScreen() {
   const { unreadCount, registerForPushNotifications } = useNotifications();
   const [tipOfTheDay, setTipOfTheDay] = useState("");
 
-  useEffect(() => {
+  const registerNotifications = useCallback(() => {
     const roles = [];
     if (profile.roles.driver) roles.push('driver');
     if (profile.roles.passenger) roles.push('passenger');
@@ -37,6 +37,10 @@ export default function HomeScreen() {
     
     registerForPushNotifications('current_user', roles);
   }, [profile.roles, registerForPushNotifications]);
+
+  useEffect(() => {
+    registerNotifications();
+  }, [registerNotifications]);
 
   useEffect(() => {
     // Select tip based on day of the month

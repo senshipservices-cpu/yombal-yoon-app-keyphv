@@ -1,6 +1,6 @@
 
 import { Stack } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { View, ActivityIndicator } from 'react-native';
 import { useRouter, useSegments } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -21,11 +21,7 @@ function RootLayoutNav() {
   const router = useRouter();
   const segments = useSegments();
 
-  useEffect(() => {
-    checkOnboardingStatus();
-  }, []);
-
-  const checkOnboardingStatus = async () => {
+  const checkOnboardingStatus = useCallback(async () => {
     try {
       const onboardingStatus = await AsyncStorage.getItem('onboardingDone');
       const isDone = onboardingStatus === 'true';
@@ -39,7 +35,11 @@ function RootLayoutNav() {
       setIsOnboardingDone(false);
       await SplashScreen.hideAsync();
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    checkOnboardingStatus();
+  }, [checkOnboardingStatus]);
 
   useEffect(() => {
     if (isOnboardingDone === null) {

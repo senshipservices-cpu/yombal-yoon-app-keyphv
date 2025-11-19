@@ -1,5 +1,5 @@
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -31,9 +31,14 @@ export default function PendingAssignmentsScreen() {
 
   const deliveryPersonId = 'dp1';
 
-  useEffect(() => {
+  const registerNotifications = useCallback(() => {
     registerForPushNotifications();
   }, [registerForPushNotifications]);
+
+  useEffect(() => {
+    // Register for push notifications when screen loads
+    registerNotifications();
+  }, [registerNotifications]);
 
   const pendingAssignments = assignments.filter(
     a => a.deliveryPersonId === deliveryPersonId && a.status === 'pending'

@@ -118,26 +118,8 @@ export function ColisProvider({ children }: { children: ReactNode }) {
   const [distanceKm, setDistanceKmState] = useState<number>(0);
   const [calculatedPrice, setCalculatedPrice] = useState<number>(0);
 
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
-
-  // Auto-calculate distance when both coordinates are available using Google Distance Matrix API
-  useEffect(() => {
-    if (pickupLat !== null && pickupLng !== null && dropoffLat !== null && dropoffLng !== null) {
-      calculateDistanceFromGoogleAPI(pickupLat, pickupLng, dropoffLat, dropoffLng);
-    } else {
-      setDistanceKmState(0);
-    }
-  }, [pickupLat, pickupLng, dropoffLat, dropoffLng]);
-
-  // Auto-update price when distance changes
-  useEffect(() => {
-    updatePriceFromDistance(distanceKm);
-  }, [distanceKm]);
-
   // Calculate distance using Google Distance Matrix API
-  const calculateDistanceFromGoogleAPI = async (
+  const calculateDistanceFromGoogleAPI = useCallback(async (
     originLat: number,
     originLng: number,
     destLat: number,
@@ -201,27 +183,9 @@ export function ColisProvider({ children }: { children: ReactNode }) {
       console.log('Fallback to Haversine distance:', distance, 'km');
       setDistanceKmState(distance);
     }
-  };
-
-  const loadData = useCallback(async () => {
-    try {
-      // If Supabase is configured and not in demo mode, load from Supabase
-      if (isSupabaseConfigured() && !demoMode) {
-        console.log('Loading parcels from Supabase...');
-        await loadFromSupabase();
-      } else {
-        // Otherwise, load from AsyncStorage (local mode)
-        console.log('Loading parcels from AsyncStorage (local mode)...');
-        await loadFromAsyncStorage();
-      }
-    } catch (error) {
-      console.error('Error loading parcel data:', error);
-    } finally {
-      setIsLoading(false);
-    }
   }, []);
 
-  const loadFromSupabase = async () => {
+  const loadFromSupabase = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('parcels')
@@ -244,9 +208,9 @@ export function ColisProvider({ children }: { children: ReactNode }) {
       console.error('Error loading from Supabase:', error);
       await loadFromAsyncStorage();
     }
-  };
+  }, []);
 
-  const loadFromAsyncStorage = async () => {
+  const loadFromAsyncStorage = useCallback(async () => {
     try {
       const storedParcels = await AsyncStorage.getItem(PARCELS_STORAGE_KEY);
 
@@ -257,15 +221,42 @@ export function ColisProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error('Error loading from AsyncStorage:', error);
     }
-  };
+  }, []);
 
-  const refreshParcels = async () => {
-    setIsLoading(true);
-    await loadData();
-  };
+  const loadData = useCallback(async () => {
+    try {
+      // If Supabase is configured and not in demo mode, load from Supabase
+      if (isSupabaseConfigured() && !demoMode) {
+        console.log('Loading parcels from Supabase...');
+        await loadFromSupabase();
+      } else {
+        // Otherwise, load from AsyncStorage (local mode)
+        console.log('Loading parcels from AsyncStorage (local mode)...');
+        await loadFromAsyncStorage();
+      }
+    } catch (error) {
+      console.error('Error loading parcel data:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [loadFromSupabase, loadFromAsyncStorage]);
+
+  // Load data on mount
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  // Auto-calculate distance when both coordinates are available using Google Distance Matrix API
+  useEffect(() => {
+    if (pickupLat !== null && pickupLng !== null && dropoffLat !== null && dropoffLng !== null) {
+      calculateDistanceFromGoogleAPI(pickupLat, pickupLng, dropoffLat, dropoffLng);
+    } else {
+      setDistanceKmState(0);
+    }
+  }, [pickupLat, pickupLng, dropoffLat, dropoffLng, calculateDistanceFromGoogleAPI]);
 
   // Update price based on distance
-  const updatePriceFromDistance = (distance: number) => {
+  const updatePriceFromDistance = useCallback((distance: number) => {
     console.log('Calculating price for distance:', distance);
     
     if (distance <= 0) {
@@ -291,6 +282,16 @@ export function ColisProvider({ children }: { children: ReactNode }) {
     setCalculatedPrice(Math.round(finalPrice));
     
     console.log('Calculated price:', finalPrice, 'FCFA');
+  }, []);
+
+  // Auto-update price when distance changes
+  useEffect(() => {
+    updatePriceFromDistance(distanceKm);
+  }, [distanceKm, updatePriceFromDistance]);
+
+  const refreshParcels = async () => {
+    setIsLoading(true);
+    await loadData();
   };
 
   // Set pickup coordinates
