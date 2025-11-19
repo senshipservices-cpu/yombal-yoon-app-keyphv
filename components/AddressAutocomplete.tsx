@@ -8,12 +8,11 @@ import {
   TouchableOpacity,
   FlatList,
   ActivityIndicator,
-  Platform,
   Keyboard,
 } from 'react-native';
 import { useTheme } from '@react-navigation/native';
 import { colors } from '@/styles/commonStyles';
-import Constants from 'expo-constants';
+import { supabase } from '@/config/supabase';
 
 interface Prediction {
   place_id: string;
@@ -37,11 +36,6 @@ interface AddressAutocompleteProps {
   label: string;
 }
 
-// Generate a unique session token for billing optimization
-function generateSessionToken(): string {
-  return `${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
-}
-
 export default function AddressAutocomplete({
   value,
   onChangeText,
@@ -55,10 +49,6 @@ export default function AddressAutocomplete({
   const [isLoading, setIsLoading] = useState(false);
   const [showPredictions, setShowPredictions] = useState(false);
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
-  const sessionToken = useRef<string>(generateSessionToken());
-
-  // Get API key from expo constants
-  const apiKey = Constants.expoConfig?.extra?.GOOGLE_MAPS_API_KEY;
 
   useEffect(() => {
     if (value.length > 2) {
@@ -82,28 +72,35 @@ export default function AddressAutocomplete({
   }, [value]);
 
   const fetchPredictions = async (input: string) => {
-    if (!apiKey) {
-      console.warn('Google Maps API key not configured');
-      return;
-    }
-
     setIsLoading(true);
     try {
-      // Exact parameters as specified in the request
-      const url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(
-        input
-      )}&types=address&language=fr&components=country:sn&location=14.6928,-17.4467&radius=45000&key=${apiKey}&sessiontoken=${sessionToken.current}`;
+      console.log('Fetching address predictions for:', input);
 
-      console.log('Fetching autocomplete predictions for:', input);
-      const response = await fetch(url);
-      const data = await response.json();
+      const { data, error } = await supabase.functions.invoke('google-places-proxy', {
+        body: {
+          action: 'autocomplete',
+          input: input,
+          types: 'address',
+          location: '14.6928,-17.4467', // Dakar coordinates
+          radius: 45000, // 45km radius
+          components: 'country:sn',
+          language: 'fr',
+        },
+      });
+
+      if (error) {
+        console.error('Error fetching address predictions:', error);
+        setPredictions([]);
+        setShowPredictions(false);
+        return;
+      }
 
       if (data.status === 'OK' && data.predictions) {
-        console.log(`Found ${data.predictions.length} predictions`);
+        console.log(`Found ${data.predictions.length} address predictions`);
         setPredictions(data.predictions);
         setShowPredictions(true);
       } else if (data.status === 'ZERO_RESULTS') {
-        console.log('No predictions found');
+        console.log('No address predictions found');
         setPredictions([]);
         setShowPredictions(false);
       } else {
@@ -114,7 +111,7 @@ export default function AddressAutocomplete({
         setPredictions([]);
       }
     } catch (error) {
-      console.error('Error fetching predictions:', error);
+      console.error('Error fetching address predictions:', error);
       setPredictions([]);
     } finally {
       setIsLoading(false);
@@ -122,18 +119,20 @@ export default function AddressAutocomplete({
   };
 
   const getPlaceDetails = async (placeId: string): Promise<Location | null> => {
-    if (!apiKey) {
-      console.warn('Google Maps API key not configured');
-      return null;
-    }
-
     try {
-      // Exact parameters as specified in the request
-      const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&fields=geometry&key=${apiKey}&sessiontoken=${sessionToken.current}`;
-
       console.log('Fetching place details for place_id:', placeId);
-      const response = await fetch(url);
-      const data = await response.json();
+
+      const { data, error } = await supabase.functions.invoke('google-places-proxy', {
+        body: {
+          action: 'place_details',
+          placeId: placeId,
+        },
+      });
+
+      if (error) {
+        console.error('Error fetching place details:', error);
+        return null;
+      }
 
       if (data.status === 'OK' && data.result?.geometry?.location) {
         const location = {
@@ -141,10 +140,6 @@ export default function AddressAutocomplete({
           lng: data.result.geometry.location.lng,
         };
         console.log('Retrieved coordinates:', location);
-        
-        // Generate new session token after successful place details call
-        sessionToken.current = generateSessionToken();
-        
         return location;
       } else {
         console.error('Place Details API error:', data.status);
