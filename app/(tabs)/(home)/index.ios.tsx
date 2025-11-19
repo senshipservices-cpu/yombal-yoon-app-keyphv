@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState } from "react";
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from "react-native";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from "react-native";
 import { useTheme } from "@react-navigation/native";
 import { useRouter } from "expo-router";
 import { colors } from "@/styles/commonStyles";
@@ -82,7 +82,7 @@ export default function HomeScreen() {
       >
         <View style={[styles.header, { paddingTop: 60 }]}>
           <View style={styles.headerContent}>
-            <View>
+            <View style={styles.headerLeft}>
               <Text style={[styles.greeting, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
                 Bienvenue sur
               </Text>
@@ -91,23 +91,31 @@ export default function HomeScreen() {
               </Text>
             </View>
             
-            <TouchableOpacity
-              style={styles.notificationButton}
-              onPress={() => router.push('/notifications')}
-              activeOpacity={0.7}
-            >
-              <IconSymbol
-                ios_icon_name="bell.fill"
-                android_material_icon_name="notifications"
-                size={28}
-                color={isDark ? colors.darkText : colors.text}
+            <View style={styles.headerRight}>
+              <TouchableOpacity
+                style={styles.notificationButton}
+                onPress={() => router.push('/notifications')}
+                activeOpacity={0.7}
+              >
+                <IconSymbol
+                  ios_icon_name="bell.fill"
+                  android_material_icon_name="notifications"
+                  size={28}
+                  color={isDark ? colors.darkText : colors.text}
+                />
+                {unreadCount > 0 && (
+                  <View style={[styles.badge, { backgroundColor: colors.accent }]}>
+                    <Text style={styles.badgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+              
+              <Image
+                source={require('@/assets/images/0d85b705-7898-4146-82bf-1064a691d334.jpeg')}
+                style={styles.logo}
+                resizeMode="contain"
               />
-              {unreadCount > 0 && (
-                <View style={[styles.badge, { backgroundColor: colors.accent }]}>
-                  <Text style={styles.badgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
-                </View>
-              )}
-            </TouchableOpacity>
+            </View>
           </View>
 
           <Text style={[styles.tagline, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
@@ -203,6 +211,14 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     marginBottom: 8,
   },
+  headerLeft: {
+    flex: 1,
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
   greeting: {
     fontSize: 16,
     marginBottom: 4,
@@ -230,6 +246,11 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 10,
     fontWeight: '700',
+  },
+  logo: {
+    width: 40,
+    height: 40,
+    borderRadius: 8,
   },
   tagline: {
     fontSize: 16,
