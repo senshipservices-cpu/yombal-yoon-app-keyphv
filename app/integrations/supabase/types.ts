@@ -101,6 +101,33 @@ export type Database = {
         }
         Relationships: []
       }
+      feedbacks: {
+        Row: {
+          id: string
+          created_at: string | null
+          type: string
+          message: string
+          contact: string | null
+          source: string
+        }
+        Insert: {
+          id?: string
+          created_at?: string | null
+          type: string
+          message: string
+          contact?: string | null
+          source: string
+        }
+        Update: {
+          id?: string
+          created_at?: string | null
+          type?: string
+          message?: string
+          contact?: string | null
+          source?: string
+        }
+        Relationships: []
+      }
       intercity_deliveries: {
         Row: {
           created_at: string | null

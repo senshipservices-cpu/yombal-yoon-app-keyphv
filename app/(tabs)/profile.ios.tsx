@@ -195,6 +195,20 @@ export default function ProfileScreen() {
               />
               <Text style={styles.assistanceButtonText}>WhatsApp Yombal Yoon</Text>
             </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.assistanceButton, { backgroundColor: colors.accent }]}
+              activeOpacity={0.8}
+              onPress={() => router.push('/feedback')}
+            >
+              <IconSymbol
+                ios_icon_name="bubble.left.and.bubble.right.fill"
+                android_material_icon_name="feedback"
+                size={22}
+                color="#FFFFFF"
+              />
+              <Text style={styles.assistanceButtonText}>Donner mon avis</Text>
+            </TouchableOpacity>
           </View>
         </View>
 
