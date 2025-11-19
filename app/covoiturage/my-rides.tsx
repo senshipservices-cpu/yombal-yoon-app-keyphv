@@ -21,9 +21,10 @@ export default function MyRidesScreen() {
   const theme = useTheme();
   const isDark = theme.dark;
   const router = useRouter();
-  const { rides, getReservationsByRide, updateReservationStatus, cancelRide, isLoading } = useCovoiturage();
+  const { rides, getReservationsByRide, updateReservationStatus, cancelRide, isLoading, refreshData } = useCovoiturage();
   const { sendLocalNotification, registerForPushNotifications } = useNotifications();
   const [refreshing, setRefreshing] = React.useState(false);
+  const [cancellingRideId, setCancellingRideId] = React.useState<string | null>(null);
 
   useEffect(() => {
     // Register for push notifications when screen loads
@@ -32,8 +33,7 @@ export default function MyRidesScreen() {
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    // The data will be refreshed automatically by the context
-    // when the component remounts or when new data is added
+    await refreshData();
     setTimeout(() => setRefreshing(false), 1000);
   };
 
@@ -64,6 +64,7 @@ export default function MyRidesScreen() {
 
             if (result.success) {
               Alert.alert('Succès', 'Réservation acceptée !');
+              await refreshData();
             } else {
               Alert.alert('Erreur', result.message || 'Impossible d\'accepter la réservation');
             }
@@ -98,6 +99,7 @@ export default function MyRidesScreen() {
 
             if (result.success) {
               Alert.alert('Succès', 'Réservation refusée.');
+              await refreshData();
             } else {
               Alert.alert('Erreur', result.message || 'Impossible de refuser la réservation');
             }
@@ -117,18 +119,34 @@ export default function MyRidesScreen() {
           text: 'Oui, annuler',
           style: 'destructive',
           onPress: async () => {
-            await cancelRide(rideId, (type, passengerIds, details) => {
-              // Send notification to all passengers
-              passengerIds.forEach(() => {
-                sendLocalNotification(
-                  'Trajet annulé ⚠️',
-                  `Le trajet ${details.ride.departureCity} → ${details.ride.arrivalCity} du ${new Date(details.ride.date).toLocaleDateString('fr-FR')} a été annulé par le conducteur`,
-                  { type, rideId, ...details }
-                );
-              });
-            });
+            try {
+              console.log('User confirmed cancellation for ride:', rideId);
+              setCancellingRideId(rideId);
 
-            Alert.alert('Succès', 'Trajet annulé. Les passagers ont été notifiés.');
+              const result = await cancelRide(rideId, (type, passengerIds, details) => {
+                // Send notification to all passengers
+                passengerIds.forEach(() => {
+                  sendLocalNotification(
+                    'Trajet annulé ⚠️',
+                    `Le trajet ${details.ride.departureCity} → ${details.ride.arrivalCity} du ${new Date(details.ride.date).toLocaleDateString('fr-FR')} a été annulé par le conducteur`,
+                    { type, rideId, ...details }
+                  );
+                });
+              });
+
+              setCancellingRideId(null);
+
+              if (result.success) {
+                Alert.alert('Succès', 'Trajet annulé. Les passagers ont été notifiés.');
+                await refreshData();
+              } else {
+                Alert.alert('Erreur', result.message || 'Impossible d\'annuler le trajet');
+              }
+            } catch (error) {
+              console.error('Error in handleCancelRide:', error);
+              setCancellingRideId(null);
+              Alert.alert('Erreur', 'Une erreur est survenue lors de l\'annulation du trajet');
+            }
           },
         },
       ]
@@ -208,6 +226,7 @@ export default function MyRidesScreen() {
               const reservations = getReservationsByRide(ride.id);
               const isFull = ride.availableSeats === 0;
               const isCancelled = ride.status === 'cancelled';
+              const isCancelling = cancellingRideId === ride.id;
 
               return (
                 <View
@@ -286,19 +305,33 @@ export default function MyRidesScreen() {
                   {/* Cancel Ride Button */}
                   {!isCancelled && (
                     <TouchableOpacity
-                      style={[styles.cancelRideButton, { backgroundColor: colors.accent + '20', borderColor: colors.accent }]}
+                      style={[
+                        styles.cancelRideButton, 
+                        { 
+                          backgroundColor: colors.accent + '20', 
+                          borderColor: colors.accent,
+                          opacity: isCancelling ? 0.5 : 1
+                        }
+                      ]}
                       onPress={() => handleCancelRide(ride.id, ride)}
                       activeOpacity={0.7}
+                      disabled={isCancelling}
                     >
-                      <IconSymbol
-                        ios_icon_name="xmark.circle"
-                        android_material_icon_name="cancel"
-                        size={16}
-                        color={colors.accent}
-                      />
-                      <Text style={[styles.cancelRideButtonText, { color: colors.accent }]}>
-                        Annuler le trajet
-                      </Text>
+                      {isCancelling ? (
+                        <ActivityIndicator size="small" color={colors.accent} />
+                      ) : (
+                        <React.Fragment>
+                          <IconSymbol
+                            ios_icon_name="xmark.circle"
+                            android_material_icon_name="cancel"
+                            size={16}
+                            color={colors.accent}
+                          />
+                          <Text style={[styles.cancelRideButtonText, { color: colors.accent }]}>
+                            Annuler le trajet
+                          </Text>
+                        </React.Fragment>
+                      )}
                     </TouchableOpacity>
                   )}
 
