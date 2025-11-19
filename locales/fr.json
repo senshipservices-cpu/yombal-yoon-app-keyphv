@@ -1,0 +1,61 @@
+
+{
+  "app": {
+    "name": "Yombal Yoon",
+    "tagline": "Votre partenaire de mobilité au Sénégal"
+  },
+  "tabs": {
+    "home": "Accueil",
+    "profile": "Profil"
+  },
+  "home": {
+    "welcome": "Bienvenue !",
+    "welcomeMessage": "Découvrez nos services de transport, livraison et bien plus encore.",
+    "servicesTitle": "Nos Services",
+    "transport": {
+      "title": "Transport",
+      "description": "Réservez votre trajet en toute sécurité"
+    },
+    "delivery": {
+      "title": "Livraison",
+      "description": "Envoyez vos colis rapidement"
+    },
+    "shopping": {
+      "title": "Courses",
+      "description": "Faites vos courses en ligne"
+    },
+    "features": {
+      "available247": {
+        "title": "Service 24/7",
+        "description": "Disponible à tout moment"
+      },
+      "secure": {
+        "title": "Sécurisé",
+        "description": "Vos données sont protégées"
+      },
+      "quality": {
+        "title": "Qualité",
+        "description": "Service de haute qualité"
+      }
+    }
+  },
+  "profile": {
+    "user": "Utilisateur Yombal",
+    "email": "utilisateur@yombalyoon.sn",
+    "stats": {
+      "trips": "Trajets",
+      "deliveries": "Livraisons",
+      "points": "Points"
+    },
+    "menu": {
+      "myTrips": "Mes Trajets",
+      "payments": "Paiements",
+      "settings": "Paramètres",
+      "support": "Aide & Support"
+    },
+    "appInfo": {
+      "version": "Version 1.0.0",
+      "copyright": "© 2024 Yombal Yoon. Tous droits réservés."
+    }
+  }
+}
