@@ -6,6 +6,7 @@ import { colors } from "@/styles/commonStyles";
 import { IconSymbol } from "@/components/IconSymbol";
 import { useLivraison } from "@/contexts/LivraisonContext";
 import DestinationAutocomplete from "@/components/DestinationAutocomplete";
+import { demoMode, demoIntercity } from "@/config/demoMode";
 
 export default function LivraisonScreen() {
   const theme = useTheme();
@@ -72,6 +73,44 @@ export default function LivraisonScreen() {
       }, 5000);
     } else {
       Alert.alert('Erreur', 'Une erreur est survenue lors de la création de la demande');
+    }
+  };
+
+  const formatTimeAgo = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffDays = Math.floor(diffHours / 24);
+
+    if (diffDays > 0) {
+      return `Il y a ${diffDays} jour${diffDays > 1 ? 's' : ''}`;
+    } else if (diffHours > 0) {
+      return `Il y a ${diffHours} heure${diffHours > 1 ? 's' : ''}`;
+    } else {
+      return 'À l\'instant';
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'delivered':
+        return colors.primary;
+      case 'in_transit':
+        return '#FF8C00';
+      default:
+        return colors.textSecondary;
+    }
+  };
+
+  const getStatusText = (status: string) => {
+    switch (status) {
+      case 'delivered':
+        return 'Livré';
+      case 'in_transit':
+        return 'En transit';
+      default:
+        return 'En attente';
     }
   };
 
@@ -288,6 +327,80 @@ export default function LivraisonScreen() {
             />
             <Text style={styles.submitButtonText}>ENVOI COLIS EN RÉGION</Text>
           </TouchableOpacity>
+
+          {/* Demo Intercity Section */}
+          {demoMode && demoIntercity.length > 0 && (
+            <View style={[styles.demoSection, { backgroundColor: isDark ? colors.darkCard : colors.card }]}>
+              <View style={styles.demoSectionHeader}>
+                <IconSymbol
+                  ios_icon_name="map.fill"
+                  android_material_icon_name="map"
+                  size={24}
+                  color={colors.primary}
+                />
+                <Text style={[styles.demoSectionTitle, { color: isDark ? colors.darkText : colors.text }]}>
+                  Exemples d&apos;envois inter-régions
+                </Text>
+              </View>
+              <Text style={[styles.demoSectionSubtitle, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+                Mode Démo - Données d&apos;exemple
+              </Text>
+
+              {demoIntercity.map((delivery, index) => (
+                <View
+                  key={index}
+                  style={[
+                    styles.demoDeliveryCard,
+                    { backgroundColor: isDark ? colors.darkBackground : colors.background }
+                  ]}
+                >
+                  <View style={styles.demoDeliveryHeader}>
+                    <View style={[styles.statusBadge, { backgroundColor: getStatusColor(delivery.status) + '20' }]}>
+                      <Text style={[styles.statusBadgeText, { color: getStatusColor(delivery.status) }]}>
+                        {getStatusText(delivery.status)}
+                      </Text>
+                    </View>
+                    {delivery.deliveredAt && (
+                      <Text style={[styles.timeAgo, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+                        {formatTimeAgo(delivery.deliveredAt)}
+                      </Text>
+                    )}
+                  </View>
+
+                  <Text style={[styles.demoDeliveryTitle, { color: isDark ? colors.darkText : colors.text }]}>
+                    {delivery.title}
+                  </Text>
+                  <Text style={[styles.demoDeliveryDescription, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+                    {delivery.description}
+                  </Text>
+
+                  <View style={styles.demoDeliveryRoute}>
+                    <Text style={[styles.demoDeliveryLocation, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+                      {delivery.from}
+                    </Text>
+                    <IconSymbol
+                      ios_icon_name="arrow.right"
+                      android_material_icon_name="arrow-forward"
+                      size={16}
+                      color={colors.textSecondary}
+                    />
+                    <Text style={[styles.demoDeliveryLocation, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+                      {delivery.to}
+                    </Text>
+                  </View>
+
+                  <View style={styles.demoPriceContainer}>
+                    <Text style={[styles.demoPriceLabel, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+                      Tarif:
+                    </Text>
+                    <Text style={[styles.demoPriceValue, { color: colors.primary }]}>
+                      {delivery.price.toLocaleString()} FCFA
+                    </Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+          )}
         </View>
       </ScrollView>
     </View>
@@ -450,5 +563,83 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: '#FFFFFF',
+  },
+  demoSection: {
+    borderRadius: 16,
+    padding: 20,
+    marginTop: 20,
+    boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.08)',
+    elevation: 3,
+  },
+  demoSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 8,
+  },
+  demoSectionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  demoSectionSubtitle: {
+    fontSize: 13,
+    marginBottom: 16,
+    fontStyle: 'italic',
+  },
+  demoDeliveryCard: {
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  demoDeliveryHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  statusBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  statusBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  timeAgo: {
+    fontSize: 12,
+  },
+  demoDeliveryTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  demoDeliveryDescription: {
+    fontSize: 14,
+    marginBottom: 8,
+  },
+  demoDeliveryRoute: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  demoDeliveryLocation: {
+    fontSize: 13,
+  },
+  demoPriceContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 4,
+  },
+  demoPriceLabel: {
+    fontSize: 13,
+  },
+  demoPriceValue: {
+    fontSize: 15,
+    fontWeight: '700',
   },
 });

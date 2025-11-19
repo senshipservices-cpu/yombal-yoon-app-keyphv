@@ -10,6 +10,7 @@ import { useDelivery } from "@/contexts/DeliveryContext";
 import { useProfile } from "@/contexts/ProfileContext";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
 import { calculateDistance, calculateDeliveryPrice } from "@/utils/distance";
+import { demoMode, demoParcels } from "@/config/demoMode";
 
 // Replace with your actual Google Maps API key
 const GOOGLE_MAPS_API_KEY = 'YOUR_GOOGLE_MAPS_API_KEY';
@@ -115,6 +116,44 @@ export default function ColisScreen() {
       Alert.alert('Erreur', 'Une erreur est survenue');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const formatTimeAgo = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffDays = Math.floor(diffHours / 24);
+
+    if (diffDays > 0) {
+      return `Il y a ${diffDays} jour${diffDays > 1 ? 's' : ''}`;
+    } else if (diffHours > 0) {
+      return `Il y a ${diffHours} heure${diffHours > 1 ? 's' : ''}`;
+    } else {
+      return 'À l\'instant';
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'delivered':
+        return colors.primary;
+      case 'en_route_delivery':
+        return '#FF8C00';
+      default:
+        return colors.textSecondary;
+    }
+  };
+
+  const getStatusText = (status: string) => {
+    switch (status) {
+      case 'delivered':
+        return 'Livré';
+      case 'en_route_delivery':
+        return 'En cours';
+      default:
+        return 'En attente';
     }
   };
 
@@ -402,6 +441,71 @@ export default function ColisScreen() {
               </Text>
             </TouchableOpacity>
           </View>
+
+          {/* Demo Parcels Section */}
+          {demoMode && demoParcels.length > 0 && (
+            <View style={[styles.demoSection, { backgroundColor: isDark ? colors.darkCard : colors.card }]}>
+              <View style={styles.demoSectionHeader}>
+                <IconSymbol
+                  ios_icon_name="clock.fill"
+                  android_material_icon_name="history"
+                  size={24}
+                  color={colors.primary}
+                />
+                <Text style={[styles.demoSectionTitle, { color: isDark ? colors.darkText : colors.text }]}>
+                  Exemples de livraisons récentes
+                </Text>
+              </View>
+              <Text style={[styles.demoSectionSubtitle, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+                Mode Démo - Données d&apos;exemple
+              </Text>
+
+              {demoParcels.map((parcel, index) => (
+                <View
+                  key={index}
+                  style={[
+                    styles.demoParcelCard,
+                    { backgroundColor: isDark ? colors.darkBackground : colors.background }
+                  ]}
+                >
+                  <View style={styles.demoParcelHeader}>
+                    <View style={[styles.statusBadge, { backgroundColor: getStatusColor(parcel.status) + '20' }]}>
+                      <Text style={[styles.statusBadgeText, { color: getStatusColor(parcel.status) }]}>
+                        {getStatusText(parcel.status)}
+                      </Text>
+                    </View>
+                    {parcel.deliveredAt && (
+                      <Text style={[styles.timeAgo, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+                        {formatTimeAgo(parcel.deliveredAt)}
+                      </Text>
+                    )}
+                  </View>
+
+                  <Text style={[styles.demoParcelTitle, { color: isDark ? colors.darkText : colors.text }]}>
+                    {parcel.title}
+                  </Text>
+                  <Text style={[styles.demoParcelDescription, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+                    {parcel.description}
+                  </Text>
+
+                  <View style={styles.demoParcelRoute}>
+                    <Text style={[styles.demoParcelLocation, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+                      {parcel.from}
+                    </Text>
+                    <IconSymbol
+                      ios_icon_name="arrow.right"
+                      android_material_icon_name="arrow-forward"
+                      size={16}
+                      color={colors.textSecondary}
+                    />
+                    <Text style={[styles.demoParcelLocation, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+                      {parcel.to}
+                    </Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+          )}
         </View>
       </ScrollView>
     </View>
@@ -601,5 +705,69 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '700',
+  },
+  demoSection: {
+    borderRadius: 16,
+    padding: 20,
+    marginTop: 20,
+    boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.08)',
+    elevation: 3,
+  },
+  demoSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 8,
+  },
+  demoSectionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  demoSectionSubtitle: {
+    fontSize: 13,
+    marginBottom: 16,
+    fontStyle: 'italic',
+  },
+  demoParcelCard: {
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  demoParcelHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  statusBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  statusBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  timeAgo: {
+    fontSize: 12,
+  },
+  demoParcelTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  demoParcelDescription: {
+    fontSize: 14,
+    marginBottom: 8,
+  },
+  demoParcelRoute: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  demoParcelLocation: {
+    fontSize: 13,
   },
 });

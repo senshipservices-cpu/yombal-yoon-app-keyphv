@@ -19,6 +19,7 @@ import { useNotifications } from '@/contexts/NotificationContext';
 import EmptyState from '@/components/EmptyState';
 import ErrorState from '@/components/ErrorState';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
+import { demoMode, demoRides } from '@/config/demoMode';
 
 export default function SearchResultsScreen() {
   const theme = useTheme();
@@ -38,7 +39,8 @@ export default function SearchResultsScreen() {
   const [passengerName, setPassengerName] = useState('');
   const [isBooking, setIsBooking] = useState(false);
 
-  const rides = searchRides(departureCity, arrivalCity, date, passengers);
+  // Use demo rides if demoMode is enabled, otherwise search real rides
+  const rides = demoMode ? demoRides : searchRides(departureCity, arrivalCity, date, passengers);
 
   const handleBookRide = async (rideId: string) => {
     if (!passengerName.trim()) {
@@ -91,7 +93,7 @@ export default function SearchResultsScreen() {
     }
   };
 
-  if (!isConnected) {
+  if (!isConnected && !demoMode) {
     return (
       <View style={[styles.container, { backgroundColor: isDark ? colors.darkBackground : colors.background }]}>
         <View style={[styles.header, { backgroundColor: '#FF8C00' }]}>
@@ -133,6 +135,7 @@ export default function SearchResultsScreen() {
           <Text style={styles.headerTitle}>Résultats de recherche</Text>
           <Text style={styles.headerSubtitle}>
             {rides.length} trajet(s) trouvé(s)
+            {demoMode && ' (Mode Démo)'}
           </Text>
         </View>
       </View>
@@ -143,10 +146,24 @@ export default function SearchResultsScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.content}>
+          {demoMode && (
+            <View style={[styles.demoBanner, { backgroundColor: colors.secondary + '40' }]}>
+              <IconSymbol
+                ios_icon_name="info.circle.fill"
+                android_material_icon_name="info"
+                size={20}
+                color={colors.text}
+              />
+              <Text style={[styles.demoBannerText, { color: isDark ? colors.darkText : colors.text }]}>
+                Mode Démo activé - Données d&apos;exemple
+              </Text>
+            </View>
+          )}
+
           <View style={[styles.searchSummary, { backgroundColor: isDark ? colors.darkCard : colors.card }]}>
             <View style={styles.routeContainer}>
               <Text style={[styles.cityText, { color: isDark ? colors.darkText : colors.text }]}>
-                {departureCity}
+                {departureCity || 'Dakar'}
               </Text>
               <IconSymbol
                 ios_icon_name="arrow.right"
@@ -155,11 +172,11 @@ export default function SearchResultsScreen() {
                 color={colors.primary}
               />
               <Text style={[styles.cityText, { color: isDark ? colors.darkText : colors.text }]}>
-                {arrivalCity}
+                {arrivalCity || 'Thiès'}
               </Text>
             </View>
             <Text style={[styles.searchDetails, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-              {new Date(date).toLocaleDateString('fr-FR')} • {passengers} passager(s)
+              {date ? new Date(date).toLocaleDateString('fr-FR') : 'Aujourd\'hui'} • {passengers || 1} passager(s)
             </Text>
           </View>
 
@@ -229,7 +246,7 @@ export default function SearchResultsScreen() {
                       color={colors.textSecondary}
                     />
                     <Text style={[styles.detailText, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-                      {ride.pricePerPassenger * passengers} FCFA ({passengers} passager(s))
+                      {ride.pricePerPassenger * (passengers || 1)} FCFA ({passengers || 1} passager(s))
                     </Text>
                   </View>
 
@@ -351,6 +368,18 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 20,
+  },
+  demoBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 16,
+  },
+  demoBannerText: {
+    fontSize: 14,
+    fontWeight: '600',
   },
   searchSummary: {
     borderRadius: 16,
