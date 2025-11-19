@@ -1,6 +1,6 @@
 
 import React, { useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Platform, TouchableOpacity, TextInput, Switch, Alert } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Platform, TouchableOpacity, TextInput, Switch, Alert, Linking } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { IconSymbol } from "@/components/IconSymbol";
 import { useTheme } from "@react-navigation/native";
@@ -8,6 +8,8 @@ import { colors } from "@/styles/commonStyles";
 import { LinearGradient } from "expo-linear-gradient";
 import { useProfile } from "@/contexts/ProfileContext";
 import { useRouter } from "expo-router";
+
+const SUPPORT_PHONE = "+22177XXXXXXX";
 
 export default function ProfileScreen() {
   const theme = useTheme();
@@ -55,6 +57,37 @@ export default function ProfileScreen() {
         },
       ]
     );
+  };
+
+  const handleCallSupport = async () => {
+    try {
+      const url = `tel:${SUPPORT_PHONE}`;
+      const canOpen = await Linking.canOpenURL(url);
+      if (canOpen) {
+        await Linking.openURL(url);
+      } else {
+        Alert.alert("Erreur", "Impossible d'ouvrir l'application téléphone");
+      }
+    } catch (error) {
+      console.log("Error opening phone app:", error);
+      Alert.alert("Erreur", "Une erreur s'est produite lors de l'ouverture de l'application téléphone");
+    }
+  };
+
+  const handleWhatsAppSupport = async () => {
+    try {
+      const message = encodeURIComponent("Bonjour Yombal Yoon, j'ai une question sur l'application.");
+      const url = `https://wa.me/${SUPPORT_PHONE.replace(/\+/g, '')}?text=${message}`;
+      const canOpen = await Linking.canOpenURL(url);
+      if (canOpen) {
+        await Linking.openURL(url);
+      } else {
+        Alert.alert("Erreur", "Impossible d'ouvrir WhatsApp. Assurez-vous que l'application est installée.");
+      }
+    } catch (error) {
+      console.log("Error opening WhatsApp:", error);
+      Alert.alert("Erreur", "Une erreur s'est produite lors de l'ouverture de WhatsApp");
+    }
   };
 
   if (isLoading) {
@@ -125,6 +158,55 @@ export default function ProfileScreen() {
             color="#FFFFFF"
           />
         </TouchableOpacity>
+
+        {/* Assistance Yombal Yoon Section */}
+        <View style={[styles.assistanceCard, { backgroundColor: isDark ? colors.darkCard : colors.card }]}>
+          <View style={styles.assistanceHeader}>
+            <IconSymbol
+              ios_icon_name="headphones"
+              android_material_icon_name="headset-mic"
+              size={28}
+              color={colors.primary}
+            />
+            <Text style={[styles.sectionTitle, { color: isDark ? colors.darkText : colors.text, marginBottom: 0 }]}>
+              Assistance Yombal Yoon
+            </Text>
+          </View>
+
+          <Text style={[styles.assistanceDescription, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+            Notre équipe est disponible pour vous aider avec vos trajets et vos envois de colis.
+          </Text>
+
+          <View style={styles.assistanceButtons}>
+            <TouchableOpacity
+              style={[styles.assistanceButton, { backgroundColor: colors.primary }]}
+              activeOpacity={0.8}
+              onPress={handleCallSupport}
+            >
+              <IconSymbol
+                ios_icon_name="phone.fill"
+                android_material_icon_name="phone"
+                size={22}
+                color="#FFFFFF"
+              />
+              <Text style={styles.assistanceButtonText}>Appeler Yombal Yoon</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.assistanceButton, { backgroundColor: '#25D366' }]}
+              activeOpacity={0.8}
+              onPress={handleWhatsAppSupport}
+            >
+              <IconSymbol
+                ios_icon_name="message.fill"
+                android_material_icon_name="chat"
+                size={22}
+                color="#FFFFFF"
+              />
+              <Text style={styles.assistanceButtonText}>WhatsApp Yombal Yoon</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
 
         {/* Profile Form */}
         <View style={[styles.formCard, { backgroundColor: isDark ? colors.darkCard : colors.card }]}>
@@ -337,6 +419,42 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#FFFFFF',
     marginLeft: 12,
+  },
+  assistanceCard: {
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
+    boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.08)',
+    elevation: 3,
+  },
+  assistanceHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 12,
+  },
+  assistanceDescription: {
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: 16,
+  },
+  assistanceButtons: {
+    gap: 12,
+  },
+  assistanceButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 12,
+    padding: 16,
+    gap: 10,
+    boxShadow: '0px 3px 8px rgba(0, 0, 0, 0.15)',
+    elevation: 4,
+  },
+  assistanceButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
   formCard: {
     borderRadius: 16,
