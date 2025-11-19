@@ -27,16 +27,20 @@ Deno.serve(async (req) => {
         // (Dakar, Parcelles, Pikine, Guédiawaye, Keur Massar, 
         // Mbao, Bargny, Rufisque, Sébikotane, Bambilor, Diamaguène, Diamniadio)
         
-        // Types de lieux inclus :
-        // - Adresses et rues (types=address)
+        // Types de lieux inclus (TOUS LES TYPES) :
         // - Hôpitaux et centres de santé
-        // - Mosquées, églises et lieux de culte
+        // - Mosquées, églises et autres lieux de culte
         // - Rues, quartiers, communes et unités des Parcelles
         // - Ronds-points et carrefours
         // - Marchés, localités et lieux publics
         // - Universités, écoles et centres de formation
         // - Bâtiments administratifs et services publics
         // - Usines, zones industrielles et points de repère majeurs
+        // - Restaurants, cafés, hôtels
+        // - Banques, ATM
+        // - Parcs, stades, musées
+        // - Stations de bus, gares
+        // - Et tous les autres types de lieux
 
         const baseUrl = 'https://maps.googleapis.com/maps/api/place/autocomplete/json';
         const urlParams = new URLSearchParams({
@@ -44,12 +48,18 @@ Deno.serve(async (req) => {
           key: GOOGLE_MAPS_API_KEY,
         });
 
-        // Paramètre types : address pour inclure toutes les adresses et points de repère
+        // NE PAS INCLURE le paramètre 'types' pour obtenir TOUS les types de lieux
+        // Cela permet d'inclure :
+        // - establishment : tous les établissements (hôpitaux, écoles, mosquées, églises, marchés, etc.)
+        // - geocode : toutes les adresses géographiques (rues, quartiers, communes)
+        // - (regions) : régions administratives
+        // Si le paramètre types est fourni explicitement, on l'utilise (pour compatibilité)
         if (params.types) {
           urlParams.append('types', params.types);
+          console.log('Using explicit types parameter:', params.types);
         } else {
-          // Par défaut, utiliser 'address' pour couvrir tous les types de lieux
-          urlParams.append('types', 'address');
+          // PAS de paramètre types = TOUS les types de lieux sont inclus
+          console.log('No types parameter - including ALL place types (establishments, geocodes, POIs, etc.)');
         }
 
         // Location bias centré sur Dakar (14.6928°N, 17.4467°W)

@@ -80,7 +80,9 @@ export default function AddressAutocomplete({
       // APPEL GOOGLE PLACES API - AUTOCOMPLÉTION D'ADRESSE
       // ====================================================
       // Paramètres respectés :
-      // - types=address : pour inclure toutes les adresses et points de repère
+      // - PAS de paramètre types : pour inclure TOUS les types de lieux
+      //   (hôpitaux, mosquées, églises, écoles, universités, marchés,
+      //    ronds-points, carrefours, bâtiments administratifs, usines, etc.)
       // - language=fr : langue française
       // - components=country:sn : restriction au Sénégal
       // - location centré sur Dakar (14.6928,-17.4467)
@@ -90,7 +92,10 @@ export default function AddressAutocomplete({
         body: {
           action: 'autocomplete',
           input: input,
-          types: 'address', // Inclut adresses, rues, et tous les points de repère
+          // PAS de paramètre types - cela permet d'obtenir TOUS les types de lieux :
+          // - Établissements (establishment) : hôpitaux, écoles, mosquées, églises, marchés, etc.
+          // - Géocode : rues, quartiers, communes, unités des Parcelles
+          // - Points d'intérêt : ronds-points, carrefours, monuments, etc.
           location: '14.6928,-17.4467', // Centre sur Dakar
           radius: 45000, // 45 km - couvre Dakar, Parcelles, Pikine, Guédiawaye, etc.
           components: 'country:sn', // Restriction au Sénégal
