@@ -23,44 +23,41 @@ Deno.serve(async (req) => {
       case 'autocomplete': {
         // AUTOCOMPLÉTION D'ADRESSES (Module "Envoi de Colis")
         // ===================================================
-        // Zone couverte : Dakar métropolitaine uniquement
-        // (Dakar, Parcelles, Pikine, Guédiawaye, Keur Massar, 
-        // Mbao, Bargny, Rufisque, Sébikotane, Bambilor, Diamaguène, Diamniadio)
+        // Configuration pour Dakar métropolitaine :
+        // 
+        // ✅ AUCUN filtre types= : permet d'obtenir TOUS les types de lieux
+        //    - Adresses précises (rues, quartiers, communes, unités des Parcelles)
+        //    - Établissements (hôpitaux, mosquées, églises, écoles, universités)
+        //    - Points de repère (marchés, ronds-points, carrefours, monuments)
+        //    - Bâtiments administratifs et services publics
+        //    - Zones industrielles, usines
+        //    - Commerces, restaurants, hôtels
+        //    - Stations de transport
+        // 
+        // ✅ components=country:sn : restriction au Sénégal uniquement
+        // ✅ language=fr : langue française
+        // ✅ location centré sur Dakar (14.6928,-17.4467)
+        // ✅ radius=45000 : 45 km pour couvrir toute la zone métropolitaine
+        //    (Dakar, Parcelles, Pikine, Guédiawaye, Keur Massar, Mbao, 
+        //     Bargny, Rufisque, Sébikotane, Bambilor, Diamaguène, Diamniadio)
+        // ✅ strictbounds=true : limite strictement à la zone spécifiée
         
-        // Types de lieux inclus (TOUS LES TYPES) :
-        // - Hôpitaux et centres de santé
-        // - Mosquées, églises et autres lieux de culte
-        // - Rues, quartiers, communes et unités des Parcelles
-        // - Ronds-points et carrefours
-        // - Marchés, localités et lieux publics
-        // - Universités, écoles et centres de formation
-        // - Bâtiments administratifs et services publics
-        // - Usines, zones industrielles et points de repère majeurs
-        // - Restaurants, cafés, hôtels
-        // - Banques, ATM
-        // - Parcs, stades, musées
-        // - Stations de bus, gares
-        // - Et tous les autres types de lieux
-
         const baseUrl = 'https://maps.googleapis.com/maps/api/place/autocomplete/json';
         const urlParams = new URLSearchParams({
           input: params.input,
           key: GOOGLE_MAPS_API_KEY,
         });
 
-        // NE PAS INCLURE le paramètre 'types' pour obtenir TOUS les types de lieux
-        // Cela permet d'inclure :
+        // ⚠️ IMPORTANT : NE JAMAIS INCLURE le paramètre 'types'
+        // L'absence de ce paramètre permet d'obtenir TOUS les types de lieux :
         // - establishment : tous les établissements (hôpitaux, écoles, mosquées, églises, marchés, etc.)
         // - geocode : toutes les adresses géographiques (rues, quartiers, communes)
         // - (regions) : régions administratives
-        // Si le paramètre types est fourni explicitement, on l'utilise (pour compatibilité)
-        if (params.types) {
-          urlParams.append('types', params.types);
-          console.log('Using explicit types parameter:', params.types);
-        } else {
-          // PAS de paramètre types = TOUS les types de lieux sont inclus
-          console.log('No types parameter - including ALL place types (establishments, geocodes, POIs, etc.)');
-        }
+        // - point_of_interest : points d'intérêt (monuments, ronds-points, carrefours, etc.)
+        // 
+        // Si on ajoutait types=address, on exclurait les établissements et POI
+        // Si on ajoutait types=(regions), on exclurait les adresses précises
+        console.log('⚠️ No types parameter - including ALL place types (establishments, geocodes, POIs, regions, etc.)');
 
         // Location bias centré sur Dakar (14.6928°N, 17.4467°W)
         if (params.location) {

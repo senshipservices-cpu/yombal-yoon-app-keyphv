@@ -79,25 +79,32 @@ export default function AddressAutocomplete({
 
       // APPEL GOOGLE PLACES API - AUTOCOMPLÉTION D'ADRESSE
       // ====================================================
-      // Paramètres respectés :
-      // - PAS de paramètre types : pour inclure TOUS les types de lieux
-      //   (hôpitaux, mosquées, églises, écoles, universités, marchés,
-      //    ronds-points, carrefours, bâtiments administratifs, usines, etc.)
-      // - language=fr : langue française
-      // - components=country:sn : restriction au Sénégal
-      // - location centré sur Dakar (14.6928,-17.4467)
-      // - radius ≈ 45000 (45 km) : couvre toute la zone métropolitaine de Dakar
+      // Configuration pour Dakar métropolitaine :
+      // 
+      // ✅ AUCUN filtre types= : permet d'obtenir TOUS les types de lieux
+      //    - Adresses précises (rues, quartiers, communes, unités des Parcelles)
+      //    - Établissements (hôpitaux, mosquées, églises, écoles, universités)
+      //    - Points de repère (marchés, ronds-points, carrefours, monuments)
+      //    - Bâtiments administratifs et services publics
+      //    - Zones industrielles, usines
+      //    - Commerces, restaurants, hôtels
+      //    - Stations de transport
+      // 
+      // ✅ components=country:sn : restriction au Sénégal uniquement
+      // ✅ language=fr : langue française
+      // ✅ location=14.6928,-17.4467 : centré sur Dakar
+      // ✅ radius=45000 : 45 km pour couvrir toute la zone métropolitaine
+      //    (Dakar, Parcelles, Pikine, Guédiawaye, Keur Massar, Mbao, 
+      //     Bargny, Rufisque, Sébikotane, Bambilor, Diamaguène, Diamniadio)
+      // ✅ strictbounds=true : limite strictement à la zone spécifiée
       
       const { data, error } = await supabase.functions.invoke('google-places-proxy', {
         body: {
           action: 'autocomplete',
           input: input,
-          // PAS de paramètre types - cela permet d'obtenir TOUS les types de lieux :
-          // - Établissements (establishment) : hôpitaux, écoles, mosquées, églises, marchés, etc.
-          // - Géocode : rues, quartiers, communes, unités des Parcelles
-          // - Points d'intérêt : ronds-points, carrefours, monuments, etc.
+          // ⚠️ PAS de paramètre types - cela permet d'obtenir TOUS les types de lieux
           location: '14.6928,-17.4467', // Centre sur Dakar
-          radius: 45000, // 45 km - couvre Dakar, Parcelles, Pikine, Guédiawaye, etc.
+          radius: 45000, // 45 km - couvre toute la zone métropolitaine de Dakar
           components: 'country:sn', // Restriction au Sénégal
           language: 'fr', // Langue française
           strictbounds: true, // Limite strictement à la zone spécifiée
