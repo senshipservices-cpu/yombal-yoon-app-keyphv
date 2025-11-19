@@ -36,7 +36,7 @@ export default function HomeScreen() {
     if (profile.roles.delivery) roles.push('delivery');
     
     registerForPushNotifications('current_user', roles);
-  }, [profile.roles]);
+  }, [profile.roles, registerForPushNotifications]);
 
   useEffect(() => {
     // Select tip based on day of the month

@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -78,7 +78,7 @@ export default function PublishRideScreen() {
     if (departureLat && departureLng && arrivalLat && arrivalLng) {
       calculateDistanceAndDuration();
     }
-  }, [departureLat, departureLng, arrivalLat, arrivalLng]);
+  }, [departureLat, departureLng, arrivalLat, arrivalLng, calculateDistanceAndDuration]);
 
   const loadFavoriteRoute = async () => {
     try {
@@ -112,7 +112,7 @@ export default function PublishRideScreen() {
     }
   };
 
-  const calculateDistanceAndDuration = async () => {
+  const calculateDistanceAndDuration = useCallback(async () => {
     if (!departureLat || !departureLng || !arrivalLat || !arrivalLng) {
       return;
     }
@@ -165,7 +165,7 @@ export default function PublishRideScreen() {
     } finally {
       setIsCalculatingDistance(false);
     }
-  };
+  }, [departureLat, departureLng, arrivalLat, arrivalLng]);
 
   const handleUseUsualRoute = () => {
     if (!favoriteRoute) {

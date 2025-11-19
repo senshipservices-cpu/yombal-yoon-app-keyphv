@@ -33,7 +33,7 @@ export default function PendingAssignmentsScreen() {
 
   useEffect(() => {
     registerForPushNotifications();
-  }, []);
+  }, [registerForPushNotifications]);
 
   const pendingAssignments = assignments.filter(
     a => a.deliveryPersonId === deliveryPersonId && a.status === 'pending'

@@ -1,5 +1,5 @@
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase, isSupabaseConfigured, ParcelRow } from '@/config/supabase';
 import { demoMode } from '@/config/demoMode';
@@ -120,7 +120,7 @@ export function ColisProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [loadData]);
 
   // Auto-calculate distance when both coordinates are available using Google Distance Matrix API
   useEffect(() => {
@@ -203,7 +203,7 @@ export function ColisProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       // If Supabase is configured and not in demo mode, load from Supabase
       if (isSupabaseConfigured() && !demoMode) {
@@ -219,7 +219,7 @@ export function ColisProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
   const loadFromSupabase = async () => {
     try {

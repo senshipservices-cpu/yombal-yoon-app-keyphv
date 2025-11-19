@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -63,9 +63,9 @@ export default function SearchResultsScreen() {
 
   useEffect(() => {
     searchRides();
-  }, []);
+  }, [searchRides]);
 
-  const searchRides = async () => {
+  const searchRides = useCallback(async () => {
     setIsLoading(true);
     setError(null);
 
@@ -104,7 +104,7 @@ export default function SearchResultsScreen() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [departureCity, arrivalCity, searchDate, passengers]);
 
   const handleBookRide = async (ride: RideResult) => {
     if (!passengerName.trim()) {

@@ -29,7 +29,7 @@ export default function MyRidesScreen() {
   useEffect(() => {
     // Register for push notifications when screen loads
     registerForPushNotifications();
-  }, []);
+  }, [registerForPushNotifications]);
 
   const handleRefresh = async () => {
     setRefreshing(true);

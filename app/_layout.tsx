@@ -58,7 +58,7 @@ function RootLayoutNav() {
       console.log('Redirecting to home');
       router.replace('/(tabs)/(home)/');
     }
-  }, [isOnboardingDone, segments]);
+  }, [isOnboardingDone, segments, router]);
 
   // Show loading screen while checking onboarding status
   if (isOnboardingDone === null) {

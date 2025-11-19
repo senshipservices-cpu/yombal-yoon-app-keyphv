@@ -1,5 +1,5 @@
 
-import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+/// <reference types="https://esm.sh/@supabase/functions-js/src/edge-runtime.d.ts" />
 
 const GOOGLE_MAPS_API_KEY = "AIzaSyCyIEHUEYap3t8z_lqy2tCNhHFBhYHTSHQ";
 
