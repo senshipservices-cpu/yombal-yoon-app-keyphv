@@ -63,6 +63,8 @@ export default function PublishRideScreen() {
   const [favoriteRoute, setFavoriteRoute] = useState<FavoriteRoute | null>(null);
   const [showNoFavoriteMessage, setShowNoFavoriteMessage] = useState(false);
 
+  const [validationErrors, setValidationErrors] = useState<string[]>([]);
+
   useEffect(() => {
     loadFavoriteRoute();
   }, []);
@@ -184,7 +186,7 @@ export default function PublishRideScreen() {
 
     Alert.alert(
       'Trajet habituel chargé',
-      'Veuillez sélectionner la date du trajet.',
+      'Veuillez sélectionner la date du trajet et confirmer les villes dans les suggestions.',
       [{ text: 'OK' }]
     );
 
@@ -192,19 +194,19 @@ export default function PublishRideScreen() {
   };
 
   const handleSelectDepartureCity = (city: string, placeId: string, lat: number, lng: number) => {
+    console.log('Departure city selected:', { city, placeId, lat, lng });
     setDepartureCity(city);
     setDeparturePlaceId(placeId);
     setDepartureLat(lat);
     setDepartureLng(lng);
-    console.log('Departure city selected:', { city, lat, lng });
   };
 
   const handleSelectArrivalCity = (city: string, placeId: string, lat: number, lng: number) => {
+    console.log('Arrival city selected:', { city, placeId, lat, lng });
     setArrivalCity(city);
     setArrivalPlaceId(placeId);
     setArrivalLat(lat);
     setArrivalLng(lng);
-    console.log('Arrival city selected:', { city, lat, lng });
   };
 
   const handleDateChange = (event: any, selectedDate?: Date) => {
@@ -312,33 +314,112 @@ export default function PublishRideScreen() {
     return `${mins} min`;
   };
 
+  const validateForm = (): { isValid: boolean; errors: string[] } => {
+    const errors: string[] = [];
+
+    if (departureCity.trim() === '') {
+      errors.push('Ville de départ requise');
+    } else if (!departureLat || !departureLng) {
+      errors.push('Veuillez sélectionner la ville de départ dans la liste');
+    }
+
+    if (arrivalCity.trim() === '') {
+      errors.push('Ville d\'arrivée requise');
+    } else if (!arrivalLat || !arrivalLng) {
+      errors.push('Veuillez sélectionner la ville d\'arrivée dans la liste');
+    }
+
+    if (!departureDate) {
+      errors.push('Date du trajet requise');
+    }
+
+    if (!departureTime) {
+      errors.push('Heure de départ requise');
+    }
+
+    if (availableSeats.trim() === '') {
+      errors.push('Nombre de places requis');
+    } else {
+      const seats = parseInt(availableSeats);
+      if (isNaN(seats) || seats < 1 || seats > 8) {
+        errors.push('Le nombre de places doit être entre 1 et 8');
+      }
+    }
+
+    if (pricePerPassenger.trim() === '') {
+      errors.push('Prix par passager requis');
+    } else {
+      const price = parseInt(pricePerPassenger);
+      if (isNaN(price) || price <= 0) {
+        errors.push('Le prix doit être supérieur à 0');
+      }
+    }
+
+    return {
+      isValid: errors.length === 0,
+      errors,
+    };
+  };
+
   const canSubmit = (): boolean => {
-    return (
-      departureCity.trim() !== '' &&
-      arrivalCity.trim() !== '' &&
-      departureDate !== null &&
-      departureTime !== null &&
-      availableSeats.trim() !== '' &&
-      parseInt(availableSeats) >= 1 &&
-      parseInt(availableSeats) <= 8 &&
-      pricePerPassenger.trim() !== '' &&
-      parseInt(pricePerPassenger) > 0 &&
-      departureLat !== null &&
-      departureLng !== null &&
-      arrivalLat !== null &&
-      arrivalLng !== null
-    );
+    const validation = validateForm();
+    return validation.isValid;
   };
 
   const handleSubmit = async () => {
-    if (!canSubmit()) {
-      Alert.alert('Erreur', 'Veuillez remplir tous les champs obligatoires correctement.');
+    console.log('Submit button pressed');
+    console.log('Form state:', {
+      departureCity,
+      arrivalCity,
+      departureDate,
+      departureTime,
+      availableSeats,
+      pricePerPassenger,
+      departureLat,
+      departureLng,
+      arrivalLat,
+      arrivalLng,
+    });
+
+    const validation = validateForm();
+    
+    if (!validation.isValid) {
+      console.log('Validation errors:', validation.errors);
+      setValidationErrors(validation.errors);
+      
+      Alert.alert(
+        'Formulaire incomplet',
+        'Veuillez corriger les erreurs suivantes :\n\n' + validation.errors.map((e, i) => `${i + 1}. ${e}`).join('\n'),
+        [{ text: 'OK' }]
+      );
       return;
     }
+
+    setValidationErrors([]);
 
     try {
       const seats = parseInt(availableSeats);
       const price = parseInt(pricePerPassenger);
+
+      console.log('Publishing ride with data:', {
+        driverId: 'driver_' + Date.now(),
+        driverName: profile.fullName || 'Conducteur',
+        departureCity: departureCity.trim(),
+        arrivalCity: arrivalCity.trim(),
+        date: departureDate!.toISOString().split('T')[0],
+        time: formatTime(departureTime!),
+        availableSeats: seats,
+        totalSeats: seats,
+        pricePerPassenger: price,
+        vehicleType: vehicleType.trim() || undefined,
+        intermediateStops: intermediateStops.trim() || undefined,
+        departureLat: departureLat!,
+        departureLng: departureLng!,
+        arrivalLat: arrivalLat!,
+        arrivalLng: arrivalLng!,
+        distanceKm: rideDistanceKm,
+        durationMinutes: rideDurationMinutes,
+      });
 
       await addRide({
         driverId: 'driver_' + Date.now(),
@@ -370,7 +451,7 @@ export default function PublishRideScreen() {
       ]);
     } catch (error) {
       console.error('Error publishing ride:', error);
-      Alert.alert('Erreur', 'Erreur lors de la publication du trajet.');
+      Alert.alert('Erreur', 'Erreur lors de la publication du trajet. Veuillez réessayer.');
     }
   };
 
@@ -603,6 +684,8 @@ export default function PublishRideScreen() {
     return picker;
   };
 
+  const isButtonEnabled = canSubmit();
+
   return (
     <View style={[styles.container, { backgroundColor: isDark ? colors.darkBackground : colors.background }]}>
       <View style={[styles.header, { backgroundColor: '#FF8C00' }]}>
@@ -659,6 +742,27 @@ export default function PublishRideScreen() {
               <Text style={[styles.noFavoriteMessageText, { color: colors.warning }]}>
                 Vous n&apos;avez pas encore de trajet habituel. Publiez un premier trajet pour l&apos;enregistrer.
               </Text>
+            </View>
+          )}
+
+          {validationErrors.length > 0 && (
+            <View style={[styles.errorContainer, { backgroundColor: colors.error + '20', borderColor: colors.error }]}>
+              <IconSymbol
+                ios_icon_name="exclamationmark.triangle.fill"
+                android_material_icon_name="error"
+                size={20}
+                color={colors.error}
+              />
+              <View style={styles.errorTextContainer}>
+                <Text style={[styles.errorTitle, { color: colors.error }]}>
+                  Veuillez corriger les erreurs suivantes :
+                </Text>
+                {validationErrors.map((error, index) => (
+                  <Text key={index} style={[styles.errorText, { color: colors.error }]}>
+                    • {error}
+                  </Text>
+                ))}
+              </View>
             </View>
           )}
 
@@ -722,6 +826,7 @@ export default function PublishRideScreen() {
                 styles.pickerButton,
                 {
                   backgroundColor: isDark ? colors.darkCard : colors.card,
+                  borderColor: !departureDate && validationErrors.length > 0 ? colors.error : colors.border,
                 },
               ]}
               onPress={() => {
@@ -757,6 +862,7 @@ export default function PublishRideScreen() {
                 styles.pickerButton,
                 {
                   backgroundColor: isDark ? colors.darkCard : colors.card,
+                  borderColor: !departureTime && validationErrors.length > 0 ? colors.error : colors.border,
                 },
               ]}
               onPress={() => {
@@ -792,6 +898,7 @@ export default function PublishRideScreen() {
                 {
                   backgroundColor: isDark ? colors.darkCard : colors.card,
                   color: isDark ? colors.darkText : colors.text,
+                  borderColor: availableSeats.trim() === '' && validationErrors.length > 0 ? colors.error : colors.border,
                 },
               ]}
               placeholder="Ex: 3"
@@ -813,6 +920,7 @@ export default function PublishRideScreen() {
                 {
                   backgroundColor: isDark ? colors.darkCard : colors.card,
                   color: isDark ? colors.darkText : colors.text,
+                  borderColor: pricePerPassenger.trim() === '' && validationErrors.length > 0 ? colors.error : colors.border,
                 },
               ]}
               placeholder="Ex: 5000"
@@ -868,15 +976,40 @@ export default function PublishRideScreen() {
             style={[
               styles.submitButton,
               {
-                backgroundColor: canSubmit() ? colors.primary : colors.border,
+                backgroundColor: isButtonEnabled ? colors.primary : colors.border,
+                opacity: isButtonEnabled ? 1 : 0.6,
               },
             ]}
             onPress={handleSubmit}
-            disabled={!canSubmit()}
+            disabled={!isButtonEnabled}
             activeOpacity={0.7}
           >
-            <Text style={styles.submitButtonText}>Publier un trajet</Text>
+            <Text style={[styles.submitButtonText, { color: isButtonEnabled ? '#FFFFFF' : colors.textSecondary }]}>
+              Publier un trajet
+            </Text>
+            {isButtonEnabled && (
+              <IconSymbol
+                ios_icon_name="checkmark.circle.fill"
+                android_material_icon_name="check-circle"
+                size={24}
+                color="#FFFFFF"
+              />
+            )}
           </TouchableOpacity>
+
+          {!isButtonEnabled && (
+            <View style={styles.helpTextContainer}>
+              <IconSymbol
+                ios_icon_name="info.circle"
+                android_material_icon_name="info"
+                size={16}
+                color={colors.textSecondary}
+              />
+              <Text style={[styles.helpText, { color: colors.textSecondary }]}>
+                Remplissez tous les champs obligatoires (*) et sélectionnez les villes dans les suggestions pour activer le bouton.
+              </Text>
+            </View>
+          )}
         </View>
       </ScrollView>
 
@@ -950,6 +1083,28 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     lineHeight: 20,
   },
+  errorContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 20,
+    gap: 12,
+    borderWidth: 1,
+  },
+  errorTextContainer: {
+    flex: 1,
+  },
+  errorTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    marginBottom: 8,
+  },
+  errorText: {
+    fontSize: 13,
+    fontWeight: '500',
+    marginBottom: 4,
+  },
   distanceCard: {
     borderRadius: 12,
     padding: 16,
@@ -1004,11 +1159,25 @@ const styles = StyleSheet.create({
     padding: 18,
     alignItems: 'center',
     marginTop: 20,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
   },
   submitButtonText: {
-    color: '#FFFFFF',
     fontSize: 18,
     fontWeight: '700',
+  },
+  helpTextContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginTop: 12,
+    gap: 8,
+    paddingHorizontal: 4,
+  },
+  helpText: {
+    flex: 1,
+    fontSize: 13,
+    lineHeight: 18,
   },
   modalOverlay: {
     flex: 1,
