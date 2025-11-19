@@ -2,6 +2,11 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+export interface Location {
+  lat: number;
+  lng: number;
+}
+
 export interface ParcelRequest {
   id: string;
   senderName: string;
@@ -9,9 +14,18 @@ export interface ParcelRequest {
   recipientName: string;
   recipientPhone: string;
   departureAddress: string;
+  departureLocation?: Location;
   arrivalAddress: string;
+  arrivalLocation?: Location;
   description: string;
   status: 'pending' | 'accepted' | 'in_transit' | 'delivered' | 'cancelled';
+  deliveryOption: 'standard' | 'express';
+  pricing?: {
+    distance: number;
+    baseFee: number;
+    kmFee: number;
+    total: number;
+  };
   createdAt: string;
 }
 

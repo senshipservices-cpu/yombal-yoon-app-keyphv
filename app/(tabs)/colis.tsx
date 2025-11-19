@@ -4,7 +4,12 @@ import { View, Text, StyleSheet, ScrollView, Platform, TextInput, TouchableOpaci
 import { useTheme } from "@react-navigation/native";
 import { colors } from "@/styles/commonStyles";
 import { IconSymbol } from "@/components/IconSymbol";
-import { useColis } from "@/contexts/ColisContext";
+import { useColis, Location } from "@/contexts/ColisContext";
+import AddressAutocomplete from "@/components/AddressAutocomplete";
+import { calculateDistance, calculateDeliveryPrice } from "@/utils/distance";
+
+// Replace with your actual Google Maps API key
+const GOOGLE_MAPS_API_KEY = 'YOUR_GOOGLE_MAPS_API_KEY';
 
 export default function ColisScreen() {
   const theme = useTheme();
@@ -16,10 +21,24 @@ export default function ColisScreen() {
   const [recipientName, setRecipientName] = useState('');
   const [recipientPhone, setRecipientPhone] = useState('');
   const [departureAddress, setDepartureAddress] = useState('');
+  const [departureLocation, setDepartureLocation] = useState<Location | null>(null);
   const [arrivalAddress, setArrivalAddress] = useState('');
+  const [arrivalLocation, setArrivalLocation] = useState<Location | null>(null);
   const [description, setDescription] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+
+  // Calculate pricing when both locations are available
+  const pricing = departureLocation && arrivalLocation
+    ? calculateDeliveryPrice(
+        calculateDistance(
+          departureLocation.lat,
+          departureLocation.lng,
+          arrivalLocation.lat,
+          arrivalLocation.lng
+        )
+      )
+    : null;
 
   const canSubmit = 
     senderName.trim() !== '' &&
@@ -27,13 +46,15 @@ export default function ColisScreen() {
     recipientName.trim() !== '' &&
     recipientPhone.trim() !== '' &&
     departureAddress.trim() !== '' &&
+    departureLocation !== null &&
     arrivalAddress.trim() !== '' &&
+    arrivalLocation !== null &&
     description.trim() !== '' &&
     !isSubmitting;
 
   const handleSubmit = async () => {
     if (!canSubmit) {
-      Alert.alert('Erreur', 'Veuillez remplir tous les champs');
+      Alert.alert('Erreur', 'Veuillez remplir tous les champs et sélectionner des adresses valides');
       return;
     }
 
@@ -46,8 +67,12 @@ export default function ColisScreen() {
         recipientName: recipientName.trim(),
         recipientPhone: recipientPhone.trim(),
         departureAddress: departureAddress.trim(),
+        departureLocation: departureLocation!,
         arrivalAddress: arrivalAddress.trim(),
+        arrivalLocation: arrivalLocation!,
         description: description.trim(),
+        deliveryOption: 'standard',
+        pricing: pricing || undefined,
       });
 
       if (result.success) {
@@ -57,7 +82,9 @@ export default function ColisScreen() {
         setRecipientName('');
         setRecipientPhone('');
         setDepartureAddress('');
+        setDepartureLocation(null);
         setArrivalAddress('');
+        setArrivalLocation(null);
         setDescription('');
         
         // Show success message
@@ -225,45 +252,87 @@ export default function ColisScreen() {
               Détails du Colis
             </Text>
 
-            <View style={styles.inputGroup}>
-              <Text style={[styles.label, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-                Adresse de départ
-              </Text>
-              <TextInput
-                style={[
-                  styles.input,
-                  {
-                    backgroundColor: isDark ? colors.darkBackground : colors.background,
-                    color: isDark ? colors.darkText : colors.text,
-                    borderColor: isDark ? colors.darkCard : colors.border,
-                  }
-                ]}
-                placeholder="Ville, quartier, rue..."
-                placeholderTextColor={isDark ? colors.darkTextSecondary : colors.textSecondary}
-                value={departureAddress}
-                onChangeText={setDepartureAddress}
-              />
-            </View>
+            {/* Address Autocomplete Fields */}
+            <AddressAutocomplete
+              value={departureAddress}
+              onChangeText={setDepartureAddress}
+              onSelectAddress={(address, location) => {
+                setDepartureAddress(address);
+                setDepartureLocation(location);
+                console.log('Departure location:', location);
+              }}
+              placeholder="Rechercher une adresse à Dakar..."
+              label="Adresse de départ"
+              apiKey={GOOGLE_MAPS_API_KEY}
+            />
 
-            <View style={styles.inputGroup}>
-              <Text style={[styles.label, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-                Adresse d&apos;arrivée
-              </Text>
-              <TextInput
-                style={[
-                  styles.input,
-                  {
-                    backgroundColor: isDark ? colors.darkBackground : colors.background,
-                    color: isDark ? colors.darkText : colors.text,
-                    borderColor: isDark ? colors.darkCard : colors.border,
-                  }
-                ]}
-                placeholder="Ville, quartier, rue..."
-                placeholderTextColor={isDark ? colors.darkTextSecondary : colors.textSecondary}
-                value={arrivalAddress}
-                onChangeText={setArrivalAddress}
-              />
-            </View>
+            <AddressAutocomplete
+              value={arrivalAddress}
+              onChangeText={setArrivalAddress}
+              onSelectAddress={(address, location) => {
+                setArrivalAddress(address);
+                setArrivalLocation(location);
+                console.log('Arrival location:', location);
+              }}
+              placeholder="Rechercher une adresse à Dakar..."
+              label="Adresse d'arrivée"
+              apiKey={GOOGLE_MAPS_API_KEY}
+            />
+
+            {/* Pricing Display */}
+            {pricing && (
+              <View style={[styles.pricingCard, { backgroundColor: isDark ? colors.darkBackground : colors.background }]}>
+                <Text style={[styles.pricingTitle, { color: isDark ? colors.darkText : colors.text }]}>
+                  Tarification
+                </Text>
+                
+                <View style={styles.pricingRow}>
+                  <Text style={[styles.pricingLabel, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+                    Distance
+                  </Text>
+                  <Text style={[styles.pricingValue, { color: isDark ? colors.darkText : colors.text }]}>
+                    {pricing.distance} km
+                  </Text>
+                </View>
+
+                <View style={styles.pricingRow}>
+                  <Text style={[styles.pricingLabel, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+                    Frais de base
+                  </Text>
+                  <Text style={[styles.pricingValue, { color: isDark ? colors.darkText : colors.text }]}>
+                    {pricing.baseFee} FCFA
+                  </Text>
+                </View>
+
+                <View style={styles.pricingRow}>
+                  <Text style={[styles.pricingLabel, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+                    Frais kilométriques
+                  </Text>
+                  <Text style={[styles.pricingValue, { color: isDark ? colors.darkText : colors.text }]}>
+                    {pricing.kmFee} FCFA
+                  </Text>
+                </View>
+
+                <View style={[styles.divider, { marginVertical: 12 }]} />
+
+                <View style={styles.pricingRow}>
+                  <Text style={[styles.pricingTotalLabel, { color: isDark ? colors.darkText : colors.text }]}>
+                    Total
+                  </Text>
+                  <Text style={[styles.pricingTotalValue, { color: colors.accent }]}>
+                    {pricing.total} FCFA
+                  </Text>
+                </View>
+
+                <View style={styles.deliveryOptionContainer}>
+                  <View style={[styles.deliveryBadge, { backgroundColor: colors.primary + '20' }]}>
+                    <Text style={[styles.deliveryBadgeText, { color: colors.primary }]}>
+                      STANDARD
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            )}
 
             <View style={styles.inputGroup}>
               <Text style={[styles.label, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
@@ -424,6 +493,52 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: colors.border,
     marginVertical: 20,
+  },
+  pricingCard: {
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  pricingTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 12,
+  },
+  pricingRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  pricingLabel: {
+    fontSize: 14,
+  },
+  pricingValue: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  pricingTotalLabel: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  pricingTotalValue: {
+    fontSize: 20,
+    fontWeight: '800',
+  },
+  deliveryOptionContainer: {
+    marginTop: 12,
+    alignItems: 'center',
+  },
+  deliveryBadge: {
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+  deliveryBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
   },
   submitButton: {
     borderRadius: 12,
