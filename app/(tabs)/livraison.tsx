@@ -21,6 +21,7 @@ export default function LivraisonScreen() {
   const [destinationData, setDestinationData] = useState<any>(null);
   const [description, setDescription] = useState('');
   const [showSuccess, setShowSuccess] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const baseFee = 1000;
 
@@ -30,8 +31,8 @@ export default function LivraisonScreen() {
   };
 
   const handleSubmit = async () => {
-    if (!senderName || !senderPhone || !recipientName || !recipientPhone || !destination || !description) {
-      Alert.alert('Erreur', 'Veuillez remplir tous les champs');
+    if (!senderName || !senderPhone || !recipientName || !recipientPhone || !destination) {
+      Alert.alert('Erreur', 'Veuillez remplir tous les champs obligatoires');
       return;
     }
 
@@ -39,6 +40,8 @@ export default function LivraisonScreen() {
       Alert.alert('Erreur', 'Veuillez sélectionner une destination valide');
       return;
     }
+
+    setIsSubmitting(true);
 
     const requestData = {
       senderName,
@@ -48,7 +51,7 @@ export default function LivraisonScreen() {
       departureRegion: 'Dakar Métropolitaine',
       destinationRegion: destinationData.region || destinationData.name,
       destinationDepartment: destinationData.type === 'department' ? destinationData.name : '',
-      description,
+      description: description || '',
       pricing: {
         baseFee,
         destinationFee: destinationData.price,
@@ -57,6 +60,8 @@ export default function LivraisonScreen() {
     };
 
     const result = await addInterRegionalRequest(requestData);
+
+    setIsSubmitting(false);
 
     if (result.success) {
       setShowSuccess(true);
@@ -68,11 +73,21 @@ export default function LivraisonScreen() {
       setDestinationData(null);
       setDescription('');
 
+      Alert.alert(
+        '✅ Demande enregistrée',
+        'Votre demande de livraison vers la région a été enregistrée. L\'équipe Yombal Yoon vous contactera pour la prise en charge.',
+        [{ text: 'OK' }]
+      );
+
       setTimeout(() => {
         setShowSuccess(false);
       }, 5000);
     } else {
-      Alert.alert('Erreur', 'Une erreur est survenue lors de la création de la demande');
+      Alert.alert(
+        '❌ Erreur',
+        result.error || 'Impossible d\'enregistrer la demande. Vérifiez votre connexion et réessayez.',
+        [{ text: 'OK' }]
+      );
     }
   };
 
@@ -146,8 +161,8 @@ export default function LivraisonScreen() {
               size={32}
               color="#FFFFFF"
             />
-            <Text style={styles.successText}>✅ Ce module fonctionne !</Text>
-            <Text style={styles.successSubtext}>Votre demande a été prise en compte.</Text>
+            <Text style={styles.successText}>✅ Demande enregistrée !</Text>
+            <Text style={styles.successSubtext}>L&apos;équipe Yombal Yoon vous contactera bientôt.</Text>
           </View>
         )}
 
@@ -159,7 +174,7 @@ export default function LivraisonScreen() {
             </Text>
 
             <Text style={[styles.label, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-              Nom complet
+              Nom complet *
             </Text>
             <TextInput
               style={[
@@ -177,7 +192,7 @@ export default function LivraisonScreen() {
             />
 
             <Text style={[styles.label, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-              Téléphone
+              Téléphone *
             </Text>
             <TextInput
               style={[
@@ -202,7 +217,7 @@ export default function LivraisonScreen() {
             </Text>
 
             <Text style={[styles.label, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-              Nom complet
+              Nom complet *
             </Text>
             <TextInput
               style={[
@@ -220,7 +235,7 @@ export default function LivraisonScreen() {
             />
 
             <Text style={[styles.label, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-              Téléphone
+              Téléphone *
             </Text>
             <TextInput
               style={[
@@ -258,11 +273,11 @@ export default function LivraisonScreen() {
               onChangeText={setDestination}
               onSelectDestination={setDestinationData}
               placeholder="Rechercher une région ou département"
-              label="Destination (Région / Département)"
+              label="Destination (Région / Département) *"
             />
 
             <Text style={[styles.label, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-              Description du colis
+              Description du colis (optionnel)
             </Text>
             <TextInput
               style={[
@@ -316,8 +331,13 @@ export default function LivraisonScreen() {
           )}
 
           <TouchableOpacity
-            style={[styles.submitButton, { backgroundColor: colors.accent }]}
+            style={[
+              styles.submitButton, 
+              { backgroundColor: colors.accent },
+              isSubmitting && styles.submitButtonDisabled
+            ]}
             onPress={handleSubmit}
+            disabled={isSubmitting}
           >
             <IconSymbol
               ios_icon_name="paperplane.fill"
@@ -325,7 +345,9 @@ export default function LivraisonScreen() {
               size={20}
               color="#FFFFFF"
             />
-            <Text style={styles.submitButtonText}>ENVOI COLIS EN RÉGION</Text>
+            <Text style={styles.submitButtonText}>
+              {isSubmitting ? 'ENVOI EN COURS...' : 'COMMANDER'}
+            </Text>
           </TouchableOpacity>
 
           {/* Demo Intercity Section */}
@@ -558,6 +580,9 @@ const styles = StyleSheet.create({
     gap: 12,
     boxShadow: '0px 4px 12px rgba(255, 0, 0, 0.3)',
     elevation: 5,
+  },
+  submitButtonDisabled: {
+    opacity: 0.6,
   },
   submitButtonText: {
     fontSize: 16,
