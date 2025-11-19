@@ -39,8 +39,8 @@ export default function PublishRideScreen() {
 
   const [departureCity, setDepartureCity] = useState('');
   const [arrivalCity, setArrivalCity] = useState('');
-  const [date, setDate] = useState<Date | null>(null);
-  const [time, setTime] = useState<Date | null>(null);
+  const [departureDate, setDepartureDate] = useState<Date | null>(null);
+  const [departureTime, setDepartureTime] = useState<Date | null>(null);
   const [availableSeats, setAvailableSeats] = useState('');
   const [pricePerPassenger, setPricePerPassenger] = useState('');
   const [vehicleType, setVehicleType] = useState('');
@@ -90,12 +90,12 @@ export default function PublishRideScreen() {
 
   const saveFavoriteRoute = async () => {
     try {
-      if (!time) return;
+      if (!departureTime) return;
 
       const route: FavoriteRoute = {
         departureCity: departureCity.trim(),
         arrivalCity: arrivalCity.trim(),
-        departureTime: formatTime(time),
+        departureTime: formatTime(departureTime),
         vehicleType: vehicleType.trim() || undefined,
       };
 
@@ -175,14 +175,14 @@ export default function PublishRideScreen() {
     const newTime = new Date();
     newTime.setHours(parseInt(hours, 10));
     newTime.setMinutes(parseInt(minutes, 10));
-    setTime(newTime);
+    setDepartureTime(newTime);
 
     if (favoriteRoute.vehicleType) {
       setVehicleType(favoriteRoute.vehicleType);
     }
 
     // Leave date empty for user to choose
-    setDate(null);
+    setDepartureDate(null);
 
     Alert.alert(
       'Trajet habituel chargé',
@@ -210,18 +210,42 @@ export default function PublishRideScreen() {
   };
 
   const handleDateChange = (event: any, selectedDate?: Date) => {
-    setShowDatePicker(false);
-    if (selectedDate) {
-      setDate(selectedDate);
+    // On Android, the picker closes automatically
+    if (Platform.OS === 'android') {
+      setShowDatePicker(false);
+    }
+    
+    if (event.type === 'set' && selectedDate) {
+      setDepartureDate(selectedDate);
       console.log('Date selected:', selectedDate);
+      
+      // Close picker on iOS after selection
+      if (Platform.OS === 'ios') {
+        setShowDatePicker(false);
+      }
+    } else if (event.type === 'dismissed') {
+      // User cancelled
+      setShowDatePicker(false);
     }
   };
 
   const handleTimeChange = (event: any, selectedTime?: Date) => {
-    setShowTimePicker(false);
-    if (selectedTime) {
-      setTime(selectedTime);
+    // On Android, the picker closes automatically
+    if (Platform.OS === 'android') {
+      setShowTimePicker(false);
+    }
+    
+    if (event.type === 'set' && selectedTime) {
+      setDepartureTime(selectedTime);
       console.log('Time selected:', selectedTime);
+      
+      // Close picker on iOS after selection
+      if (Platform.OS === 'ios') {
+        setShowTimePicker(false);
+      }
+    } else if (event.type === 'dismissed') {
+      // User cancelled
+      setShowTimePicker(false);
     }
   };
 
@@ -254,8 +278,8 @@ export default function PublishRideScreen() {
     return (
       departureCity.trim() !== '' &&
       arrivalCity.trim() !== '' &&
-      date !== null &&
-      time !== null &&
+      departureDate !== null &&
+      departureTime !== null &&
       availableSeats.trim() !== '' &&
       parseInt(availableSeats) >= 1 &&
       parseInt(availableSeats) <= 8 &&
@@ -283,8 +307,8 @@ export default function PublishRideScreen() {
         driverName: profile.fullName || 'Conducteur',
         departureCity: departureCity.trim(),
         arrivalCity: arrivalCity.trim(),
-        date: date!.toISOString().split('T')[0],
-        time: formatTime(time!),
+        date: departureDate!.toISOString().split('T')[0],
+        time: formatTime(departureTime!),
         availableSeats: seats,
         totalSeats: seats,
         pricePerPassenger: price,
@@ -442,14 +466,15 @@ export default function PublishRideScreen() {
                 },
               ]}
               onPress={() => setShowDatePicker(true)}
+              activeOpacity={0.7}
             >
               <Text
                 style={[
                   styles.pickerText,
-                  { color: date ? (isDark ? colors.darkText : colors.text) : colors.textSecondary },
+                  { color: departureDate ? (isDark ? colors.darkText : colors.text) : colors.textSecondary },
                 ]}
               >
-                {date ? formatDate(date) : 'Sélectionner une date'}
+                {departureDate ? formatDate(departureDate) : 'Sélectionner une date'}
               </Text>
               <IconSymbol
                 ios_icon_name="calendar"
@@ -462,7 +487,7 @@ export default function PublishRideScreen() {
 
           {showDatePicker && (
             <DateTimePicker
-              value={date || new Date()}
+              value={departureDate || new Date()}
               mode="date"
               display={Platform.OS === 'ios' ? 'spinner' : 'default'}
               onChange={handleDateChange}
@@ -484,14 +509,15 @@ export default function PublishRideScreen() {
                 },
               ]}
               onPress={() => setShowTimePicker(true)}
+              activeOpacity={0.7}
             >
               <Text
                 style={[
                   styles.pickerText,
-                  { color: time ? (isDark ? colors.darkText : colors.text) : colors.textSecondary },
+                  { color: departureTime ? (isDark ? colors.darkText : colors.text) : colors.textSecondary },
                 ]}
               >
-                {time ? formatTime(time) : 'Sélectionner une heure'}
+                {departureTime ? formatTime(departureTime) : 'Sélectionner une heure'}
               </Text>
               <IconSymbol
                 ios_icon_name="clock"
@@ -504,10 +530,11 @@ export default function PublishRideScreen() {
 
           {showTimePicker && (
             <DateTimePicker
-              value={time || new Date()}
+              value={departureTime || new Date()}
               mode="time"
               display={Platform.OS === 'ios' ? 'spinner' : 'default'}
               onChange={handleTimeChange}
+              is24Hour={true}
             />
           )}
 
