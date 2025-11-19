@@ -14,6 +14,7 @@ import { useRouter } from 'expo-router';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { colors } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
+import CityAutocomplete from '@/components/CityAutocomplete';
 
 export default function SearchRideScreen() {
   const theme = useTheme();
@@ -25,7 +26,30 @@ export default function SearchRideScreen() {
   const [date, setDate] = useState<Date | null>(null);
   const [numberOfPassengers, setNumberOfPassengers] = useState('1');
 
+  const [departurePlaceId, setDeparturePlaceId] = useState('');
+  const [arrivalPlaceId, setArrivalPlaceId] = useState('');
+  const [departureLat, setDepartureLat] = useState<number | null>(null);
+  const [departureLng, setDepartureLng] = useState<number | null>(null);
+  const [arrivalLat, setArrivalLat] = useState<number | null>(null);
+  const [arrivalLng, setArrivalLng] = useState<number | null>(null);
+
   const [showDatePicker, setShowDatePicker] = useState(false);
+
+  const handleSelectDepartureCity = (city: string, placeId: string, lat: number, lng: number) => {
+    console.log('Departure city selected:', { city, placeId, lat, lng });
+    setDepartureCity(city);
+    setDeparturePlaceId(placeId);
+    setDepartureLat(lat);
+    setDepartureLng(lng);
+  };
+
+  const handleSelectArrivalCity = (city: string, placeId: string, lat: number, lng: number) => {
+    console.log('Arrival city selected:', { city, placeId, lat, lng });
+    setArrivalCity(city);
+    setArrivalPlaceId(placeId);
+    setArrivalLat(lat);
+    setArrivalLng(lng);
+  };
 
   const handleDateChange = (event: any, selectedDate?: Date) => {
     setShowDatePicker(false);
@@ -60,6 +84,10 @@ export default function SearchRideScreen() {
       arrivalCity: arrivalCity.trim(),
       date: date ? date.toISOString() : new Date().toISOString(),
       numberOfPassengers: parseInt(numberOfPassengers),
+      departureLat: departureLat || 0,
+      departureLng: departureLng || 0,
+      arrivalLat: arrivalLat || 0,
+      arrivalLng: arrivalLng || 0,
     };
 
     console.log('Searching with params:', searchParams);
@@ -93,45 +121,23 @@ export default function SearchRideScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.content}>
-          {/* Departure City */}
-          <View style={styles.inputGroup}>
-            <Text style={[styles.label, { color: isDark ? colors.darkText : colors.text }]}>
-              Ville de départ *
-            </Text>
-            <TextInput
-              style={[
-                styles.input,
-                {
-                  backgroundColor: isDark ? colors.darkCard : colors.card,
-                  color: isDark ? colors.darkText : colors.text,
-                },
-              ]}
-              placeholder="Ex: Dakar"
-              placeholderTextColor={colors.textSecondary}
-              value={departureCity}
-              onChangeText={setDepartureCity}
-            />
-          </View>
+          {/* Departure City with Autocomplete */}
+          <CityAutocomplete
+            value={departureCity}
+            onChangeText={setDepartureCity}
+            onSelectCity={handleSelectDepartureCity}
+            placeholder="Ex: Dakar"
+            label="Ville de départ"
+          />
 
-          {/* Arrival City */}
-          <View style={styles.inputGroup}>
-            <Text style={[styles.label, { color: isDark ? colors.darkText : colors.text }]}>
-              Ville d&apos;arrivée *
-            </Text>
-            <TextInput
-              style={[
-                styles.input,
-                {
-                  backgroundColor: isDark ? colors.darkCard : colors.card,
-                  color: isDark ? colors.darkText : colors.text,
-                },
-              ]}
-              placeholder="Ex: Thiès"
-              placeholderTextColor={colors.textSecondary}
-              value={arrivalCity}
-              onChangeText={setArrivalCity}
-            />
-          </View>
+          {/* Arrival City with Autocomplete */}
+          <CityAutocomplete
+            value={arrivalCity}
+            onChangeText={setArrivalCity}
+            onSelectCity={handleSelectArrivalCity}
+            placeholder="Ex: Thiès"
+            label="Ville d'arrivée"
+          />
 
           {/* Date (Optional) */}
           <View style={styles.inputGroup}>
@@ -227,7 +233,8 @@ export default function SearchRideScreen() {
               color={colors.primary}
             />
             <Text style={[styles.infoText, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-              Recherchez des trajets disponibles en fonction de votre itinéraire et du nombre de passagers.
+              Recherchez des trajets disponibles en fonction de votre itinéraire et du nombre de passagers. 
+              Utilisez l&apos;autocomplétion pour sélectionner vos villes de départ et d&apos;arrivée.
             </Text>
           </View>
         </View>
