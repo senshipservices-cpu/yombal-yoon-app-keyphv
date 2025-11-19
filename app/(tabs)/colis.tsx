@@ -12,9 +12,6 @@ import AddressAutocomplete from "@/components/AddressAutocomplete";
 import { calculateDistance, calculateDeliveryPrice } from "@/utils/distance";
 import { demoMode, demoParcels } from "@/config/demoMode";
 
-// Replace with your actual Google Maps API key
-const GOOGLE_MAPS_API_KEY = 'YOUR_GOOGLE_MAPS_API_KEY';
-
 export default function ColisScreen() {
   const theme = useTheme();
   const isDark = theme.dark;
@@ -25,8 +22,9 @@ export default function ColisScreen() {
     calculatedPrice,
     setPickupCoordinates,
     setDropoffCoordinates,
-    setDistanceKm,
     resetCalculations,
+    pickupPlaceId,
+    dropoffPlaceId,
   } = useColis();
   const { assignParcelToNearbyDeliveryPersons } = useDelivery();
   const { profile } = useProfile();
@@ -42,38 +40,6 @@ export default function ColisScreen() {
   const [description, setDescription] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
-
-  // Pour tester : champ manuel pour la distance (en attendant Google Maps)
-  const [manualDistance, setManualDistance] = useState('');
-
-  // Update context when locations change
-  useEffect(() => {
-    if (departureLocation) {
-      setPickupCoordinates(departureLocation.lat, departureLocation.lng);
-    } else {
-      setPickupCoordinates(null, null);
-    }
-  }, [departureLocation]);
-
-  useEffect(() => {
-    if (arrivalLocation) {
-      setDropoffCoordinates(arrivalLocation.lat, arrivalLocation.lng);
-    } else {
-      setDropoffCoordinates(null, null);
-    }
-  }, [arrivalLocation]);
-
-  // Calculate pricing when both locations are available
-  const pricing = departureLocation && arrivalLocation
-    ? calculateDeliveryPrice(
-        calculateDistance(
-          departureLocation.lat,
-          departureLocation.lng,
-          arrivalLocation.lat,
-          arrivalLocation.lng
-        )
-      )
-    : null;
 
   const canSubmit = 
     senderName.trim() !== '' &&
@@ -136,7 +102,6 @@ export default function ColisScreen() {
         setArrivalAddress('');
         setArrivalLocation(null);
         setDescription('');
-        setManualDistance('');
         
         // Reset calculations
         resetCalculations();
@@ -159,17 +124,6 @@ export default function ColisScreen() {
       Alert.alert('Erreur', 'Une erreur est survenue. Veuillez réessayer.');
     } finally {
       setIsSubmitting(false);
-    }
-  };
-
-  // Handler pour le champ de distance manuel (test)
-  const handleManualDistanceChange = (text: string) => {
-    setManualDistance(text);
-    const distance = parseFloat(text);
-    if (!isNaN(distance) && distance >= 0) {
-      setDistanceKm(distance);
-    } else {
-      setDistanceKm(0);
     }
   };
 
@@ -380,93 +334,69 @@ export default function ColisScreen() {
             <AddressAutocomplete
               value={departureAddress}
               onChangeText={setDepartureAddress}
-              onSelectAddress={(address, location) => {
+              onSelectAddress={(address, location, placeId) => {
                 setDepartureAddress(address);
                 setDepartureLocation(location);
-                console.log('Departure location:', location);
+                setPickupCoordinates(location.lat, location.lng, placeId);
+                console.log('Adresse de départ sélectionnée:', { address, location, placeId });
               }}
               placeholder="Rechercher une adresse à Dakar..."
               label="Adresse de départ *"
-              apiKey={GOOGLE_MAPS_API_KEY}
             />
 
             <AddressAutocomplete
               value={arrivalAddress}
               onChangeText={setArrivalAddress}
-              onSelectAddress={(address, location) => {
+              onSelectAddress={(address, location, placeId) => {
                 setArrivalAddress(address);
                 setArrivalLocation(location);
-                console.log('Arrival location:', location);
+                setDropoffCoordinates(location.lat, location.lng, placeId);
+                console.log('Adresse d\'arrivée sélectionnée:', { address, location, placeId });
               }}
               placeholder="Rechercher une adresse à Dakar..."
               label="Adresse d'arrivée *"
-              apiKey={GOOGLE_MAPS_API_KEY}
             />
 
             {/* Distance et Prix estimés */}
-            <View style={[styles.estimationCard, { backgroundColor: isDark ? colors.darkBackground : colors.background }]}>
-              <View style={styles.estimationRow}>
-                <IconSymbol
-                  ios_icon_name="location.fill"
-                  android_material_icon_name="place"
-                  size={20}
-                  color={colors.primary}
-                />
-                <Text style={[styles.estimationLabel, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-                  Distance estimée :
-                </Text>
-                <Text style={[styles.estimationValue, { color: isDark ? colors.darkText : colors.text }]}>
-                  {distanceKm > 0 ? `${distanceKm.toFixed(1)} km` : '-- km'}
-                </Text>
-              </View>
+            {(departureLocation && arrivalLocation) && (
+              <View style={[styles.estimationCard, { backgroundColor: isDark ? colors.darkBackground : colors.background }]}>
+                <View style={styles.estimationRow}>
+                  <IconSymbol
+                    ios_icon_name="location.fill"
+                    android_material_icon_name="place"
+                    size={20}
+                    color={colors.primary}
+                  />
+                  <Text style={[styles.estimationLabel, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+                    Distance estimée :
+                  </Text>
+                  <Text style={[styles.estimationValue, { color: isDark ? colors.darkText : colors.text }]}>
+                    {distanceKm > 0 ? `${distanceKm.toFixed(1)} km` : '-- km'}
+                  </Text>
+                </View>
 
-              <View style={styles.estimationRow}>
-                <IconSymbol
-                  ios_icon_name="creditcard.fill"
-                  android_material_icon_name="payments"
-                  size={20}
-                  color={colors.accent}
-                />
-                <Text style={[styles.estimationLabel, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-                  Prix estimé :
-                </Text>
-                <Text style={[styles.estimationValue, { color: colors.accent, fontWeight: '700' }]}>
-                  {calculatedPrice > 0 ? `${calculatedPrice} FCFA` : '-- FCFA'}
-                </Text>
+                <View style={styles.estimationRow}>
+                  <IconSymbol
+                    ios_icon_name="creditcard.fill"
+                    android_material_icon_name="payments"
+                    size={20}
+                    color={colors.accent}
+                  />
+                  <Text style={[styles.estimationLabel, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+                    Prix estimé :
+                  </Text>
+                  <Text style={[styles.estimationValue, { color: colors.accent, fontWeight: '700' }]}>
+                    {calculatedPrice > 0 ? `${calculatedPrice} FCFA` : '-- FCFA'}
+                  </Text>
+                </View>
               </View>
-            </View>
-
-            {/* Champ de test pour la distance (temporaire) */}
-            <View style={[styles.testCard, { backgroundColor: '#FFF3CD', borderColor: '#FFC107' }]}>
-              <Text style={[styles.testTitle, { color: '#856404' }]}>
-                🧪 Test - Distance manuelle
-              </Text>
-              <Text style={[styles.testDescription, { color: '#856404' }]}>
-                En attendant Google Maps, saisissez une distance en km pour tester le calcul du prix :
-              </Text>
-              <TextInput
-                style={[
-                  styles.input,
-                  {
-                    backgroundColor: '#FFFFFF',
-                    color: '#000000',
-                    borderColor: '#FFC107',
-                    marginTop: 8,
-                  }
-                ]}
-                placeholder="Ex: 5.5"
-                placeholderTextColor="#999999"
-                value={manualDistance}
-                onChangeText={handleManualDistanceChange}
-                keyboardType="decimal-pad"
-              />
-            </View>
+            )}
 
             {/* Pricing Display */}
-            {pricing && (
+            {distanceKm > 0 && (
               <View style={[styles.pricingCard, { backgroundColor: isDark ? colors.darkBackground : colors.background }]}>
                 <Text style={[styles.pricingTitle, { color: isDark ? colors.darkText : colors.text }]}>
-                  Tarification
+                  Détail de la tarification
                 </Text>
                 
                 <View style={styles.pricingRow}>
@@ -474,7 +404,7 @@ export default function ColisScreen() {
                     Distance
                   </Text>
                   <Text style={[styles.pricingValue, { color: isDark ? colors.darkText : colors.text }]}>
-                    {pricing.distance} km
+                    {distanceKm.toFixed(1)} km
                   </Text>
                 </View>
 
@@ -483,7 +413,7 @@ export default function ColisScreen() {
                     Frais de base
                   </Text>
                   <Text style={[styles.pricingValue, { color: isDark ? colors.darkText : colors.text }]}>
-                    {pricing.baseFee} FCFA
+                    {PRICING_CONFIG.baseFee} FCFA
                   </Text>
                 </View>
 
@@ -492,7 +422,7 @@ export default function ColisScreen() {
                     Frais kilométriques
                   </Text>
                   <Text style={[styles.pricingValue, { color: isDark ? colors.darkText : colors.text }]}>
-                    {pricing.kmFee} FCFA
+                    {calculatedPrice - PRICING_CONFIG.baseFee} FCFA
                   </Text>
                 </View>
 
@@ -503,7 +433,7 @@ export default function ColisScreen() {
                     Total
                   </Text>
                   <Text style={[styles.pricingTotalValue, { color: colors.accent }]}>
-                    {pricing.total} FCFA
+                    {calculatedPrice} FCFA
                   </Text>
                 </View>
 
@@ -780,21 +710,6 @@ const styles = StyleSheet.create({
   estimationValue: {
     fontSize: 16,
     fontWeight: '700',
-  },
-  testCard: {
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    borderWidth: 2,
-  },
-  testTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    marginBottom: 4,
-  },
-  testDescription: {
-    fontSize: 13,
-    lineHeight: 18,
   },
   pricingCard: {
     borderRadius: 12,

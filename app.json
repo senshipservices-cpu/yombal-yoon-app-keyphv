@@ -1,3 +1,4 @@
+
 {
   "expo": {
     "name": "Yombal Yoon",
@@ -41,7 +42,8 @@
       "typedRoutes": true
     },
     "extra": {
-      "router": {}
+      "router": {},
+      "GOOGLE_MAPS_API_KEY": "AIzaSyCyIEHUEYap3t8z_lqy2tCNhHFBhYHTSHQ"
     }
   },
   "scheme": "Yombal Yoon"

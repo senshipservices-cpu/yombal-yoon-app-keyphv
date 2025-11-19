@@ -3,6 +3,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase, isSupabaseConfigured, ParcelRow } from '@/config/supabase';
 import { demoMode } from '@/config/demoMode';
+import { calculateDistance } from '@/utils/distance';
 
 export interface Location {
   lat: number;
@@ -51,15 +52,17 @@ interface ColisContextType {
   isLoading: boolean;
   refreshParcels: () => Promise<void>;
   
-  // New: Distance and price calculation
+  // Distance and price calculation
   pickupLat: number | null;
   pickupLng: number | null;
   dropoffLat: number | null;
   dropoffLng: number | null;
+  pickupPlaceId: string | null;
+  dropoffPlaceId: string | null;
   distanceKm: number;
   calculatedPrice: number;
-  setPickupCoordinates: (lat: number | null, lng: number | null) => void;
-  setDropoffCoordinates: (lat: number | null, lng: number | null) => void;
+  setPickupCoordinates: (lat: number | null, lng: number | null, placeId?: string) => void;
+  setDropoffCoordinates: (lat: number | null, lng: number | null, placeId?: string) => void;
   setDistanceKm: (distance: number) => void;
   updatePriceFromDistance: (distance: number) => void;
   resetCalculations: () => void;
@@ -104,11 +107,13 @@ export function ColisProvider({ children }: { children: ReactNode }) {
   const [parcelRequests, setParcelRequests] = useState<ParcelRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // New: Distance and price calculation state
+  // Distance and price calculation state
   const [pickupLat, setPickupLat] = useState<number | null>(null);
   const [pickupLng, setPickupLng] = useState<number | null>(null);
   const [dropoffLat, setDropoffLat] = useState<number | null>(null);
   const [dropoffLng, setDropoffLng] = useState<number | null>(null);
+  const [pickupPlaceId, setPickupPlaceId] = useState<string | null>(null);
+  const [dropoffPlaceId, setDropoffPlaceId] = useState<string | null>(null);
   const [distanceKm, setDistanceKmState] = useState<number>(0);
   const [calculatedPrice, setCalculatedPrice] = useState<number>(0);
 
@@ -116,7 +121,18 @@ export function ColisProvider({ children }: { children: ReactNode }) {
     loadData();
   }, []);
 
-  // New: Auto-update price when distance changes
+  // Auto-calculate distance when both coordinates are available
+  useEffect(() => {
+    if (pickupLat !== null && pickupLng !== null && dropoffLat !== null && dropoffLng !== null) {
+      const distance = calculateDistance(pickupLat, pickupLng, dropoffLat, dropoffLng);
+      console.log('Auto-calculated distance:', distance, 'km');
+      setDistanceKmState(distance);
+    } else {
+      setDistanceKmState(0);
+    }
+  }, [pickupLat, pickupLng, dropoffLat, dropoffLng]);
+
+  // Auto-update price when distance changes
   useEffect(() => {
     updatePriceFromDistance(distanceKm);
   }, [distanceKm]);
@@ -182,7 +198,7 @@ export function ColisProvider({ children }: { children: ReactNode }) {
     await loadData();
   };
 
-  // New: Update price based on distance
+  // Update price based on distance
   const updatePriceFromDistance = (distance: number) => {
     console.log('Calculating price for distance:', distance);
     
@@ -208,36 +224,44 @@ export function ColisProvider({ children }: { children: ReactNode }) {
     const finalPrice = Math.max(price, PRICING_CONFIG.minPrice);
     setCalculatedPrice(Math.round(finalPrice));
     
-    console.log('Calculated price:', finalPrice);
+    console.log('Calculated price:', finalPrice, 'FCFA');
   };
 
-  // New: Set pickup coordinates
-  const setPickupCoordinates = (lat: number | null, lng: number | null) => {
-    console.log('Setting pickup coordinates:', lat, lng);
+  // Set pickup coordinates
+  const setPickupCoordinates = (lat: number | null, lng: number | null, placeId?: string) => {
+    console.log('Setting pickup coordinates:', { lat, lng, placeId });
     setPickupLat(lat);
     setPickupLng(lng);
+    if (placeId) {
+      setPickupPlaceId(placeId);
+    }
   };
 
-  // New: Set dropoff coordinates
-  const setDropoffCoordinates = (lat: number | null, lng: number | null) => {
-    console.log('Setting dropoff coordinates:', lat, lng);
+  // Set dropoff coordinates
+  const setDropoffCoordinates = (lat: number | null, lng: number | null, placeId?: string) => {
+    console.log('Setting dropoff coordinates:', { lat, lng, placeId });
     setDropoffLat(lat);
     setDropoffLng(lng);
+    if (placeId) {
+      setDropoffPlaceId(placeId);
+    }
   };
 
-  // New: Set distance and trigger price update
+  // Set distance and trigger price update
   const setDistanceKm = (distance: number) => {
-    console.log('Setting distance:', distance);
+    console.log('Manually setting distance:', distance);
     setDistanceKmState(distance);
   };
 
-  // New: Reset all calculations
+  // Reset all calculations
   const resetCalculations = () => {
     console.log('Resetting calculations');
     setPickupLat(null);
     setPickupLng(null);
     setDropoffLat(null);
     setDropoffLng(null);
+    setPickupPlaceId(null);
+    setDropoffPlaceId(null);
     setDistanceKmState(0);
     setCalculatedPrice(0);
   };
@@ -407,11 +431,13 @@ export function ColisProvider({ children }: { children: ReactNode }) {
         getParcelById,
         isLoading,
         refreshParcels,
-        // New exports
+        // Distance and price calculation
         pickupLat,
         pickupLng,
         dropoffLat,
         dropoffLng,
+        pickupPlaceId,
+        dropoffPlaceId,
         distanceKm,
         calculatedPrice,
         setPickupCoordinates,

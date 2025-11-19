@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { useTheme } from '@react-navigation/native';
 import { colors } from '@/styles/commonStyles';
+import Constants from 'expo-constants';
 
 interface Prediction {
   place_id: string;
@@ -31,10 +32,14 @@ interface Location {
 interface AddressAutocompleteProps {
   value: string;
   onChangeText: (text: string) => void;
-  onSelectAddress: (address: string, location: Location) => void;
+  onSelectAddress: (address: string, location: Location, placeId: string) => void;
   placeholder: string;
   label: string;
-  apiKey: string;
+}
+
+// Generate a unique session token for billing optimization
+function generateSessionToken(): string {
+  return `${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
 }
 
 export default function AddressAutocomplete({
@@ -43,7 +48,6 @@ export default function AddressAutocomplete({
   onSelectAddress,
   placeholder,
   label,
-  apiKey,
 }: AddressAutocompleteProps) {
   const theme = useTheme();
   const isDark = theme.dark;
@@ -51,6 +55,10 @@ export default function AddressAutocomplete({
   const [isLoading, setIsLoading] = useState(false);
   const [showPredictions, setShowPredictions] = useState(false);
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
+  const sessionToken = useRef<string>(generateSessionToken());
+
+  // Get API key from expo constants
+  const apiKey = Constants.expoConfig?.extra?.GOOGLE_MAPS_API_KEY;
 
   useEffect(() => {
     if (value.length > 2) {
@@ -75,29 +83,34 @@ export default function AddressAutocomplete({
 
   const fetchPredictions = async (input: string) => {
     if (!apiKey) {
-      console.warn('Google Maps API key not provided');
+      console.warn('Google Maps API key not configured');
       return;
     }
 
     setIsLoading(true);
     try {
-      // Dakar coordinates for location bias
-      const dakarLat = 14.6937;
-      const dakarLng = -17.4441;
-      const radius = 45000; // 45km radius
-
+      // Exact parameters as specified in the request
       const url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(
         input
-      )}&location=${dakarLat},${dakarLng}&radius=${radius}&components=country:sn&language=fr&key=${apiKey}`;
+      )}&types=address&language=fr&components=country:sn&location=14.6928,-17.4467&radius=45000&key=${apiKey}&sessiontoken=${sessionToken.current}`;
 
+      console.log('Fetching autocomplete predictions for:', input);
       const response = await fetch(url);
       const data = await response.json();
 
       if (data.status === 'OK' && data.predictions) {
+        console.log(`Found ${data.predictions.length} predictions`);
         setPredictions(data.predictions);
         setShowPredictions(true);
+      } else if (data.status === 'ZERO_RESULTS') {
+        console.log('No predictions found');
+        setPredictions([]);
+        setShowPredictions(false);
       } else {
-        console.log('Autocomplete API response:', data.status);
+        console.log('Autocomplete API response status:', data.status);
+        if (data.error_message) {
+          console.error('API Error:', data.error_message);
+        }
         setPredictions([]);
       }
     } catch (error) {
@@ -108,23 +121,36 @@ export default function AddressAutocomplete({
     }
   };
 
-  const getPlaceDetails = async (placeId: string) => {
+  const getPlaceDetails = async (placeId: string): Promise<Location | null> => {
     if (!apiKey) {
-      console.warn('Google Maps API key not provided');
+      console.warn('Google Maps API key not configured');
       return null;
     }
 
     try {
-      const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&fields=geometry&key=${apiKey}`;
+      // Exact parameters as specified in the request
+      const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&fields=geometry&key=${apiKey}&sessiontoken=${sessionToken.current}`;
 
+      console.log('Fetching place details for place_id:', placeId);
       const response = await fetch(url);
       const data = await response.json();
 
       if (data.status === 'OK' && data.result?.geometry?.location) {
-        return {
+        const location = {
           lat: data.result.geometry.location.lat,
           lng: data.result.geometry.location.lng,
         };
+        console.log('Retrieved coordinates:', location);
+        
+        // Generate new session token after successful place details call
+        sessionToken.current = generateSessionToken();
+        
+        return location;
+      } else {
+        console.error('Place Details API error:', data.status);
+        if (data.error_message) {
+          console.error('API Error:', data.error_message);
+        }
       }
       return null;
     } catch (error) {
@@ -140,10 +166,15 @@ export default function AddressAutocomplete({
     setPredictions([]);
     Keyboard.dismiss();
 
+    console.log('Selected address:', address);
+    console.log('Place ID:', prediction.place_id);
+
     // Fetch coordinates for the selected place
     const location = await getPlaceDetails(prediction.place_id);
     if (location) {
-      onSelectAddress(address, location);
+      onSelectAddress(address, location, prediction.place_id);
+    } else {
+      console.error('Failed to retrieve coordinates for selected address');
     }
   };
 
