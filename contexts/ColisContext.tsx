@@ -18,7 +18,7 @@ export interface ParcelRequest {
   arrivalAddress: string;
   arrivalLocation?: Location;
   description: string;
-  status: 'pending' | 'accepted' | 'in_transit' | 'delivered' | 'cancelled';
+  status: 'pending' | 'assigned' | 'en_route_pickup' | 'picked_up' | 'en_route_delivery' | 'delivered' | 'cancelled';
   deliveryOption: 'standard' | 'express';
   pricing?: {
     distance: number;
@@ -27,12 +27,17 @@ export interface ParcelRequest {
     total: number;
   };
   createdAt: string;
+  assignedAt?: string;
+  pickedUpAt?: string;
+  deliveredAt?: string;
 }
 
 interface ColisContextType {
   parcelRequests: ParcelRequest[];
   addParcelRequest: (request: Omit<ParcelRequest, 'id' | 'status' | 'createdAt'>) => Promise<{ success: boolean; requestId?: string }>;
+  updateParcelStatus: (parcelId: string, status: ParcelRequest['status']) => Promise<void>;
   getParcelRequestsBySender: (senderPhone: string) => ParcelRequest[];
+  getParcelById: (parcelId: string) => ParcelRequest | undefined;
   isLoading: boolean;
 }
 
@@ -86,8 +91,43 @@ export function ColisProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const updateParcelStatus = async (
+    parcelId: string,
+    status: ParcelRequest['status']
+  ) => {
+    try {
+      const updatedRequests = parcelRequests.map(request => {
+        if (request.id === parcelId) {
+          const updated = { ...request, status };
+          
+          if (status === 'assigned' && !request.assignedAt) {
+            updated.assignedAt = new Date().toISOString();
+          } else if (status === 'picked_up' && !request.pickedUpAt) {
+            updated.pickedUpAt = new Date().toISOString();
+          } else if (status === 'delivered' && !request.deliveredAt) {
+            updated.deliveredAt = new Date().toISOString();
+          }
+          
+          return updated;
+        }
+        return request;
+      });
+
+      setParcelRequests(updatedRequests);
+      await AsyncStorage.setItem(PARCELS_STORAGE_KEY, JSON.stringify(updatedRequests));
+      
+      console.log('Parcel status updated:', status);
+    } catch (error) {
+      console.error('Error updating parcel status:', error);
+    }
+  };
+
   const getParcelRequestsBySender = (senderPhone: string): ParcelRequest[] => {
     return parcelRequests.filter(request => request.senderPhone === senderPhone);
+  };
+
+  const getParcelById = (parcelId: string): ParcelRequest | undefined => {
+    return parcelRequests.find(request => request.id === parcelId);
   };
 
   return (
@@ -95,7 +135,9 @@ export function ColisProvider({ children }: { children: ReactNode }) {
       value={{
         parcelRequests,
         addParcelRequest,
+        updateParcelStatus,
         getParcelRequestsBySender,
+        getParcelById,
         isLoading,
       }}
     >

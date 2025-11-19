@@ -2,9 +2,12 @@
 import React, { useState } from "react";
 import { View, Text, StyleSheet, ScrollView, Platform, TextInput, TouchableOpacity, Alert } from "react-native";
 import { useTheme } from "@react-navigation/native";
+import { useRouter } from "expo-router";
 import { colors } from "@/styles/commonStyles";
 import { IconSymbol } from "@/components/IconSymbol";
 import { useColis, Location } from "@/contexts/ColisContext";
+import { useDelivery } from "@/contexts/DeliveryContext";
+import { useProfile } from "@/contexts/ProfileContext";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
 import { calculateDistance, calculateDeliveryPrice } from "@/utils/distance";
 
@@ -14,7 +17,10 @@ const GOOGLE_MAPS_API_KEY = 'YOUR_GOOGLE_MAPS_API_KEY';
 export default function ColisScreen() {
   const theme = useTheme();
   const isDark = theme.dark;
+  const router = useRouter();
   const { addParcelRequest } = useColis();
+  const { assignParcelToNearbyDeliveryPersons } = useDelivery();
+  const { profile } = useProfile();
 
   const [senderName, setSenderName] = useState('');
   const [senderPhone, setSenderPhone] = useState('');
@@ -75,7 +81,14 @@ export default function ColisScreen() {
         pricing: pricing || undefined,
       });
 
-      if (result.success) {
+      if (result.success && result.requestId) {
+        // Assign to nearby delivery persons
+        await assignParcelToNearbyDeliveryPersons(
+          result.requestId,
+          departureLocation!,
+          departureAddress.trim()
+        );
+
         // Clear form
         setSenderName('');
         setSenderPhone('');
@@ -137,6 +150,24 @@ export default function ColisScreen() {
             <Text style={[styles.title, { color: isDark ? colors.darkText : colors.text }]}>
               Envoyer un colis
             </Text>
+            
+            {/* Quick Actions */}
+            <View style={styles.quickActions}>
+              <TouchableOpacity
+                style={[styles.quickActionButton, { backgroundColor: isDark ? colors.darkBackground : colors.background }]}
+                onPress={() => router.push('/colis/my-parcels')}
+              >
+                <IconSymbol
+                  ios_icon_name="list.bullet"
+                  android_material_icon_name="list"
+                  size={20}
+                  color={colors.primary}
+                />
+                <Text style={[styles.quickActionText, { color: isDark ? colors.darkText : colors.text }]}>
+                  Mes colis
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
 
           {/* Success Message */}
@@ -144,10 +175,10 @@ export default function ColisScreen() {
             <View style={[styles.successCard, { backgroundColor: colors.primary + '20' }]}>
               <Text style={[styles.successIcon]}>✅</Text>
               <Text style={[styles.successTitle, { color: colors.primary }]}>
-                Ce module fonctionne !
+                Demande envoyée !
               </Text>
               <Text style={[styles.successText, { color: isDark ? colors.darkText : colors.text }]}>
-                Votre demande a été prise en compte.
+                Votre demande a été envoyée aux livreurs proches. Vous serez notifié dès qu&apos;un livreur accepte.
               </Text>
             </View>
           )}
@@ -434,8 +465,26 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: '700',
-    marginBottom: 8,
+    marginBottom: 16,
     textAlign: 'center',
+  },
+  quickActions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  quickActionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  quickActionText: {
+    fontSize: 14,
+    fontWeight: '600',
   },
   successCard: {
     borderRadius: 16,
