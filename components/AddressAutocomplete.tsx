@@ -21,6 +21,7 @@ interface Prediction {
     main_text: string;
     secondary_text: string;
   };
+  types: string[];
 }
 
 interface Location {
@@ -76,15 +77,27 @@ export default function AddressAutocomplete({
     try {
       console.log('Fetching address predictions for:', input);
 
+      // Call Edge Function WITHOUT 'types' parameter to get ALL types of places
+      // This includes:
+      // - Addresses and streets (route, street_address, premise)
+      // - Establishments (hospital, mosque, church, school, university, market, etc.)
+      // - Points of interest (roundabouts, landmarks, public places)
+      // - Administrative areas (neighborhoods, communes, localities)
+      // - All other landmarks in Dakar metropolitan area
       const { data, error } = await supabase.functions.invoke('google-places-proxy', {
         body: {
           action: 'autocomplete',
           input: input,
-          types: 'address',
-          location: '14.6928,-17.4467', // Dakar coordinates
-          radius: 45000, // 45km radius
-          components: 'country:sn',
-          language: 'fr',
+          // NO types parameter - this allows ALL place types to be returned
+          // Including: addresses, establishments, hospitals, mosques, churches,
+          // streets, neighborhoods, roundabouts, markets, universities, schools,
+          // administrative buildings, factories, and all other landmarks
+          location: '14.6928,-17.4467', // Dakar coordinates (center bias)
+          radius: 45000, // 45km radius covering entire Dakar metropolitan area
+          // Includes: Dakar, Parcelles, Pikine, Guédiawaye, Keur Massar, Mbao,
+          // Bargny, Rufisque, Sébikotane, Bambilor, Diamaguène, Diamniadio, etc.
+          components: 'country:sn', // Restrict to Senegal only
+          language: 'fr', // French language
         },
       });
 
@@ -96,11 +109,19 @@ export default function AddressAutocomplete({
       }
 
       if (data.status === 'OK' && data.predictions) {
-        console.log(`Found ${data.predictions.length} address predictions`);
+        console.log(`Found ${data.predictions.length} predictions (all types)`);
+        
+        // Log the types of places found for debugging
+        const placeTypes = data.predictions.map((p: Prediction) => ({
+          name: p.structured_formatting.main_text,
+          types: p.types
+        }));
+        console.log('Place types found:', placeTypes);
+        
         setPredictions(data.predictions);
         setShowPredictions(true);
       } else if (data.status === 'ZERO_RESULTS') {
-        console.log('No address predictions found');
+        console.log('No predictions found');
         setPredictions([]);
         setShowPredictions(false);
       } else {
@@ -140,6 +161,8 @@ export default function AddressAutocomplete({
           lng: data.result.geometry.location.lng,
         };
         console.log('Retrieved coordinates:', location);
+        console.log('Place name:', data.result.name);
+        console.log('Place types:', data.result.types);
         return location;
       } else {
         console.error('Place Details API error:', data.status);
@@ -163,6 +186,7 @@ export default function AddressAutocomplete({
 
     console.log('Selected address:', address);
     console.log('Place ID:', prediction.place_id);
+    console.log('Place types:', prediction.types);
 
     // Fetch coordinates for the selected place
     const location = await getPlaceDetails(prediction.place_id);
@@ -173,6 +197,99 @@ export default function AddressAutocomplete({
     }
   };
 
+  const getPlaceIcon = (types: string[]) => {
+    // Return appropriate icon based on place type
+    // Healthcare facilities
+    if (types.includes('hospital')) return '🏥';
+    if (types.includes('health')) return '⚕️';
+    if (types.includes('doctor')) return '👨‍⚕️';
+    if (types.includes('pharmacy')) return '💊';
+    if (types.includes('dentist')) return '🦷';
+    
+    // Places of worship
+    if (types.includes('mosque')) return '🕌';
+    if (types.includes('church')) return '⛪';
+    if (types.includes('hindu_temple')) return '🛕';
+    if (types.includes('synagogue')) return '🕍';
+    if (types.includes('place_of_worship')) return '🙏';
+    
+    // Educational institutions
+    if (types.includes('university')) return '🎓';
+    if (types.includes('school')) return '🏫';
+    if (types.includes('secondary_school')) return '📚';
+    if (types.includes('primary_school')) return '✏️';
+    if (types.includes('library')) return '📖';
+    
+    // Commercial and markets
+    if (types.includes('shopping_mall')) return '🏬';
+    if (types.includes('supermarket')) return '🛒';
+    if (types.includes('market')) return '🏪';
+    if (types.includes('store')) return '🏪';
+    if (types.includes('convenience_store')) return '🏪';
+    
+    // Transportation
+    if (types.includes('bus_station')) return '🚌';
+    if (types.includes('transit_station')) return '🚉';
+    if (types.includes('train_station')) return '🚂';
+    if (types.includes('airport')) return '✈️';
+    if (types.includes('taxi_stand')) return '🚕';
+    
+    // Government and administrative
+    if (types.includes('local_government_office')) return '🏛️';
+    if (types.includes('city_hall')) return '🏛️';
+    if (types.includes('courthouse')) return '⚖️';
+    if (types.includes('embassy')) return '🏢';
+    if (types.includes('post_office')) return '📮';
+    if (types.includes('police')) return '👮';
+    if (types.includes('fire_station')) return '🚒';
+    
+    // Recreation and culture
+    if (types.includes('park')) return '🌳';
+    if (types.includes('stadium')) return '🏟️';
+    if (types.includes('museum')) return '🏛️';
+    if (types.includes('art_gallery')) return '🖼️';
+    if (types.includes('movie_theater')) return '🎬';
+    if (types.includes('night_club')) return '🎉';
+    
+    // Food and dining
+    if (types.includes('restaurant')) return '🍽️';
+    if (types.includes('cafe')) return '☕';
+    if (types.includes('bar')) return '🍺';
+    if (types.includes('bakery')) return '🥖';
+    
+    // Accommodation
+    if (types.includes('lodging')) return '🏨';
+    if (types.includes('hotel')) return '🏨';
+    
+    // Financial
+    if (types.includes('bank')) return '🏦';
+    if (types.includes('atm')) return '💳';
+    
+    // Industrial and business
+    if (types.includes('factory')) return '🏭';
+    if (types.includes('industrial')) return '🏭';
+    
+    // Geographic features
+    if (types.includes('locality')) return '🏘️';
+    if (types.includes('sublocality')) return '🏘️';
+    if (types.includes('neighborhood')) return '🏘️';
+    if (types.includes('administrative_area_level_1')) return '🗺️';
+    if (types.includes('administrative_area_level_2')) return '🗺️';
+    
+    // Streets and routes
+    if (types.includes('route')) return '🛣️';
+    if (types.includes('street_address')) return '🏠';
+    if (types.includes('intersection')) return '🚦';
+    if (types.includes('premise')) return '🏠';
+    
+    // Points of interest
+    if (types.includes('point_of_interest')) return '📍';
+    if (types.includes('establishment')) return '🏢';
+    
+    // Default location icon
+    return '📍';
+  };
+
   const renderPrediction = ({ item }: { item: Prediction }) => (
     <TouchableOpacity
       style={[
@@ -181,12 +298,15 @@ export default function AddressAutocomplete({
       ]}
       onPress={() => handleSelectPrediction(item)}
     >
-      <Text style={[styles.mainText, { color: isDark ? colors.darkText : colors.text }]}>
-        {item.structured_formatting.main_text}
-      </Text>
-      <Text style={[styles.secondaryText, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-        {item.structured_formatting.secondary_text}
-      </Text>
+      <Text style={styles.placeIcon}>{getPlaceIcon(item.types)}</Text>
+      <View style={styles.predictionTextContainer}>
+        <Text style={[styles.mainText, { color: isDark ? colors.darkText : colors.text }]}>
+          {item.structured_formatting.main_text}
+        </Text>
+        <Text style={[styles.secondaryText, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+          {item.structured_formatting.secondary_text}
+        </Text>
+      </View>
     </TouchableOpacity>
   );
 
@@ -274,7 +394,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
     borderWidth: 1,
     borderRadius: 12,
-    maxHeight: 200,
+    maxHeight: 300,
     overflow: 'hidden',
     boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.1)',
     elevation: 5,
@@ -283,9 +403,18 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   predictionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
     padding: 12,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
+  },
+  placeIcon: {
+    fontSize: 24,
+    marginRight: 12,
+  },
+  predictionTextContainer: {
+    flex: 1,
   },
   mainText: {
     fontSize: 15,
