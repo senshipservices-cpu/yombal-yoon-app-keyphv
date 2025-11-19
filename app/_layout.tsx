@@ -4,7 +4,7 @@ import { useEffect } from 'react';
 import { ProfileProvider } from '@/contexts/ProfileContext';
 import { CovoiturageProvider } from '@/contexts/CovoiturageContext';
 import { NotificationProvider } from '@/contexts/NotificationContext';
-import { WidgetContext } from '@/contexts/WidgetContext';
+import { WidgetProvider } from '@/contexts/WidgetContext';
 import * as SplashScreen from 'expo-splash-screen';
 
 SplashScreen.preventAutoHideAsync();
@@ -15,7 +15,7 @@ export default function RootLayout() {
   }, []);
 
   return (
-    <WidgetContext>
+    <WidgetProvider>
       <ProfileProvider>
         <NotificationProvider>
           <CovoiturageProvider>
@@ -36,6 +36,6 @@ export default function RootLayout() {
           </CovoiturageProvider>
         </NotificationProvider>
       </ProfileProvider>
-    </WidgetContext>
+    </WidgetProvider>
   );
 }
