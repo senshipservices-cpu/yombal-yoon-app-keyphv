@@ -53,15 +53,13 @@ export default function ColisScreen() {
     recipientName.trim() !== '' &&
     recipientPhone.trim() !== '' &&
     departureAddress.trim() !== '' &&
-    departureLocation !== null &&
     arrivalAddress.trim() !== '' &&
-    arrivalLocation !== null &&
     description.trim() !== '' &&
     !isSubmitting;
 
   const handleSubmit = async () => {
     if (!canSubmit) {
-      Alert.alert('Erreur', 'Veuillez remplir tous les champs et sélectionner des adresses valides');
+      Alert.alert('Erreur', 'Veuillez remplir tous les champs obligatoires');
       return;
     }
 
@@ -74,21 +72,23 @@ export default function ColisScreen() {
         recipientName: recipientName.trim(),
         recipientPhone: recipientPhone.trim(),
         departureAddress: departureAddress.trim(),
-        departureLocation: departureLocation!,
+        departureLocation: departureLocation || undefined,
         arrivalAddress: arrivalAddress.trim(),
-        arrivalLocation: arrivalLocation!,
+        arrivalLocation: arrivalLocation || undefined,
         description: description.trim(),
         deliveryOption: 'standard',
         pricing: pricing || undefined,
       });
 
       if (result.success && result.requestId) {
-        // Assign to nearby delivery persons
-        await assignParcelToNearbyDeliveryPersons(
-          result.requestId,
-          departureLocation!,
-          departureAddress.trim()
-        );
+        // Assign to nearby delivery persons (only in local mode)
+        if (demoMode && departureLocation) {
+          await assignParcelToNearbyDeliveryPersons(
+            result.requestId,
+            departureLocation,
+            departureAddress.trim()
+          );
+        }
 
         // Clear form
         setSenderName('');
@@ -109,11 +109,14 @@ export default function ColisScreen() {
           setShowSuccess(false);
         }, 5000);
       } else {
-        Alert.alert('Erreur', 'Une erreur est survenue lors de l\'envoi de votre demande');
+        Alert.alert(
+          'Erreur', 
+          result.error || 'Une erreur est survenue lors de l\'envoi de votre demande'
+        );
       }
     } catch (error) {
       console.error('Error submitting parcel request:', error);
-      Alert.alert('Erreur', 'Une erreur est survenue');
+      Alert.alert('Erreur', 'Une erreur est survenue. Veuillez réessayer.');
     } finally {
       setIsSubmitting(false);
     }
@@ -214,10 +217,10 @@ export default function ColisScreen() {
             <View style={[styles.successCard, { backgroundColor: colors.primary + '20' }]}>
               <Text style={[styles.successIcon]}>✅</Text>
               <Text style={[styles.successTitle, { color: colors.primary }]}>
-                Demande envoyée !
+                Demande enregistrée !
               </Text>
               <Text style={[styles.successText, { color: isDark ? colors.darkText : colors.text }]}>
-                Votre demande a été envoyée aux livreurs proches. Vous serez notifié dès qu&apos;un livreur accepte.
+                Votre demande de colis a été enregistrée. Un livreur Yombal Yoon prendra contact avec vous.
               </Text>
             </View>
           )}
@@ -230,7 +233,7 @@ export default function ColisScreen() {
             
             <View style={styles.inputGroup}>
               <Text style={[styles.label, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-                Nom complet
+                Nom complet *
               </Text>
               <TextInput
                 style={[
@@ -250,7 +253,7 @@ export default function ColisScreen() {
 
             <View style={styles.inputGroup}>
               <Text style={[styles.label, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-                Téléphone
+                Téléphone *
               </Text>
               <TextInput
                 style={[
@@ -277,7 +280,7 @@ export default function ColisScreen() {
 
             <View style={styles.inputGroup}>
               <Text style={[styles.label, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-                Nom complet
+                Nom complet *
               </Text>
               <TextInput
                 style={[
@@ -297,7 +300,7 @@ export default function ColisScreen() {
 
             <View style={styles.inputGroup}>
               <Text style={[styles.label, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-                Téléphone
+                Téléphone *
               </Text>
               <TextInput
                 style={[
@@ -332,7 +335,7 @@ export default function ColisScreen() {
                 console.log('Departure location:', location);
               }}
               placeholder="Rechercher une adresse à Dakar..."
-              label="Adresse de départ"
+              label="Adresse de départ *"
               apiKey={GOOGLE_MAPS_API_KEY}
             />
 
@@ -345,7 +348,7 @@ export default function ColisScreen() {
                 console.log('Arrival location:', location);
               }}
               placeholder="Rechercher une adresse à Dakar..."
-              label="Adresse d'arrivée"
+              label="Adresse d'arrivée *"
               apiKey={GOOGLE_MAPS_API_KEY}
             />
 
@@ -406,7 +409,7 @@ export default function ColisScreen() {
 
             <View style={styles.inputGroup}>
               <Text style={[styles.label, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-                Description du colis
+                Description du colis *
               </Text>
               <TextInput
                 style={[

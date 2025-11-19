@@ -1,8 +1,9 @@
 
 // Global Demo Mode Configuration
 // Set to true to display demo data, false to use real data from Supabase
+// When demoMode is false and Supabase is configured, the app will use Supabase for data storage
 
-export const demoMode = true;
+export const demoMode = false;
 
 // Estimated taxi price per kilometer in FCFA
 export const estimatedTaxiPricePerKm = 500;

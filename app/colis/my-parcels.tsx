@@ -1,22 +1,33 @@
 
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform } from 'react-native';
+import React, { useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform, RefreshControl } from 'react-native';
 import { useTheme } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import { colors } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
 import { useColis } from '@/contexts/ColisContext';
 import { useProfile } from '@/contexts/ProfileContext';
+import { demoMode } from '@/config/demoMode';
 
 export default function MyParcelsScreen() {
   const theme = useTheme();
   const isDark = theme.dark;
   const router = useRouter();
-  const { parcelRequests } = useColis();
+  const { parcelRequests, isLoading, refreshParcels } = useColis();
   const { profile } = useProfile();
+  const [refreshing, setRefreshing] = React.useState(false);
 
   // Filter parcels by current user's phone (in production, use proper user ID)
-  const myParcels = parcelRequests.filter(p => p.senderPhone === profile.phone);
+  // In demo mode, show all parcels
+  const myParcels = demoMode 
+    ? parcelRequests 
+    : parcelRequests.filter(p => p.senderPhone === profile.phone);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await refreshParcels();
+    setRefreshing(false);
+  };
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -56,6 +67,14 @@ export default function MyParcelsScreen() {
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
+          />
+        }
       >
         {/* Header */}
         <View style={[styles.header, { paddingTop: Platform.OS === 'android' ? 48 : 60 }]}>
@@ -74,7 +93,13 @@ export default function MyParcelsScreen() {
 
         {/* Content */}
         <View style={styles.content}>
-          {myParcels.length === 0 ? (
+          {isLoading ? (
+            <View style={[styles.emptyCard, { backgroundColor: isDark ? colors.darkCard : colors.card }]}>
+              <Text style={[styles.emptyText, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+                Chargement...
+              </Text>
+            </View>
+          ) : myParcels.length === 0 ? (
             <View style={[styles.emptyCard, { backgroundColor: isDark ? colors.darkCard : colors.card }]}>
               <IconSymbol
                 ios_icon_name="shippingbox"
