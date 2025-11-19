@@ -54,6 +54,7 @@ interface CovoiturageContextType {
     rideId: string,
     onNotify?: (type: 'ride_cancelled', passengerIds: string[], rideDetails: any) => void
   ) => Promise<void>;
+  refreshData: () => Promise<void>;
   isLoading: boolean;
 }
 
@@ -157,6 +158,10 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const refreshData = async () => {
+    await loadData();
   };
 
   const addRide = async (rideData: Omit<Ride, 'id' | 'createdAt' | 'status'>) => {
@@ -341,6 +346,17 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
         return { success: false, message: 'Trajet introuvable' };
       }
 
+      // Update in Supabase
+      const { error: updateError } = await supabase
+        .from('carpool_bookings')
+        .update({ status })
+        .eq('id', reservationId);
+
+      if (updateError) {
+        console.error('Error updating booking status:', updateError);
+        return { success: false, message: 'Erreur lors de la mise à jour' };
+      }
+
       // If accepting, check if we still have enough seats
       if (status === 'accepted') {
         const acceptedReservations = reservations.filter(
@@ -378,6 +394,14 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
           }
           return r;
         });
+
+        // Update seats in Supabase
+        const newSeatsAvailable = ride.availableSeats + reservation.numberOfPassengers;
+        await supabase
+          .from('carpool_rides')
+          .update({ seats_available: newSeatsAvailable })
+          .eq('id', ride.id);
+
         setRides(updatedRides);
         await AsyncStorage.setItem(RIDES_STORAGE_KEY, JSON.stringify(updatedRides));
       }
@@ -413,30 +437,52 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
       const reservation = reservations.find(r => r.id === reservationId);
       if (!reservation) return;
 
-      // Restore available seats
-      const updatedRides = rides.map(ride => {
-        if (ride.id === reservation.rideId) {
-          return {
-            ...ride,
-            availableSeats: ride.availableSeats + reservation.numberOfPassengers,
-          };
+      // Update in Supabase
+      const { error: updateError } = await supabase
+        .from('carpool_bookings')
+        .update({ status: 'cancelled' })
+        .eq('id', reservationId);
+
+      if (updateError) {
+        console.error('Error cancelling booking:', updateError);
+        throw updateError;
+      }
+
+      // Restore available seats if booking was pending
+      if (reservation.status === 'pending') {
+        const ride = rides.find(r => r.id === reservation.rideId);
+        if (ride) {
+          const newSeatsAvailable = ride.availableSeats + reservation.numberOfPassengers;
+          
+          await supabase
+            .from('carpool_rides')
+            .update({ seats_available: newSeatsAvailable })
+            .eq('id', ride.id);
+
+          const updatedRides = rides.map(r => {
+            if (r.id === reservation.rideId) {
+              return {
+                ...r,
+                availableSeats: newSeatsAvailable,
+              };
+            }
+            return r;
+          });
+
+          setRides(updatedRides);
+          await AsyncStorage.setItem(RIDES_STORAGE_KEY, JSON.stringify(updatedRides));
         }
-        return ride;
-      });
+      }
 
       const updatedReservations = reservations.filter(r => r.id !== reservationId);
 
-      setRides(updatedRides);
       setReservations(updatedReservations);
-
-      await Promise.all([
-        AsyncStorage.setItem(RIDES_STORAGE_KEY, JSON.stringify(updatedRides)),
-        AsyncStorage.setItem(RESERVATIONS_STORAGE_KEY, JSON.stringify(updatedReservations)),
-      ]);
+      await AsyncStorage.setItem(RESERVATIONS_STORAGE_KEY, JSON.stringify(updatedReservations));
 
       console.log('Reservation cancelled:', reservationId);
     } catch (error) {
       console.error('Error cancelling reservation:', error);
+      throw error;
     }
   };
 
@@ -540,6 +586,7 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
         updateReservationStatus,
         cancelReservation,
         cancelRide,
+        refreshData,
         isLoading,
       }}
     >

@@ -58,7 +58,7 @@ export default function SearchRideScreen() {
     const searchParams = {
       departureCity: departureCity.trim(),
       arrivalCity: arrivalCity.trim(),
-      date: date ? date.toISOString().split('T')[0] : '',
+      date: date ? date.toISOString() : new Date().toISOString(),
       numberOfPassengers: parseInt(numberOfPassengers),
     };
 

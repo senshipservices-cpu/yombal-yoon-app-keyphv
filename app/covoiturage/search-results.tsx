@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   Platform,
   Alert,
   TextInput,
+  ActivityIndicator,
 } from 'react-native';
 import { useTheme } from '@react-navigation/native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -19,81 +20,192 @@ import { useNotifications } from '@/contexts/NotificationContext';
 import EmptyState from '@/components/EmptyState';
 import ErrorState from '@/components/ErrorState';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
-import { demoMode, demoRides, calculateEconomy } from '@/config/demoMode';
+import { supabase } from '@/app/integrations/supabase/client';
+import type { Tables } from '@/app/integrations/supabase/types';
+
+interface RideResult {
+  id: string;
+  driver_name: string;
+  driver_phone: string;
+  departure_city: string;
+  arrival_city: string;
+  departure_datetime: string;
+  seats_available: number;
+  seats_total: number;
+  price_per_seat: number;
+  vehicle_type: string | null;
+  stops: string | null;
+  status: string;
+}
 
 export default function SearchResultsScreen() {
   const theme = useTheme();
   const isDark = theme.dark;
   const router = useRouter();
   const params = useLocalSearchParams();
-  const { searchRides, addReservation } = useCovoiturage();
   const { sendLocalNotification } = useNotifications();
   const { isConnected, retry } = useNetworkStatus();
 
   const departureCity = params.departureCity as string;
   const arrivalCity = params.arrivalCity as string;
-  const date = params.date as string;
-  const passengers = parseInt(params.passengers as string, 10);
+  const searchDate = params.date as string;
+  const passengers = parseInt(params.numberOfPassengers as string, 10);
 
+  const [rides, setRides] = useState<RideResult[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [selectedRideId, setSelectedRideId] = useState<string | null>(null);
   const [passengerName, setPassengerName] = useState('');
+  const [passengerPhone, setPassengerPhone] = useState('');
   const [isBooking, setIsBooking] = useState(false);
 
-  // Use demo rides if demoMode is enabled, otherwise search real rides
-  const rides = demoMode ? demoRides : searchRides(departureCity, arrivalCity, date, passengers);
+  useEffect(() => {
+    searchRides();
+  }, []);
 
-  const handleBookRide = async (rideId: string) => {
+  const searchRides = async () => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      console.log('Searching rides with params:', {
+        departureCity,
+        arrivalCity,
+        searchDate,
+        passengers,
+      });
+
+      // Build the query
+      let query = supabase
+        .from('carpool_rides')
+        .select('*')
+        .eq('departure_city', departureCity)
+        .eq('arrival_city', arrivalCity)
+        .gte('departure_datetime', searchDate)
+        .gte('seats_available', passengers)
+        .eq('status', 'open')
+        .order('departure_datetime', { ascending: true });
+
+      const { data, error: searchError } = await query;
+
+      if (searchError) {
+        console.error('Error searching rides:', searchError);
+        setError('Erreur lors de la recherche des trajets');
+        return;
+      }
+
+      console.log('Search results:', data);
+      setRides(data || []);
+    } catch (err) {
+      console.error('Error in searchRides:', err);
+      setError('Une erreur est survenue');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleBookRide = async (ride: RideResult) => {
     if (!passengerName.trim()) {
       Alert.alert('Erreur', 'Veuillez entrer votre nom');
+      return;
+    }
+
+    if (!passengerPhone.trim()) {
+      Alert.alert('Erreur', 'Veuillez entrer votre numéro de téléphone');
       return;
     }
 
     setIsBooking(true);
 
     try {
-      const result = await addReservation(
-        {
-          rideId,
-          passengerId: 'passenger_demo',
-          passengerName: passengerName.trim(),
-          numberOfPassengers: passengers,
-        },
-        (type, driverId, rideDetails) => {
-          sendLocalNotification(
-            'Nouvelle réservation ! 🎉',
-            `${passengerName} souhaite réserver ${passengers} place(s) pour ${rideDetails.ride.departureCity} → ${rideDetails.ride.arrivalCity}`,
-            { type, reservationId: rideDetails.reservationId, ...rideDetails }
-          );
-        }
+      console.log('Booking ride:', {
+        ride_id: ride.id,
+        passenger_name: passengerName.trim(),
+        passenger_phone: passengerPhone.trim(),
+        number_of_passengers: passengers,
+      });
+
+      // Insert booking into Supabase
+      const { data: bookingData, error: bookingError } = await supabase
+        .from('carpool_bookings')
+        .insert({
+          ride_id: ride.id,
+          passenger_name: passengerName.trim(),
+          passenger_phone: passengerPhone.trim(),
+          number_of_passengers: passengers,
+          status: 'pending',
+        })
+        .select()
+        .single();
+
+      if (bookingError) {
+        console.error('Error creating booking:', bookingError);
+        Alert.alert('Erreur', 'Impossible de réserver ce trajet. Veuillez réessayer.');
+        return;
+      }
+
+      console.log('Booking created:', bookingData);
+
+      // Update seats_available in carpool_rides
+      const newSeatsAvailable = ride.seats_available - passengers;
+      const { error: updateError } = await supabase
+        .from('carpool_rides')
+        .update({ seats_available: newSeatsAvailable })
+        .eq('id', ride.id);
+
+      if (updateError) {
+        console.error('Error updating seats:', updateError);
+        // Don't fail the booking if seat update fails
+      } else {
+        console.log('Seats updated:', newSeatsAvailable);
+      }
+
+      // Send notification
+      sendLocalNotification(
+        'Réservation enregistrée ! 🎉',
+        `Votre réservation pour ${ride.departure_city} → ${ride.arrival_city} est en attente de confirmation du conducteur.`,
+        { type: 'reservation_created', bookingId: bookingData.id }
       );
 
-      if (result.success) {
-        Alert.alert(
-          'Réservation envoyée !',
-          'Votre demande de réservation a été envoyée au conducteur. Vous serez notifié de sa réponse.',
-          [
-            {
-              text: 'OK',
-              onPress: () => {
-                setSelectedRideId(null);
-                setPassengerName('');
-                router.push('/covoiturage/my-reservations');
-              },
+      Alert.alert(
+        'Réservation enregistrée et en attente du conducteur.',
+        'Vous serez notifié lorsque le conducteur acceptera ou refusera votre réservation.',
+        [
+          {
+            text: 'OK',
+            onPress: () => {
+              setSelectedRideId(null);
+              setPassengerName('');
+              setPassengerPhone('');
+              router.push('/covoiturage/my-reservations');
             },
-          ]
-        );
-      } else {
-        Alert.alert('Erreur', result.message || 'Impossible de réserver ce trajet');
-      }
+          },
+        ]
+      );
     } catch (error) {
       console.error('Error booking ride:', error);
-      Alert.alert('Erreur', 'Une erreur est survenue');
+      Alert.alert('Erreur', 'Une erreur est survenue lors de la réservation');
     } finally {
       setIsBooking(false);
     }
   };
 
-  if (!isConnected && !demoMode) {
+  const formatDateTime = (datetime: string) => {
+    const date = new Date(datetime);
+    return {
+      date: date.toLocaleDateString('fr-FR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+      }),
+      time: date.toLocaleTimeString('fr-FR', {
+        hour: '2-digit',
+        minute: '2-digit',
+      }),
+    };
+  };
+
+  if (!isConnected) {
     return (
       <View style={[styles.container, { backgroundColor: isDark ? colors.darkBackground : colors.background }]}>
         <View style={[styles.header, { backgroundColor: '#FF8C00' }]}>
@@ -134,8 +246,7 @@ export default function SearchResultsScreen() {
         <View style={styles.headerTextContainer}>
           <Text style={styles.headerTitle}>Résultats de recherche</Text>
           <Text style={styles.headerSubtitle}>
-            {rides.length} trajet(s) trouvé(s)
-            {demoMode && ' (Mode Démo)'}
+            {isLoading ? 'Recherche...' : `${rides.length} trajet(s) trouvé(s)`}
           </Text>
         </View>
       </View>
@@ -146,24 +257,10 @@ export default function SearchResultsScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.content}>
-          {demoMode && (
-            <View style={[styles.demoBanner, { backgroundColor: colors.secondary + '40' }]}>
-              <IconSymbol
-                ios_icon_name="info.circle.fill"
-                android_material_icon_name="info"
-                size={20}
-                color={colors.text}
-              />
-              <Text style={[styles.demoBannerText, { color: isDark ? colors.darkText : colors.text }]}>
-                Mode Démo activé - Données d&apos;exemple
-              </Text>
-            </View>
-          )}
-
           <View style={[styles.searchSummary, { backgroundColor: isDark ? colors.darkCard : colors.card }]}>
             <View style={styles.routeContainer}>
               <Text style={[styles.cityText, { color: isDark ? colors.darkText : colors.text }]}>
-                {departureCity || 'Dakar'}
+                {departureCity}
               </Text>
               <IconSymbol
                 ios_icon_name="arrow.right"
@@ -172,25 +269,33 @@ export default function SearchResultsScreen() {
                 color={colors.primary}
               />
               <Text style={[styles.cityText, { color: isDark ? colors.darkText : colors.text }]}>
-                {arrivalCity || 'Thiès'}
+                {arrivalCity}
               </Text>
             </View>
             <Text style={[styles.searchDetails, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-              {date ? new Date(date).toLocaleDateString('fr-FR') : 'Aujourd\'hui'} • {passengers || 1} passager(s)
+              {searchDate ? new Date(searchDate).toLocaleDateString('fr-FR') : 'Aujourd\'hui'} • {passengers} passager(s)
             </Text>
           </View>
 
-          {rides.length === 0 ? (
+          {isLoading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color={colors.primary} />
+              <Text style={[styles.loadingText, { color: isDark ? colors.darkText : colors.text }]}>
+                Recherche des trajets disponibles...
+              </Text>
+            </View>
+          ) : error ? (
+            <ErrorState message={error} onRetry={searchRides} />
+          ) : rides.length === 0 ? (
             <EmptyState
               icon={{ ios: 'car.fill', android: 'directions-car' }}
-              title="Aucun trajet publié pour le moment"
+              title="Aucun trajet trouvé"
               message="Aucun trajet ne correspond à votre recherche. Essayez de modifier vos critères ou revenez plus tard."
             />
           ) : (
             rides.map((ride, index) => {
-              // Calculate economy for this ride
-              const totalPrice = ride.pricePerPassenger * (passengers || 1);
-              const economy = calculateEconomy(ride.departureCity, ride.arrivalCity, totalPrice);
+              const { date, time } = formatDateTime(ride.departure_datetime);
+              const totalPrice = ride.price_per_seat * passengers;
 
               return (
                 <View
@@ -208,11 +313,11 @@ export default function SearchResultsScreen() {
                     </View>
                     <View style={styles.driverInfo}>
                       <Text style={[styles.driverName, { color: isDark ? colors.darkText : colors.text }]}>
-                        {ride.driverName}
+                        {ride.driver_name}
                       </Text>
-                      {ride.vehicleType && (
+                      {ride.vehicle_type && (
                         <Text style={[styles.vehicleType, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-                          {ride.vehicleType}
+                          {ride.vehicle_type}
                         </Text>
                       )}
                     </View>
@@ -227,7 +332,7 @@ export default function SearchResultsScreen() {
                         color={colors.textSecondary}
                       />
                       <Text style={[styles.detailText, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-                        {new Date(ride.date).toLocaleDateString('fr-FR')} à {ride.time}
+                        {date} à {time}
                       </Text>
                     </View>
 
@@ -239,7 +344,7 @@ export default function SearchResultsScreen() {
                         color={colors.textSecondary}
                       />
                       <Text style={[styles.detailText, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-                        {ride.availableSeats} place(s) disponible(s)
+                        {ride.seats_available} place(s) disponible(s)
                       </Text>
                     </View>
 
@@ -251,11 +356,11 @@ export default function SearchResultsScreen() {
                         color={colors.textSecondary}
                       />
                       <Text style={[styles.detailText, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-                        {totalPrice} FCFA ({passengers || 1} passager(s))
+                        {totalPrice} FCFA ({passengers} passager(s))
                       </Text>
                     </View>
 
-                    {ride.intermediateStops && (
+                    {ride.stops && (
                       <View style={styles.detailRow}>
                         <IconSymbol
                           ios_icon_name="mappin.circle.fill"
@@ -264,22 +369,7 @@ export default function SearchResultsScreen() {
                           color={colors.textSecondary}
                         />
                         <Text style={[styles.detailText, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-                          Arrêts: {ride.intermediateStops}
-                        </Text>
-                      </View>
-                    )}
-
-                    {/* Display economy if available */}
-                    {economy !== null && (
-                      <View style={[styles.economyBadge, { backgroundColor: colors.primary + '15' }]}>
-                        <IconSymbol
-                          ios_icon_name="checkmark.circle.fill"
-                          android_material_icon_name="check-circle"
-                          size={16}
-                          color={colors.primary}
-                        />
-                        <Text style={[styles.economyText, { color: colors.primary }]}>
-                          Économie estimée : {economy.toLocaleString('fr-FR')} FCFA par rapport à un taxi classique
+                          Arrêts: {ride.stops}
                         </Text>
                       </View>
                     )}
@@ -288,7 +378,7 @@ export default function SearchResultsScreen() {
                   {selectedRideId === ride.id ? (
                     <View style={styles.bookingForm}>
                       <Text style={[styles.formLabel, { color: isDark ? colors.darkText : colors.text }]}>
-                        Votre nom complet
+                        Votre nom complet *
                       </Text>
                       <TextInput
                         style={[
@@ -305,12 +395,32 @@ export default function SearchResultsScreen() {
                         onChangeText={setPassengerName}
                       />
 
+                      <Text style={[styles.formLabel, { color: isDark ? colors.darkText : colors.text }]}>
+                        Votre téléphone *
+                      </Text>
+                      <TextInput
+                        style={[
+                          styles.input,
+                          {
+                            backgroundColor: isDark ? colors.darkBackground : colors.background,
+                            color: isDark ? colors.darkText : colors.text,
+                            borderColor: isDark ? colors.darkCard : colors.border,
+                          },
+                        ]}
+                        placeholder="Ex: 771234567"
+                        placeholderTextColor={isDark ? colors.darkTextSecondary : colors.textSecondary}
+                        value={passengerPhone}
+                        onChangeText={setPassengerPhone}
+                        keyboardType="phone-pad"
+                      />
+
                       <View style={styles.bookingActions}>
                         <TouchableOpacity
                           style={[styles.actionButton, styles.cancelButton, { borderColor: colors.textSecondary }]}
                           onPress={() => {
                             setSelectedRideId(null);
                             setPassengerName('');
+                            setPassengerPhone('');
                           }}
                           activeOpacity={0.7}
                         >
@@ -323,14 +433,18 @@ export default function SearchResultsScreen() {
                           style={[
                             styles.actionButton,
                             styles.confirmButton,
-                            { backgroundColor: passengerName.trim() ? colors.primary : colors.border },
+                            { 
+                              backgroundColor: (passengerName.trim() && passengerPhone.trim()) 
+                                ? colors.primary 
+                                : colors.border 
+                            },
                           ]}
-                          onPress={() => handleBookRide(ride.id)}
-                          disabled={!passengerName.trim() || isBooking}
+                          onPress={() => handleBookRide(ride)}
+                          disabled={!passengerName.trim() || !passengerPhone.trim() || isBooking}
                           activeOpacity={0.7}
                         >
                           <Text style={styles.confirmButtonText}>
-                            {isBooking ? 'Réservation...' : 'Confirmer'}
+                            {isBooking ? 'Réservation...' : 'Confirmer la réservation'}
                           </Text>
                         </TouchableOpacity>
                       </View>
@@ -341,7 +455,7 @@ export default function SearchResultsScreen() {
                       onPress={() => setSelectedRideId(ride.id)}
                       activeOpacity={0.7}
                     >
-                      <Text style={styles.bookButtonText}>Réserver ce trajet</Text>
+                      <Text style={styles.bookButtonText}>Réserver</Text>
                     </TouchableOpacity>
                   )}
                 </View>
@@ -390,18 +504,6 @@ const styles = StyleSheet.create({
   content: {
     padding: 20,
   },
-  demoBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 16,
-  },
-  demoBannerText: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
   searchSummary: {
     borderRadius: 16,
     padding: 16,
@@ -421,6 +523,15 @@ const styles = StyleSheet.create({
   },
   searchDetails: {
     fontSize: 14,
+  },
+  loadingContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
   },
   rideCard: {
     borderRadius: 16,
@@ -465,19 +576,6 @@ const styles = StyleSheet.create({
   detailText: {
     fontSize: 14,
   },
-  economyBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    padding: 12,
-    borderRadius: 10,
-    marginTop: 4,
-  },
-  economyText: {
-    fontSize: 13,
-    fontWeight: '600',
-    flex: 1,
-  },
   bookingForm: {
     marginTop: 8,
   },
@@ -485,17 +583,19 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     marginBottom: 8,
+    marginTop: 8,
   },
   input: {
     borderWidth: 1,
     borderRadius: 12,
     padding: 14,
     fontSize: 16,
-    marginBottom: 16,
+    marginBottom: 8,
   },
   bookingActions: {
     flexDirection: 'row',
     gap: 12,
+    marginTop: 8,
   },
   actionButton: {
     flex: 1,
