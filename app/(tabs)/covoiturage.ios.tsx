@@ -1,13 +1,33 @@
 
 import React from "react";
-import { View, Text, StyleSheet, ScrollView } from "react-native";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from "react-native";
 import { useTheme } from "@react-navigation/native";
+import { useRouter } from "expo-router";
 import { colors } from "@/styles/commonStyles";
 import { IconSymbol } from "@/components/IconSymbol";
+import { useProfile } from "@/contexts/ProfileContext";
 
 export default function CovoiturageScreen() {
   const theme = useTheme();
   const isDark = theme.dark;
+  const router = useRouter();
+  const { profile } = useProfile();
+
+  const handlePublishRide = () => {
+    router.push('/covoiturage/publish-ride');
+  };
+
+  const handleMyRides = () => {
+    router.push('/covoiturage/my-rides');
+  };
+
+  const handleSearchRide = () => {
+    router.push('/covoiturage/search-ride');
+  };
+
+  const handleMyReservations = () => {
+    router.push('/covoiturage/my-reservations');
+  };
 
   return (
     <View style={[styles.container, { backgroundColor: isDark ? colors.darkBackground : colors.background }]}>
@@ -21,41 +41,162 @@ export default function CovoiturageScreen() {
           <Text style={styles.headerEmoji}>🇸🇳</Text>
           <View style={styles.headerTextContainer}>
             <Text style={styles.headerTitle}>Covoiturage</Text>
-            <Text style={styles.headerSubtitle}>Partagez vos trajets</Text>
+            <Text style={styles.headerSubtitle}>Partagez vos trajets et économisez</Text>
           </View>
         </View>
 
         {/* Content */}
         <View style={styles.content}>
-          <View style={[styles.card, { backgroundColor: isDark ? colors.darkCard : colors.card }]}>
-            <View style={styles.iconContainer}>
-              <IconSymbol
-                ios_icon_name="car.fill"
-                android_material_icon_name="directions-car"
-                size={48}
-                color={colors.primary}
-              />
-            </View>
-            <Text style={[styles.title, { color: isDark ? colors.darkText : colors.text }]}>
-              Module Covoiturage
-            </Text>
-            <Text style={[styles.description, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-              Partagez vos trajets et économisez sur vos déplacements quotidiens.
-            </Text>
-          </View>
+          {/* Driver Section */}
+          {profile.roles.driver && (
+            <View style={styles.section}>
+              <Text style={[styles.sectionTitle, { color: isDark ? colors.darkText : colors.text }]}>
+                Espace Conducteur
+              </Text>
+              
+              <TouchableOpacity
+                style={[styles.card, { backgroundColor: isDark ? colors.darkCard : colors.card }]}
+                onPress={handlePublishRide}
+                activeOpacity={0.7}
+              >
+                <View style={styles.cardContent}>
+                  <View style={[styles.iconCircle, { backgroundColor: colors.primary + '20' }]}>
+                    <IconSymbol
+                      ios_icon_name="plus.circle.fill"
+                      android_material_icon_name="add-circle"
+                      size={32}
+                      color={colors.primary}
+                    />
+                  </View>
+                  <View style={styles.cardText}>
+                    <Text style={[styles.cardTitle, { color: isDark ? colors.darkText : colors.text }]}>
+                      Publier un trajet
+                    </Text>
+                    <Text style={[styles.cardDescription, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+                      Proposez un trajet et partagez vos frais
+                    </Text>
+                  </View>
+                  <IconSymbol
+                    ios_icon_name="chevron.right"
+                    android_material_icon_name="chevron-right"
+                    size={24}
+                    color={colors.textSecondary}
+                  />
+                </View>
+              </TouchableOpacity>
 
-          <View style={[styles.infoCard, { backgroundColor: isDark ? colors.darkCard : colors.card }]}>
-            <Text style={[styles.infoTitle, { color: isDark ? colors.darkText : colors.text }]}>
-              Fonctionnalités à venir :
-            </Text>
-            <Text style={[styles.infoText, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-              - Recherche de trajets{'\n'}
-              - Proposition de trajets{'\n'}
-              - Réservation en temps réel{'\n'}
-              - Système de notation{'\n'}
-              - Chat intégré
-            </Text>
-          </View>
+              <TouchableOpacity
+                style={[styles.card, { backgroundColor: isDark ? colors.darkCard : colors.card }]}
+                onPress={handleMyRides}
+                activeOpacity={0.7}
+              >
+                <View style={styles.cardContent}>
+                  <View style={[styles.iconCircle, { backgroundColor: colors.secondary + '20' }]}>
+                    <IconSymbol
+                      ios_icon_name="car.fill"
+                      android_material_icon_name="directions-car"
+                      size={32}
+                      color="#CC9900"
+                    />
+                  </View>
+                  <View style={styles.cardText}>
+                    <Text style={[styles.cardTitle, { color: isDark ? colors.darkText : colors.text }]}>
+                      Mes trajets publiés
+                    </Text>
+                    <Text style={[styles.cardDescription, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+                      Gérez vos trajets et réservations
+                    </Text>
+                  </View>
+                  <IconSymbol
+                    ios_icon_name="chevron.right"
+                    android_material_icon_name="chevron-right"
+                    size={24}
+                    color={colors.textSecondary}
+                  />
+                </View>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* Passenger Section */}
+          {profile.roles.passenger && (
+            <View style={styles.section}>
+              <Text style={[styles.sectionTitle, { color: isDark ? colors.darkText : colors.text }]}>
+                Espace Passager
+              </Text>
+              
+              <TouchableOpacity
+                style={[styles.card, { backgroundColor: isDark ? colors.darkCard : colors.card }]}
+                onPress={handleSearchRide}
+                activeOpacity={0.7}
+              >
+                <View style={styles.cardContent}>
+                  <View style={[styles.iconCircle, { backgroundColor: colors.accent + '20' }]}>
+                    <IconSymbol
+                      ios_icon_name="magnifyingglass"
+                      android_material_icon_name="search"
+                      size={32}
+                      color={colors.accent}
+                    />
+                  </View>
+                  <View style={styles.cardText}>
+                    <Text style={[styles.cardTitle, { color: isDark ? colors.darkText : colors.text }]}>
+                      Rechercher un trajet
+                    </Text>
+                    <Text style={[styles.cardDescription, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+                      Trouvez un trajet qui vous convient
+                    </Text>
+                  </View>
+                  <IconSymbol
+                    ios_icon_name="chevron.right"
+                    android_material_icon_name="chevron-right"
+                    size={24}
+                    color={colors.textSecondary}
+                  />
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.card, { backgroundColor: isDark ? colors.darkCard : colors.card }]}
+                onPress={handleMyReservations}
+                activeOpacity={0.7}
+              >
+                <View style={styles.cardContent}>
+                  <View style={[styles.iconCircle, { backgroundColor: colors.primary + '20' }]}>
+                    <IconSymbol
+                      ios_icon_name="list.bullet"
+                      android_material_icon_name="list"
+                      size={32}
+                      color={colors.primary}
+                    />
+                  </View>
+                  <View style={styles.cardText}>
+                    <Text style={[styles.cardTitle, { color: isDark ? colors.darkText : colors.text }]}>
+                      Mes réservations
+                    </Text>
+                    <Text style={[styles.cardDescription, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+                      Consultez vos réservations en cours
+                    </Text>
+                  </View>
+                  <IconSymbol
+                    ios_icon_name="chevron.right"
+                    android_material_icon_name="chevron-right"
+                    size={24}
+                    color={colors.textSecondary}
+                  />
+                </View>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* No roles selected */}
+          {!profile.roles.driver && !profile.roles.passenger && (
+            <View style={[styles.card, { backgroundColor: isDark ? colors.darkCard : colors.card }]}>
+              <Text style={[styles.infoText, { color: isDark ? colors.darkText : colors.text }]}>
+                Veuillez sélectionner un rôle (Conducteur ou Passager) dans votre profil pour accéder aux fonctionnalités de covoiturage.
+              </Text>
+            </View>
+          )}
         </View>
       </ScrollView>
     </View>
@@ -98,47 +239,47 @@ const styles = StyleSheet.create({
   content: {
     padding: 20,
   },
-  card: {
-    borderRadius: 16,
-    padding: 24,
-    alignItems: 'center',
-    marginBottom: 20,
-    boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.08)',
-    elevation: 3,
+  section: {
+    marginBottom: 24,
   },
-  iconContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: colors.primary + '20',
-    alignItems: 'center',
-    justifyContent: 'center',
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: '700',
     marginBottom: 16,
   },
-  title: {
-    fontSize: 24,
-    fontWeight: '700',
-    marginBottom: 12,
-    textAlign: 'center',
-  },
-  description: {
-    fontSize: 16,
-    textAlign: 'center',
-    lineHeight: 24,
-  },
-  infoCard: {
+  card: {
     borderRadius: 16,
-    padding: 20,
+    padding: 16,
+    marginBottom: 12,
     boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.08)',
     elevation: 3,
   },
-  infoTitle: {
-    fontSize: 18,
+  cardContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  iconCircle: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 16,
+  },
+  cardText: {
+    flex: 1,
+  },
+  cardTitle: {
+    fontSize: 16,
     fontWeight: '600',
-    marginBottom: 12,
+    marginBottom: 4,
+  },
+  cardDescription: {
+    fontSize: 14,
   },
   infoText: {
-    fontSize: 14,
+    fontSize: 16,
+    textAlign: 'center',
     lineHeight: 24,
   },
 });

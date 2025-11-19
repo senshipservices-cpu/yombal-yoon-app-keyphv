@@ -1,38 +1,33 @@
 
 import { Stack } from 'expo-router';
 import { useEffect } from 'react';
-import { useFonts } from 'expo-font';
-import * as SplashScreen from 'expo-splash-screen';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { ProfileProvider } from '@/contexts/ProfileContext';
+import { CovoiturageProvider } from '@/contexts/CovoiturageContext';
+import { WidgetProvider } from '@/contexts/WidgetContext';
+import * as SplashScreen from 'expo-splash-screen';
 
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
-  const [loaded, error] = useFonts({
-    'SpaceMono-Regular': require('../assets/fonts/SpaceMono-Regular.ttf'),
-    'SpaceMono-Bold': require('../assets/fonts/SpaceMono-Bold.ttf'),
-    'SpaceMono-Italic': require('../assets/fonts/SpaceMono-Italic.ttf'),
-    'SpaceMono-BoldItalic': require('../assets/fonts/SpaceMono-BoldItalic.ttf'),
-  });
-
   useEffect(() => {
-    if (loaded || error) {
-      SplashScreen.hideAsync();
-    }
-  }, [loaded, error]);
-
-  if (!loaded && !error) {
-    return null;
-  }
+    SplashScreen.hideAsync();
+  }, []);
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <ProfileProvider>
-        <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        </Stack>
-      </ProfileProvider>
-    </GestureHandlerRootView>
+    <ProfileProvider>
+      <CovoiturageProvider>
+        <WidgetProvider>
+          <Stack screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen name="wallet" options={{ headerShown: false }} />
+            <Stack.Screen name="covoiturage/publish-ride" options={{ headerShown: false }} />
+            <Stack.Screen name="covoiturage/my-rides" options={{ headerShown: false }} />
+            <Stack.Screen name="covoiturage/search-ride" options={{ headerShown: false }} />
+            <Stack.Screen name="covoiturage/search-results" options={{ headerShown: false }} />
+            <Stack.Screen name="covoiturage/my-reservations" options={{ headerShown: false }} />
+          </Stack>
+        </WidgetProvider>
+      </CovoiturageProvider>
+    </ProfileProvider>
   );
 }
