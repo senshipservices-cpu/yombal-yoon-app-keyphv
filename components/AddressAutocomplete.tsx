@@ -75,64 +75,62 @@ export default function AddressAutocomplete({
   const fetchPredictions = async (input: string) => {
     setIsLoading(true);
     try {
-      console.log('Fetching address predictions for:', input);
+      console.log('🔍 Fetching address predictions for:', input);
 
-      // Call Edge Function WITHOUT 'types' parameter to get ALL types of places
-      // This includes:
-      // - Addresses and streets (route, street_address, premise)
-      // - Establishments (hospital, mosque, church, school, university, market, etc.)
-      // - Points of interest (roundabouts, landmarks, public places)
-      // - Administrative areas (neighborhoods, communes, localities)
-      // - All other landmarks in Dakar metropolitan area
+      // APPEL GOOGLE PLACES API - AUTOCOMPLÉTION D'ADRESSE
+      // ====================================================
+      // Paramètres respectés :
+      // - types=address : pour inclure toutes les adresses et points de repère
+      // - language=fr : langue française
+      // - components=country:sn : restriction au Sénégal
+      // - location centré sur Dakar (14.6928,-17.4467)
+      // - radius ≈ 45000 (45 km) : couvre toute la zone métropolitaine de Dakar
+      
       const { data, error } = await supabase.functions.invoke('google-places-proxy', {
         body: {
           action: 'autocomplete',
           input: input,
-          // NO types parameter - this allows ALL place types to be returned
-          // Including: addresses, establishments, hospitals, mosques, churches,
-          // streets, neighborhoods, roundabouts, markets, universities, schools,
-          // administrative buildings, factories, and all other landmarks
-          location: '14.6928,-17.4467', // Dakar coordinates (center bias)
-          radius: 45000, // 45km radius covering entire Dakar metropolitan area
-          // Includes: Dakar, Parcelles, Pikine, Guédiawaye, Keur Massar, Mbao,
-          // Bargny, Rufisque, Sébikotane, Bambilor, Diamaguène, Diamniadio, etc.
-          components: 'country:sn', // Restrict to Senegal only
-          language: 'fr', // French language
+          types: 'address', // Inclut adresses, rues, et tous les points de repère
+          location: '14.6928,-17.4467', // Centre sur Dakar
+          radius: 45000, // 45 km - couvre Dakar, Parcelles, Pikine, Guédiawaye, etc.
+          components: 'country:sn', // Restriction au Sénégal
+          language: 'fr', // Langue française
+          strictbounds: true, // Limite strictement à la zone spécifiée
         },
       });
 
       if (error) {
-        console.error('Error fetching address predictions:', error);
+        console.error('❌ Error fetching address predictions:', error);
         setPredictions([]);
         setShowPredictions(false);
         return;
       }
 
       if (data.status === 'OK' && data.predictions) {
-        console.log(`Found ${data.predictions.length} predictions (all types)`);
+        console.log(`✅ Found ${data.predictions.length} predictions`);
         
-        // Log the types of places found for debugging
-        const placeTypes = data.predictions.map((p: Prediction) => ({
+        // Log des types de lieux trouvés pour débogage
+        const placeTypes = data.predictions.slice(0, 5).map((p: Prediction) => ({
           name: p.structured_formatting.main_text,
           types: p.types
         }));
-        console.log('Place types found:', placeTypes);
+        console.log('📍 Place types found:', placeTypes);
         
         setPredictions(data.predictions);
         setShowPredictions(true);
       } else if (data.status === 'ZERO_RESULTS') {
-        console.log('No predictions found');
+        console.log('⚠️ No predictions found');
         setPredictions([]);
         setShowPredictions(false);
       } else {
-        console.log('Autocomplete API response status:', data.status);
+        console.log('⚠️ Autocomplete API response status:', data.status);
         if (data.error_message) {
           console.error('API Error:', data.error_message);
         }
         setPredictions([]);
       }
     } catch (error) {
-      console.error('Error fetching address predictions:', error);
+      console.error('❌ Error fetching address predictions:', error);
       setPredictions([]);
     } finally {
       setIsLoading(false);
@@ -141,8 +139,12 @@ export default function AddressAutocomplete({
 
   const getPlaceDetails = async (placeId: string): Promise<Location | null> => {
     try {
-      console.log('Fetching place details for place_id:', placeId);
+      console.log('🔍 Fetching place details for place_id:', placeId);
 
+      // RÉCUPÉRATION LAT/LNG (Google Places Details API)
+      // =================================================
+      // Récupère la géométrie (latitude et longitude) du lieu sélectionné
+      
       const { data, error } = await supabase.functions.invoke('google-places-proxy', {
         body: {
           action: 'place_details',
@@ -151,7 +153,7 @@ export default function AddressAutocomplete({
       });
 
       if (error) {
-        console.error('Error fetching place details:', error);
+        console.error('❌ Error fetching place details:', error);
         return null;
       }
 
@@ -160,19 +162,19 @@ export default function AddressAutocomplete({
           lat: data.result.geometry.location.lat,
           lng: data.result.geometry.location.lng,
         };
-        console.log('Retrieved coordinates:', location);
-        console.log('Place name:', data.result.name);
-        console.log('Place types:', data.result.types);
+        console.log('✅ Retrieved coordinates:', location);
+        console.log('📍 Place name:', data.result.name);
+        console.log('🏷️ Place types:', data.result.types);
         return location;
       } else {
-        console.error('Place Details API error:', data.status);
+        console.error('❌ Place Details API error:', data.status);
         if (data.error_message) {
           console.error('API Error:', data.error_message);
         }
       }
       return null;
     } catch (error) {
-      console.error('Error fetching place details:', error);
+      console.error('❌ Error fetching place details:', error);
       return null;
     }
   };
@@ -184,57 +186,63 @@ export default function AddressAutocomplete({
     setPredictions([]);
     Keyboard.dismiss();
 
-    console.log('Selected address:', address);
-    console.log('Place ID:', prediction.place_id);
-    console.log('Place types:', prediction.types);
+    console.log('✅ Selected address:', address);
+    console.log('🆔 Place ID:', prediction.place_id);
+    console.log('🏷️ Place types:', prediction.types);
 
-    // Fetch coordinates for the selected place
+    // RÉCUPÉRATION DES COORDONNÉES DU LIEU SÉLECTIONNÉ
+    // Appel Place Details pour obtenir lat/lng
     const location = await getPlaceDetails(prediction.place_id);
     if (location) {
+      // Stockage dans les variables du module :
+      // - pickupLat / pickupLng pour l'adresse de départ
+      // - dropoffLat / dropoffLng pour l'adresse d'arrivée
       onSelectAddress(address, location, prediction.place_id);
+      console.log('✅ Coordinates stored successfully');
     } else {
-      console.error('Failed to retrieve coordinates for selected address');
+      console.error('❌ Failed to retrieve coordinates for selected address');
     }
   };
 
   const getPlaceIcon = (types: string[]) => {
-    // Return appropriate icon based on place type
-    // Healthcare facilities
+    // Retourne l'icône appropriée selon le type de lieu
+    
+    // Établissements de santé
     if (types.includes('hospital')) return '🏥';
     if (types.includes('health')) return '⚕️';
     if (types.includes('doctor')) return '👨‍⚕️';
     if (types.includes('pharmacy')) return '💊';
     if (types.includes('dentist')) return '🦷';
     
-    // Places of worship
+    // Lieux de culte
     if (types.includes('mosque')) return '🕌';
     if (types.includes('church')) return '⛪';
     if (types.includes('hindu_temple')) return '🛕';
     if (types.includes('synagogue')) return '🕍';
     if (types.includes('place_of_worship')) return '🙏';
     
-    // Educational institutions
+    // Établissements d'enseignement
     if (types.includes('university')) return '🎓';
     if (types.includes('school')) return '🏫';
     if (types.includes('secondary_school')) return '📚';
     if (types.includes('primary_school')) return '✏️';
     if (types.includes('library')) return '📖';
     
-    // Commercial and markets
+    // Commerces et marchés
     if (types.includes('shopping_mall')) return '🏬';
     if (types.includes('supermarket')) return '🛒';
     if (types.includes('market')) return '🏪';
     if (types.includes('store')) return '🏪';
     if (types.includes('convenience_store')) return '🏪';
     
-    // Transportation
+    // Transport
     if (types.includes('bus_station')) return '🚌';
     if (types.includes('transit_station')) return '🚉';
     if (types.includes('train_station')) return '🚂';
     if (types.includes('airport')) return '✈️';
     if (types.includes('taxi_stand')) return '🚕';
     
-    // Government and administrative
+    // Gouvernement et administration
     if (types.includes('local_government_office')) return '🏛️';
     if (types.includes('city_hall')) return '🏛️';
     if (types.includes('courthouse')) return '⚖️';
@@ -243,7 +251,7 @@ export default function AddressAutocomplete({
     if (types.includes('police')) return '👮';
     if (types.includes('fire_station')) return '🚒';
     
-    // Recreation and culture
+    // Loisirs et culture
     if (types.includes('park')) return '🌳';
     if (types.includes('stadium')) return '🏟️';
     if (types.includes('museum')) return '🏛️';
@@ -251,42 +259,42 @@ export default function AddressAutocomplete({
     if (types.includes('movie_theater')) return '🎬';
     if (types.includes('night_club')) return '🎉';
     
-    // Food and dining
+    // Restauration
     if (types.includes('restaurant')) return '🍽️';
     if (types.includes('cafe')) return '☕';
     if (types.includes('bar')) return '🍺';
     if (types.includes('bakery')) return '🥖';
     
-    // Accommodation
+    // Hébergement
     if (types.includes('lodging')) return '🏨';
     if (types.includes('hotel')) return '🏨';
     
-    // Financial
+    // Finances
     if (types.includes('bank')) return '🏦';
     if (types.includes('atm')) return '💳';
     
-    // Industrial and business
+    // Industrie et entreprises
     if (types.includes('factory')) return '🏭';
     if (types.includes('industrial')) return '🏭';
     
-    // Geographic features
+    // Zones géographiques
     if (types.includes('locality')) return '🏘️';
     if (types.includes('sublocality')) return '🏘️';
     if (types.includes('neighborhood')) return '🏘️';
     if (types.includes('administrative_area_level_1')) return '🗺️';
     if (types.includes('administrative_area_level_2')) return '🗺️';
     
-    // Streets and routes
+    // Rues et routes
     if (types.includes('route')) return '🛣️';
     if (types.includes('street_address')) return '🏠';
     if (types.includes('intersection')) return '🚦';
     if (types.includes('premise')) return '🏠';
     
-    // Points of interest
+    // Points d'intérêt
     if (types.includes('point_of_interest')) return '📍';
     if (types.includes('establishment')) return '🏢';
     
-    // Default location icon
+    // Icône par défaut
     return '📍';
   };
 

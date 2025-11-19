@@ -28,53 +28,68 @@ Deno.serve(async (req) => {
           key: GOOGLE_MAPS_API_KEY,
         });
 
-        // For comprehensive landmark coverage in Dakar metropolitan area:
-        // We use 'establishment' type to include ALL types of places:
-        // - Hospitals and health centers (hospital, health, doctor, pharmacy)
-        // - Places of worship (mosque, church, hindu_temple, synagogue)
-        // - Streets, neighborhoods, and administrative areas (route, sublocality, locality)
-        // - Roundabouts and intersections (intersection, point_of_interest)
-        // - Markets and public places (shopping_mall, market, store)
-        // - Universities, schools, and training centers (university, school, secondary_school, primary_school)
-        // - Administrative buildings and public services (local_government_office, city_hall, post_office)
-        // - Factories, industrial zones, and major landmarks (factory, establishment, point_of_interest)
-        //
-        // By using 'establishment' we get businesses and landmarks
-        // By NOT specifying types, we also get addresses, streets, and neighborhoods
-        // The location bias ensures we only get results from Dakar metropolitan area
+        // CONFIGURATION POUR DAKAR MÉTROPOLITAINE
+        // ========================================
+        // Zone couverte : Dakar, Parcelles, Pikine, Guédiawaye, Keur Massar, 
+        // Mbao, Bargny, Rufisque, Sébikotane, Bambilor, Diamaguène, Diamniadio
         
-        if (params.types) {
-          // If types is explicitly provided (e.g., for city autocomplete), use it
-          urlParams.append('types', params.types);
-        }
-        // If no types specified, we get ALL results (addresses + establishments + POIs)
-        // This is what we want for comprehensive Dakar landmark coverage
+        // Types de lieux inclus :
+        // - Adresses et rues (types=address)
+        // - Hôpitaux et centres de santé
+        // - Mosquées, églises et lieux de culte
+        // - Rues, quartiers, communes et unités des Parcelles
+        // - Ronds-points et carrefours
+        // - Marchés, localités et lieux publics
+        // - Universités, écoles et centres de formation
+        // - Bâtiments administratifs et services publics
+        // - Usines, zones industrielles et points de repère majeurs
 
-        // Add location bias for Dakar - this is CRITICAL for limiting to Dakar metro area
+        // Paramètre types : address pour inclure toutes les adresses et points de repère
+        if (params.types) {
+          urlParams.append('types', params.types);
+        } else {
+          // Par défaut, utiliser 'address' pour couvrir tous les types de lieux
+          urlParams.append('types', 'address');
+        }
+
+        // Location bias centré sur Dakar (14.6928°N, 17.4467°W)
+        // Ceci garantit que les résultats sont prioritairement dans la zone de Dakar
         if (params.location) {
           urlParams.append('location', params.location);
+        } else {
+          // Coordonnées par défaut de Dakar
+          urlParams.append('location', '14.6928,-17.4467');
         }
 
-        // Add radius for location bias - 45km covers entire Dakar metropolitan area
-        // Including: Dakar, Parcelles, Pikine, Guédiawaye, Keur Massar, Mbao, 
-        // Bargny, Rufisque, Sébikotane, Bambilor, Diamaguène, Diamniadio
+        // Radius de 45 km pour couvrir toute la zone métropolitaine de Dakar
+        // Ceci inclut toutes les communes et localités mentionnées
         if (params.radius) {
-          urlParams.append('radius', params.radius);
+          urlParams.append('radius', params.radius.toString());
+        } else {
+          urlParams.append('radius', '45000');
         }
 
-        // Restrict to Senegal only
+        // Restriction au Sénégal uniquement (components=country:sn)
         if (params.components) {
           urlParams.append('components', params.components);
+        } else {
+          urlParams.append('components', 'country:sn');
         }
 
-        // Set language to French
+        // Langue française (language=fr)
         if (params.language) {
           urlParams.append('language', params.language);
+        } else {
+          urlParams.append('language', 'fr');
         }
 
-        // Add strictbounds to ensure results are ONLY within the specified radius
-        // This prevents results from outside Dakar metropolitan area
-        urlParams.append('strictbounds', 'true');
+        // Strictbounds pour limiter strictement aux résultats dans le rayon spécifié
+        // Ceci empêche les résultats en dehors de la zone métropolitaine de Dakar
+        if (params.strictbounds !== undefined) {
+          urlParams.append('strictbounds', params.strictbounds.toString());
+        } else {
+          urlParams.append('strictbounds', 'true');
+        }
 
         url = `${baseUrl}?${urlParams.toString()}`;
         console.log('Autocomplete URL:', url);
@@ -83,23 +98,41 @@ Deno.serve(async (req) => {
       }
 
       case 'place_details': {
-        // Get place details (coordinates, name, types, etc.)
-        url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${params.placeId}&fields=geometry,formatted_address,name,types,address_components&key=${GOOGLE_MAPS_API_KEY}`;
+        // RÉCUPÉRATION LAT/LNG (Google Places Details API)
+        // =================================================
+        // Récupère la géométrie (latitude et longitude) d'un lieu sélectionné
+        // Utilisé après qu'une suggestion d'autocomplétion soit sélectionnée
+        
+        const fields = params.fields || 'geometry,formatted_address,name,types,address_components';
+        url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${params.placeId}&fields=${fields}&language=fr&key=${GOOGLE_MAPS_API_KEY}`;
         console.log('Place Details URL:', url);
         response = await fetch(url);
         break;
       }
 
       case 'distance_matrix': {
-        // Calculate distance and duration
-        url = `https://maps.googleapis.com/maps/api/distancematrix/json?origins=${params.originLat},${params.originLng}&destinations=${params.destLat},${params.destLng}&mode=driving&language=fr&key=${GOOGLE_MAPS_API_KEY}`;
+        // CALCUL DE DISTANCE ET DURÉE (Google Distance Matrix API)
+        // =========================================================
+        // Calcule la distance et la durée entre deux points
+        // Paramètres :
+        // - origins : pickupLat,pickupLng
+        // - destinations : dropoffLat,dropoffLng
+        // - mode : driving (par défaut)
+        // - language : fr
+        
+        const origins = params.origins;
+        const destinations = params.destinations;
+        const mode = params.mode || 'driving';
+        const language = params.language || 'fr';
+
+        url = `https://maps.googleapis.com/maps/api/distancematrix/json?origins=${origins}&destinations=${destinations}&mode=${mode}&language=${language}&key=${GOOGLE_MAPS_API_KEY}`;
         console.log('Distance Matrix URL:', url);
         response = await fetch(url);
         break;
       }
 
       case 'city_autocomplete': {
-        // City autocomplete (for covoiturage)
+        // City autocomplete (pour covoiturage - villes du Sénégal)
         url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(params.input)}&types=(cities)&language=fr&components=country:sn&key=${GOOGLE_MAPS_API_KEY}`;
         console.log('City Autocomplete URL:', url);
         response = await fetch(url);
@@ -131,6 +164,9 @@ Deno.serve(async (req) => {
         }));
         console.log('Sample place types:', JSON.stringify(sampleTypes, null, 2));
       }
+    } else if (data.rows) {
+      // Distance Matrix response
+      console.log('Distance Matrix result:', JSON.stringify(data.rows[0]?.elements[0], null, 2));
     }
 
     return new Response(JSON.stringify(data), {

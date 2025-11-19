@@ -4,7 +4,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase, isSupabaseConfigured, ParcelRow } from '@/config/supabase';
 import { demoMode } from '@/config/demoMode';
 import { calculateDistance } from '@/utils/distance';
-import Constants from 'expo-constants';
 
 export interface Location {
   lat: number;
@@ -118,7 +117,17 @@ export function ColisProvider({ children }: { children: ReactNode }) {
   const [distanceKm, setDistanceKmState] = useState<number>(0);
   const [calculatedPrice, setCalculatedPrice] = useState<number>(0);
 
-  // Calculate distance using Google Distance Matrix API
+  // CALCUL DE DISTANCE ET DURÉE (Google Distance Matrix API)
+  // =========================================================
+  // Dès que les 4 coordonnées sont connues (pickupLat, pickupLng, dropoffLat, dropoffLng),
+  // appeler Google Distance Matrix API avec :
+  // - origins = pickupLat,pickupLng
+  // - destinations = dropoffLat,dropoffLng
+  // - mode=driving
+  // - language=fr
+  // Récupérer :
+  // - distance.value (mètres) → convertir en distanceKm
+  // - duration.value (secondes) → optionnel
   const calculateDistanceFromGoogleAPI = useCallback(async (
     originLat: number,
     originLng: number,
@@ -126,61 +135,72 @@ export function ColisProvider({ children }: { children: ReactNode }) {
     destLng: number
   ) => {
     try {
-      // Get API key from expo constants
-      const apiKey = Constants.expoConfig?.extra?.GOOGLE_MAPS_API_KEY;
-      
-      if (!apiKey) {
-        console.warn('Google Maps API key not configured');
-        // Fallback to Haversine formula if API key is not available
+      console.log('🔍 Calling Google Distance Matrix API...');
+      console.log('📍 Origin:', { lat: originLat, lng: originLng });
+      console.log('📍 Destination:', { lat: destLat, lng: destLng });
+
+      const { data, error } = await supabase.functions.invoke('google-places-proxy', {
+        body: {
+          action: 'distance_matrix',
+          origins: `${originLat},${originLng}`,
+          destinations: `${destLat},${destLng}`,
+          mode: 'driving',
+          language: 'fr',
+        },
+      });
+
+      if (error) {
+        console.error('❌ Error calling Distance Matrix API:', error);
+        // Fallback to Haversine formula
         const distance = calculateDistance(originLat, originLng, destLat, destLng);
-        console.log('Fallback to Haversine distance:', distance, 'km');
+        console.log('⚠️ Fallback to Haversine distance:', distance, 'km');
         setDistanceKmState(distance);
         return;
       }
 
-      // Build the Distance Matrix API URL
-      const url = `https://maps.googleapis.com/maps/api/distancematrix/json?origins=${originLat},${originLng}&destinations=${destLat},${destLng}&mode=driving&language=fr&key=${apiKey}`;
-
-      console.log('Calling Google Distance Matrix API...');
-      const response = await fetch(url);
-      const data = await response.json();
-
       if (data.status === 'OK' && data.rows && data.rows[0]?.elements && data.rows[0].elements[0]) {
         const element = data.rows[0].elements[0];
         
-        if (element.status === 'OK' && element.distance) {
-          // Distance is in meters, convert to kilometers
-          const distanceMeters = element.distance.value;
+        if (element.status === 'OK') {
+          // Distance en mètres, convertir en kilomètres
+          const distanceMeters = element.distance?.value || 0;
           const distanceKilometers = distanceMeters / 1000;
           
-          console.log('Google Distance Matrix API result:', {
-            distanceMeters,
-            distanceKilometers: distanceKilometers.toFixed(2),
-          });
+          // Durée en secondes (optionnel)
+          const durationSeconds = element.duration?.value || 0;
+          const durationMinutes = Math.round(durationSeconds / 60);
           
+          console.log('✅ Distance Matrix API result:');
+          console.log('   - Distance:', distanceKilometers.toFixed(2), 'km');
+          console.log('   - Durée:', durationMinutes, 'minutes');
+          
+          // Mettre à jour la variable distanceKm
           setDistanceKmState(distanceKilometers);
+          
+          // Le prix sera automatiquement mis à jour via updatePriceFromDistance
+          // grâce au useEffect qui écoute distanceKm
         } else {
-          console.error('Distance Matrix element status:', element.status);
+          console.error('❌ Distance Matrix element status:', element.status);
           // Fallback to Haversine formula
           const distance = calculateDistance(originLat, originLng, destLat, destLng);
-          console.log('Fallback to Haversine distance:', distance, 'km');
+          console.log('⚠️ Fallback to Haversine distance:', distance, 'km');
           setDistanceKmState(distance);
         }
       } else {
-        console.error('Distance Matrix API status:', data.status);
+        console.error('❌ Distance Matrix API status:', data.status);
         if (data.error_message) {
           console.error('API Error:', data.error_message);
         }
         // Fallback to Haversine formula
         const distance = calculateDistance(originLat, originLng, destLat, destLng);
-        console.log('Fallback to Haversine distance:', distance, 'km');
+        console.log('⚠️ Fallback to Haversine distance:', distance, 'km');
         setDistanceKmState(distance);
       }
     } catch (error) {
-      console.error('Error calling Google Distance Matrix API:', error);
+      console.error('❌ Error calling Google Distance Matrix API:', error);
       // Fallback to Haversine formula
       const distance = calculateDistance(originLat, originLng, destLat, destLng);
-      console.log('Fallback to Haversine distance:', distance, 'km');
+      console.log('⚠️ Fallback to Haversine distance:', distance, 'km');
       setDistanceKmState(distance);
     }
   }, []);
@@ -246,22 +266,26 @@ export function ColisProvider({ children }: { children: ReactNode }) {
     loadData();
   }, [loadData]);
 
-  // Auto-calculate distance when both coordinates are available using Google Distance Matrix API
+  // AUTO-CALCUL DE DISTANCE QUAND LES 4 COORDONNÉES SONT DISPONIBLES
+  // Utilise Google Distance Matrix API pour calculer la distance réelle
   useEffect(() => {
     if (pickupLat !== null && pickupLng !== null && dropoffLat !== null && dropoffLng !== null) {
+      console.log('✅ All coordinates available, calculating distance...');
       calculateDistanceFromGoogleAPI(pickupLat, pickupLng, dropoffLat, dropoffLng);
     } else {
       setDistanceKmState(0);
     }
   }, [pickupLat, pickupLng, dropoffLat, dropoffLng, calculateDistanceFromGoogleAPI]);
 
-  // Update price based on distance
+  // MISE À JOUR DU PRIX AUTOMATIQUE VIA updatePriceFromDistance
+  // Calcule le prix basé sur la distance selon la logique de tarification
   const updatePriceFromDistance = useCallback((distance: number) => {
-    console.log('Calculating price for distance:', distance);
+    console.log('💰 Calculating price for distance:', distance, 'km');
     
     if (distance <= 0) {
       // Si la distance n'est pas connue, on met le prix minimum
       setCalculatedPrice(PRICING_CONFIG.minPrice);
+      console.log('   → Minimum price:', PRICING_CONFIG.minPrice, 'FCFA');
       return;
     }
 
@@ -270,21 +294,28 @@ export function ColisProvider({ children }: { children: ReactNode }) {
     if (distance <= 10) {
       // Jusqu'à 10 km : baseFee + distance * pricePerKmShort
       price = PRICING_CONFIG.baseFee + (distance * PRICING_CONFIG.pricePerKmShort);
+      console.log('   → Short distance pricing:');
+      console.log('     - Base fee:', PRICING_CONFIG.baseFee, 'FCFA');
+      console.log('     - Distance fee:', distance * PRICING_CONFIG.pricePerKmShort, 'FCFA');
     } else {
       // Au-delà de 10 km : baseFee + (10 * pricePerKmShort) + ((distance - 10) * pricePerKmLong)
       price = PRICING_CONFIG.baseFee + 
               (10 * PRICING_CONFIG.pricePerKmShort) + 
               ((distance - 10) * PRICING_CONFIG.pricePerKmLong);
+      console.log('   → Long distance pricing:');
+      console.log('     - Base fee:', PRICING_CONFIG.baseFee, 'FCFA');
+      console.log('     - First 10 km:', 10 * PRICING_CONFIG.pricePerKmShort, 'FCFA');
+      console.log('     - Additional km:', (distance - 10) * PRICING_CONFIG.pricePerKmLong, 'FCFA');
     }
 
     // Appliquer le prix minimum
     const finalPrice = Math.max(price, PRICING_CONFIG.minPrice);
     setCalculatedPrice(Math.round(finalPrice));
     
-    console.log('Calculated price:', finalPrice, 'FCFA');
+    console.log('✅ Final calculated price:', Math.round(finalPrice), 'FCFA');
   }, []);
 
-  // Auto-update price when distance changes
+  // AUTO-UPDATE PRICE WHEN DISTANCE CHANGES
   useEffect(() => {
     updatePriceFromDistance(distanceKm);
   }, [distanceKm, updatePriceFromDistance]);
@@ -294,9 +325,9 @@ export function ColisProvider({ children }: { children: ReactNode }) {
     await loadData();
   };
 
-  // Set pickup coordinates
+  // STOCKER LES COORDONNÉES DE DÉPART (pickupLat / pickupLng)
   const setPickupCoordinates = (lat: number | null, lng: number | null, placeId?: string) => {
-    console.log('Setting pickup coordinates:', { lat, lng, placeId });
+    console.log('📍 Setting pickup coordinates:', { lat, lng, placeId });
     setPickupLat(lat);
     setPickupLng(lng);
     if (placeId) {
@@ -304,9 +335,9 @@ export function ColisProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // Set dropoff coordinates
+  // STOCKER LES COORDONNÉES D'ARRIVÉE (dropoffLat / dropoffLng)
   const setDropoffCoordinates = (lat: number | null, lng: number | null, placeId?: string) => {
-    console.log('Setting dropoff coordinates:', { lat, lng, placeId });
+    console.log('📍 Setting dropoff coordinates:', { lat, lng, placeId });
     setDropoffLat(lat);
     setDropoffLng(lng);
     if (placeId) {
@@ -316,13 +347,13 @@ export function ColisProvider({ children }: { children: ReactNode }) {
 
   // Set distance and trigger price update
   const setDistanceKm = (distance: number) => {
-    console.log('Manually setting distance:', distance);
+    console.log('📏 Manually setting distance:', distance, 'km');
     setDistanceKmState(distance);
   };
 
-  // Reset all calculations
+  // RÉINITIALISER TOUS LES CALCULS
   const resetCalculations = () => {
-    console.log('Resetting calculations');
+    console.log('🔄 Resetting calculations');
     setPickupLat(null);
     setPickupLng(null);
     setDropoffLat(null);
