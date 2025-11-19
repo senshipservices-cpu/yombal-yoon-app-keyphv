@@ -34,6 +34,14 @@ export interface ParcelRequest {
   deliveredAt?: string;
 }
 
+// Pricing constants
+export const PRICING_CONFIG = {
+  baseFee: 700,
+  pricePerKmShort: 120, // jusqu'à 10 km
+  pricePerKmLong: 100,  // au-delà de 10 km
+  minPrice: 1000,
+};
+
 interface ColisContextType {
   parcelRequests: ParcelRequest[];
   addParcelRequest: (request: Omit<ParcelRequest, 'id' | 'status' | 'createdAt'>) => Promise<{ success: boolean; requestId?: string; error?: string }>;
@@ -42,6 +50,19 @@ interface ColisContextType {
   getParcelById: (parcelId: string) => ParcelRequest | undefined;
   isLoading: boolean;
   refreshParcels: () => Promise<void>;
+  
+  // New: Distance and price calculation
+  pickupLat: number | null;
+  pickupLng: number | null;
+  dropoffLat: number | null;
+  dropoffLng: number | null;
+  distanceKm: number;
+  calculatedPrice: number;
+  setPickupCoordinates: (lat: number | null, lng: number | null) => void;
+  setDropoffCoordinates: (lat: number | null, lng: number | null) => void;
+  setDistanceKm: (distance: number) => void;
+  updatePriceFromDistance: (distance: number) => void;
+  resetCalculations: () => void;
 }
 
 const ColisContext = createContext<ColisContextType | undefined>(undefined);
@@ -83,9 +104,22 @@ export function ColisProvider({ children }: { children: ReactNode }) {
   const [parcelRequests, setParcelRequests] = useState<ParcelRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
+  // New: Distance and price calculation state
+  const [pickupLat, setPickupLat] = useState<number | null>(null);
+  const [pickupLng, setPickupLng] = useState<number | null>(null);
+  const [dropoffLat, setDropoffLat] = useState<number | null>(null);
+  const [dropoffLng, setDropoffLng] = useState<number | null>(null);
+  const [distanceKm, setDistanceKmState] = useState<number>(0);
+  const [calculatedPrice, setCalculatedPrice] = useState<number>(0);
+
   useEffect(() => {
     loadData();
   }, []);
+
+  // New: Auto-update price when distance changes
+  useEffect(() => {
+    updatePriceFromDistance(distanceKm);
+  }, [distanceKm]);
 
   const loadData = async () => {
     try {
@@ -146,6 +180,66 @@ export function ColisProvider({ children }: { children: ReactNode }) {
   const refreshParcels = async () => {
     setIsLoading(true);
     await loadData();
+  };
+
+  // New: Update price based on distance
+  const updatePriceFromDistance = (distance: number) => {
+    console.log('Calculating price for distance:', distance);
+    
+    if (distance <= 0) {
+      // Si la distance n'est pas connue, on met le prix minimum
+      setCalculatedPrice(PRICING_CONFIG.minPrice);
+      return;
+    }
+
+    let price = 0;
+
+    if (distance <= 10) {
+      // Jusqu'à 10 km : baseFee + distance * pricePerKmShort
+      price = PRICING_CONFIG.baseFee + (distance * PRICING_CONFIG.pricePerKmShort);
+    } else {
+      // Au-delà de 10 km : baseFee + (10 * pricePerKmShort) + ((distance - 10) * pricePerKmLong)
+      price = PRICING_CONFIG.baseFee + 
+              (10 * PRICING_CONFIG.pricePerKmShort) + 
+              ((distance - 10) * PRICING_CONFIG.pricePerKmLong);
+    }
+
+    // Appliquer le prix minimum
+    const finalPrice = Math.max(price, PRICING_CONFIG.minPrice);
+    setCalculatedPrice(Math.round(finalPrice));
+    
+    console.log('Calculated price:', finalPrice);
+  };
+
+  // New: Set pickup coordinates
+  const setPickupCoordinates = (lat: number | null, lng: number | null) => {
+    console.log('Setting pickup coordinates:', lat, lng);
+    setPickupLat(lat);
+    setPickupLng(lng);
+  };
+
+  // New: Set dropoff coordinates
+  const setDropoffCoordinates = (lat: number | null, lng: number | null) => {
+    console.log('Setting dropoff coordinates:', lat, lng);
+    setDropoffLat(lat);
+    setDropoffLng(lng);
+  };
+
+  // New: Set distance and trigger price update
+  const setDistanceKm = (distance: number) => {
+    console.log('Setting distance:', distance);
+    setDistanceKmState(distance);
+  };
+
+  // New: Reset all calculations
+  const resetCalculations = () => {
+    console.log('Resetting calculations');
+    setPickupLat(null);
+    setPickupLng(null);
+    setDropoffLat(null);
+    setDropoffLng(null);
+    setDistanceKmState(0);
+    setCalculatedPrice(0);
   };
 
   const addParcelRequest = async (
@@ -313,6 +407,18 @@ export function ColisProvider({ children }: { children: ReactNode }) {
         getParcelById,
         isLoading,
         refreshParcels,
+        // New exports
+        pickupLat,
+        pickupLng,
+        dropoffLat,
+        dropoffLng,
+        distanceKm,
+        calculatedPrice,
+        setPickupCoordinates,
+        setDropoffCoordinates,
+        setDistanceKm,
+        updatePriceFromDistance,
+        resetCalculations,
       }}
     >
       {children}

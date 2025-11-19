@@ -1,11 +1,11 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { View, Text, StyleSheet, ScrollView, Platform, TextInput, TouchableOpacity, Alert } from "react-native";
 import { useTheme } from "@react-navigation/native";
 import { useRouter } from "expo-router";
 import { colors } from "@/styles/commonStyles";
 import { IconSymbol } from "@/components/IconSymbol";
-import { useColis, Location } from "@/contexts/ColisContext";
+import { useColis, Location, PRICING_CONFIG } from "@/contexts/ColisContext";
 import { useDelivery } from "@/contexts/DeliveryContext";
 import { useProfile } from "@/contexts/ProfileContext";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
@@ -19,7 +19,15 @@ export default function ColisScreen() {
   const theme = useTheme();
   const isDark = theme.dark;
   const router = useRouter();
-  const { addParcelRequest } = useColis();
+  const { 
+    addParcelRequest,
+    distanceKm,
+    calculatedPrice,
+    setPickupCoordinates,
+    setDropoffCoordinates,
+    setDistanceKm,
+    resetCalculations,
+  } = useColis();
   const { assignParcelToNearbyDeliveryPersons } = useDelivery();
   const { profile } = useProfile();
 
@@ -34,6 +42,26 @@ export default function ColisScreen() {
   const [description, setDescription] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+
+  // Pour tester : champ manuel pour la distance (en attendant Google Maps)
+  const [manualDistance, setManualDistance] = useState('');
+
+  // Update context when locations change
+  useEffect(() => {
+    if (departureLocation) {
+      setPickupCoordinates(departureLocation.lat, departureLocation.lng);
+    } else {
+      setPickupCoordinates(null, null);
+    }
+  }, [departureLocation]);
+
+  useEffect(() => {
+    if (arrivalLocation) {
+      setDropoffCoordinates(arrivalLocation.lat, arrivalLocation.lng);
+    } else {
+      setDropoffCoordinates(null, null);
+    }
+  }, [arrivalLocation]);
 
   // Calculate pricing when both locations are available
   const pricing = departureLocation && arrivalLocation
@@ -66,6 +94,14 @@ export default function ColisScreen() {
     setIsSubmitting(true);
 
     try {
+      // Préparer les données de pricing si disponibles
+      const pricingData = distanceKm > 0 ? {
+        distance: distanceKm,
+        baseFee: PRICING_CONFIG.baseFee,
+        kmFee: calculatedPrice - PRICING_CONFIG.baseFee,
+        total: calculatedPrice,
+      } : undefined;
+
       const result = await addParcelRequest({
         senderName: senderName.trim(),
         senderPhone: senderPhone.trim(),
@@ -77,7 +113,7 @@ export default function ColisScreen() {
         arrivalLocation: arrivalLocation || undefined,
         description: description.trim(),
         deliveryOption: 'standard',
-        pricing: pricing || undefined,
+        pricing: pricingData,
       });
 
       if (result.success && result.requestId) {
@@ -100,6 +136,10 @@ export default function ColisScreen() {
         setArrivalAddress('');
         setArrivalLocation(null);
         setDescription('');
+        setManualDistance('');
+        
+        // Reset calculations
+        resetCalculations();
         
         // Show success message
         setShowSuccess(true);
@@ -119,6 +159,17 @@ export default function ColisScreen() {
       Alert.alert('Erreur', 'Une erreur est survenue. Veuillez réessayer.');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  // Handler pour le champ de distance manuel (test)
+  const handleManualDistanceChange = (text: string) => {
+    setManualDistance(text);
+    const distance = parseFloat(text);
+    if (!isNaN(distance) && distance >= 0) {
+      setDistanceKm(distance);
+    } else {
+      setDistanceKm(0);
     }
   };
 
@@ -351,6 +402,65 @@ export default function ColisScreen() {
               label="Adresse d'arrivée *"
               apiKey={GOOGLE_MAPS_API_KEY}
             />
+
+            {/* Distance et Prix estimés */}
+            <View style={[styles.estimationCard, { backgroundColor: isDark ? colors.darkBackground : colors.background }]}>
+              <View style={styles.estimationRow}>
+                <IconSymbol
+                  ios_icon_name="location.fill"
+                  android_material_icon_name="place"
+                  size={20}
+                  color={colors.primary}
+                />
+                <Text style={[styles.estimationLabel, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+                  Distance estimée :
+                </Text>
+                <Text style={[styles.estimationValue, { color: isDark ? colors.darkText : colors.text }]}>
+                  {distanceKm > 0 ? `${distanceKm.toFixed(1)} km` : '-- km'}
+                </Text>
+              </View>
+
+              <View style={styles.estimationRow}>
+                <IconSymbol
+                  ios_icon_name="creditcard.fill"
+                  android_material_icon_name="payments"
+                  size={20}
+                  color={colors.accent}
+                />
+                <Text style={[styles.estimationLabel, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+                  Prix estimé :
+                </Text>
+                <Text style={[styles.estimationValue, { color: colors.accent, fontWeight: '700' }]}>
+                  {calculatedPrice > 0 ? `${calculatedPrice} FCFA` : '-- FCFA'}
+                </Text>
+              </View>
+            </View>
+
+            {/* Champ de test pour la distance (temporaire) */}
+            <View style={[styles.testCard, { backgroundColor: '#FFF3CD', borderColor: '#FFC107' }]}>
+              <Text style={[styles.testTitle, { color: '#856404' }]}>
+                🧪 Test - Distance manuelle
+              </Text>
+              <Text style={[styles.testDescription, { color: '#856404' }]}>
+                En attendant Google Maps, saisissez une distance en km pour tester le calcul du prix :
+              </Text>
+              <TextInput
+                style={[
+                  styles.input,
+                  {
+                    backgroundColor: '#FFFFFF',
+                    color: '#000000',
+                    borderColor: '#FFC107',
+                    marginTop: 8,
+                  }
+                ]}
+                placeholder="Ex: 5.5"
+                placeholderTextColor="#999999"
+                value={manualDistance}
+                onChangeText={handleManualDistanceChange}
+                keyboardType="decimal-pad"
+              />
+            </View>
 
             {/* Pricing Display */}
             {pricing && (
@@ -649,6 +759,42 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: colors.border,
     marginVertical: 20,
+  },
+  estimationCard: {
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 2,
+    borderColor: colors.primary,
+  },
+  estimationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
+  estimationLabel: {
+    fontSize: 14,
+    flex: 1,
+  },
+  estimationValue: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  testCard: {
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 2,
+  },
+  testTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  testDescription: {
+    fontSize: 13,
+    lineHeight: 18,
   },
   pricingCard: {
     borderRadius: 12,
