@@ -542,7 +542,7 @@ export default function AddressAutocomplete({
         </View>
       )}
 
-      {/* Predictions List - Using FlatList for better Android compatibility */}
+      {/* Predictions List - FIXED FOR ANDROID VISIBILITY */}
       {showPredictions && predictions.length > 0 && (
         <View
           style={[
@@ -675,8 +675,9 @@ const styles = StyleSheet.create({
     marginTop: 8,
     borderWidth: 1,
     borderRadius: 12,
-    maxHeight: 300,
-    overflow: 'hidden',
+    // FIXED: Removed overflow: 'hidden' and maxHeight
+    // Android needs explicit height for FlatList to render
+    height: 300,
     ...Platform.select({
       ios: {
         shadowColor: '#000',
@@ -694,6 +695,7 @@ const styles = StyleSheet.create({
   },
   predictionsList: {
     flex: 1,
+    borderRadius: 12,
   },
   predictionsListContent: {
     flexGrow: 1,

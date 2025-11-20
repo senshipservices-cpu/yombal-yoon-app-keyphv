@@ -300,7 +300,7 @@ export default function CityAutocomplete({
         </View>
       )}
 
-      {/* Suggestions List - Using FlatList for better Android compatibility */}
+      {/* Suggestions List - FIXED FOR ANDROID VISIBILITY */}
       {showSuggestions && suggestions.length > 0 && (
         <View
           style={[
@@ -374,8 +374,8 @@ const styles = StyleSheet.create({
     marginTop: 8,
     borderRadius: 12,
     borderWidth: 1,
-    maxHeight: 250,
-    overflow: 'hidden',
+    // FIXED: Explicit height for Android FlatList rendering
+    height: 250,
     ...Platform.select({
       ios: {
         shadowColor: '#000',
@@ -393,6 +393,7 @@ const styles = StyleSheet.create({
   },
   suggestionsList: {
     flex: 1,
+    borderRadius: 12,
   },
   suggestionsListContent: {
     flexGrow: 1,
