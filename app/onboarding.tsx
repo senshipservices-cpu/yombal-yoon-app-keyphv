@@ -79,6 +79,8 @@ export default function OnboardingScreen() {
   const scrollViewRef = useRef<ScrollView>(null);
   const router = useRouter();
 
+  const totalSlides = slides.length + 1; // 3 slides + 1 role selection slide
+
   const handleScroll = (event: any) => {
     const slideIndex = Math.round(event.nativeEvent.contentOffset.x / SCREEN_WIDTH);
     setCurrentSlide(slideIndex);
@@ -95,8 +97,11 @@ export default function OnboardingScreen() {
   };
 
   const handleNext = () => {
-    if (currentSlide < slides.length - 1) {
+    if (currentSlide < totalSlides - 1) {
       goToSlide(currentSlide + 1);
+      console.log('Moving to next slide:', currentSlide + 1);
+    } else {
+      console.log('Already on last slide');
     }
   };
 
@@ -119,6 +124,8 @@ export default function OnboardingScreen() {
     console.log('Role selected:', role);
   };
 
+  const isOnRoleSelectionSlide = currentSlide === slides.length;
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -136,7 +143,7 @@ export default function OnboardingScreen() {
         onScroll={handleScroll}
         scrollEventThrottle={16}
         style={styles.scrollView}
-        scrollEnabled={currentSlide < slides.length}
+        scrollEnabled={true}
       >
         {slides.map((slide, index) => (
           <View key={index} style={[styles.slide, { width: SCREEN_WIDTH }]}>
@@ -215,9 +222,9 @@ export default function OnboardingScreen() {
 
       <View style={styles.footer}>
         <View style={styles.pagination}>
-          {[...slides, { title: 'Role' }].map((_, index) => (
+          {Array.from({ length: totalSlides }).map((_, index) => (
             <TouchableOpacity
-              key={index}
+              key={`pagination-dot-${index}`}
               onPress={() => goToSlide(index)}
               activeOpacity={0.7}
             >
@@ -233,7 +240,7 @@ export default function OnboardingScreen() {
         </View>
 
         <View style={styles.buttonContainer}>
-          {currentSlide < slides.length ? (
+          {!isOnRoleSelectionSlide ? (
             <View style={styles.navigationButtons}>
               <TouchableOpacity
                 style={styles.skipButton}

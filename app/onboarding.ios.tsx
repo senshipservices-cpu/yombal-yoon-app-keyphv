@@ -66,6 +66,10 @@ export default function OnboardingScreen() {
   const handleNext = () => {
     if (currentSlide < slides.length - 1) {
       goToSlide(currentSlide + 1);
+      console.log('Moving to next slide:', currentSlide + 1);
+    } else {
+      console.log('Already on last slide, finishing onboarding');
+      handleFinish();
     }
   };
 
@@ -120,7 +124,7 @@ export default function OnboardingScreen() {
         <View style={styles.pagination}>
           {slides.map((_, index) => (
             <TouchableOpacity
-              key={index}
+              key={`pagination-dot-${index}`}
               onPress={() => goToSlide(index)}
               activeOpacity={0.7}
             >
@@ -136,45 +140,31 @@ export default function OnboardingScreen() {
         </View>
 
         <View style={styles.buttonContainer}>
-          {currentSlide < slides.length - 1 ? (
-            <View style={styles.navigationButtons}>
-              <TouchableOpacity
-                style={styles.skipButton}
-                onPress={handleFinish}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.skipButtonText}>Passer</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.nextButton, { backgroundColor: colors.primary }]}
-                onPress={handleNext}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.nextButtonText}>Suivant</Text>
-                <IconSymbol
-                  ios_icon_name="chevron.right"
-                  android_material_icon_name="chevron-right"
-                  size={20}
-                  color="#FFFFFF"
-                />
-              </TouchableOpacity>
-            </View>
-          ) : (
+          <View style={styles.navigationButtons}>
             <TouchableOpacity
-              style={[styles.finishButton, { backgroundColor: colors.primary }]}
+              style={styles.skipButton}
               onPress={handleFinish}
               activeOpacity={0.7}
             >
-              <Text style={styles.finishButtonText}>Commencer avec Yombal Yoon</Text>
+              <Text style={styles.skipButtonText}>Passer</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.nextButton, { backgroundColor: colors.primary }]}
+              onPress={handleNext}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.nextButtonText}>
+                {currentSlide === slides.length - 1 ? 'Commencer' : 'Suivant'}
+              </Text>
               <IconSymbol
-                ios_icon_name="arrow.right"
-                android_material_icon_name="arrow-forward"
+                ios_icon_name={currentSlide === slides.length - 1 ? 'arrow.right' : 'chevron.right'}
+                android_material_icon_name={currentSlide === slides.length - 1 ? 'arrow-forward' : 'chevron-right'}
                 size={20}
                 color="#FFFFFF"
               />
             </TouchableOpacity>
-          )}
+          </View>
         </View>
       </View>
     </View>
@@ -296,25 +286,6 @@ const styles = StyleSheet.create({
   },
   nextButtonText: {
     fontSize: 16,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  finishButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
-    paddingVertical: 18,
-    paddingHorizontal: 32,
-    borderRadius: 12,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    elevation: 4,
-  },
-  finishButtonText: {
-    fontSize: 18,
     fontWeight: '700',
     color: '#FFFFFF',
   },
