@@ -8,6 +8,7 @@ import { colors } from "@/styles/commonStyles";
 import { IconSymbol } from "@/components/IconSymbol";
 import { useProfile } from "@/contexts/ProfileContext";
 import { useNotifications } from "@/contexts/NotificationContext";
+import YombalBanner from "@/components/YombalBanner";
 
 const tips = [
   "Réservez vos trajets tôt le matin pour trouver plus de conducteurs.",
@@ -143,12 +144,16 @@ export default function HomeScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: isDark ? colors.darkBackground : colors.background }]}>
+      <View style={[styles.bannerWrapper, { paddingTop: Platform.OS === 'android' ? 48 : 60 }]}>
+        <YombalBanner />
+      </View>
+      
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <View style={[styles.header, { paddingTop: Platform.OS === 'android' ? 48 : 60 }]}>
+        <View style={styles.header}>
           <View style={styles.headerContent}>
             <View style={styles.headerLeft}>
               <Text style={[styles.greeting, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
@@ -282,6 +287,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  bannerWrapper: {
+    width: '100%',
+  },
   scrollView: {
     flex: 1,
   },
@@ -290,6 +298,7 @@ const styles = StyleSheet.create({
   },
   header: {
     padding: 20,
+    paddingTop: 16,
     paddingBottom: 24,
   },
   headerContent: {
