@@ -97,6 +97,37 @@ export function LivraisonProvider({ children }: { children: ReactNode }) {
     await loadData();
   };
 
+  const sendNotifications = async (requestData: Omit<InterRegionalRequest, 'id' | 'status' | 'createdAt'>) => {
+    try {
+      console.log('📧 Sending notifications to Yombal Yoon team...');
+      
+      const { data, error } = await supabase.functions.invoke('send-intercity-notifications', {
+        body: {
+          senderName: requestData.senderName,
+          senderPhone: requestData.senderPhone,
+          recipientName: requestData.recipientName,
+          recipientPhone: requestData.recipientPhone,
+          departureRegion: requestData.departureRegion,
+          destinationRegion: requestData.destinationRegion,
+          destinationDepartment: requestData.destinationDepartment,
+          description: requestData.description,
+          pricingTotal: requestData.pricing.total,
+        },
+      });
+
+      if (error) {
+        console.error('❌ Error sending notifications:', error);
+        return { success: false, error: error.message };
+      }
+
+      console.log('✅ Notifications sent:', data);
+      return { success: true, data };
+    } catch (error) {
+      console.error('❌ Exception sending notifications:', error);
+      return { success: false, error: error.message };
+    }
+  };
+
   const addInterRegionalRequest = async (
     requestData: Omit<InterRegionalRequest, 'id' | 'status' | 'createdAt'>
   ): Promise<{ success: boolean; requestId?: string; error?: string }> => {
@@ -167,7 +198,18 @@ export function LivraisonProvider({ children }: { children: ReactNode }) {
       // Also save to local storage as backup
       await AsyncStorage.setItem(LIVRAISON_STORAGE_KEY, JSON.stringify(updatedRequests));
       
-      console.log('Inter-regional request added to Supabase:', newRequest);
+      console.log('✅ Inter-regional request added to Supabase:', newRequest);
+
+      // Send notifications to Yombal Yoon team (Email + WhatsApp)
+      // This runs asynchronously and doesn't block the user experience
+      sendNotifications(requestData).then(notificationResult => {
+        if (notificationResult.success) {
+          console.log('✅ Notifications sent successfully to Yombal Yoon team');
+        } else {
+          console.warn('⚠️ Notifications failed but request was saved:', notificationResult.error);
+        }
+      });
+
       return { success: true, requestId: newRequest.id };
     } catch (error) {
       console.error('Error adding inter-regional request:', error);
