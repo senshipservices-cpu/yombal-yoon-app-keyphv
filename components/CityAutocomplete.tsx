@@ -8,6 +8,8 @@ import {
   StyleSheet,
   FlatList,
   ActivityIndicator,
+  Platform,
+  Alert,
 } from 'react-native';
 import { useTheme } from '@react-navigation/native';
 import { colors } from '@/styles/commonStyles';
@@ -44,6 +46,7 @@ export default function CityAutocomplete({
   const [suggestions, setSuggestions] = useState<PlacePrediction[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [debugInfo, setDebugInfo] = useState<string>('');
 
   useEffect(() => {
     if (value.length >= 2) {
@@ -51,14 +54,25 @@ export default function CityAutocomplete({
     } else {
       setSuggestions([]);
       setShowSuggestions(false);
+      setDebugInfo('');
     }
   }, [value]);
 
   const fetchSuggestions = async (input: string) => {
     setIsLoading(true);
+    setDebugInfo('');
+    
     try {
-      console.log('Fetching city suggestions for:', input);
+      console.log('🔍 [CityAutocomplete] Fetching city suggestions for:', input);
+      console.log('📱 [CityAutocomplete] Platform:', Platform.OS);
 
+      // Update debug info for mobile
+      if (Platform.OS !== 'web') {
+        setDebugInfo(`Platform: ${Platform.OS}\nInput: "${input}"\nCalling API...`);
+      }
+
+      const startTime = Date.now();
+      
       // Use city_autocomplete action for Covoiturage module
       // This ensures we only get cities in Senegal
       const { data, error } = await supabase.functions.invoke('google-places-proxy', {
@@ -66,28 +80,76 @@ export default function CityAutocomplete({
           action: 'city_autocomplete',
           input: input,
         },
+        headers: {
+          'x-platform': Platform.OS,
+        },
       });
 
+      const responseTime = Date.now() - startTime;
+      console.log(`⏱️ [CityAutocomplete] Response time: ${responseTime}ms`);
+
       if (error) {
-        console.error('Error fetching city suggestions:', error);
+        console.error('❌ [CityAutocomplete] Error fetching city suggestions:', error);
         setSuggestions([]);
         setShowSuggestions(false);
+        
+        // Update debug info
+        if (Platform.OS !== 'web') {
+          setDebugInfo(`Platform: ${Platform.OS}\nError: ${error.message}\nTime: ${responseTime}ms`);
+          
+          Alert.alert(
+            'Erreur',
+            `Impossible de récupérer les suggestions de villes.\n\nPlateforme: ${Platform.OS}\nDétails: ${error.message}`,
+            [{ text: 'OK' }]
+          );
+        }
         return;
       }
 
       if (data.status === 'OK' && data.predictions) {
-        console.log('City suggestions received:', data.predictions.length);
+        console.log(`✅ [CityAutocomplete] Found ${data.predictions.length} city suggestions`);
         setSuggestions(data.predictions);
         setShowSuggestions(true);
+        
+        // Update debug info
+        if (Platform.OS !== 'web') {
+          setDebugInfo(
+            `Platform: ${Platform.OS}\n` +
+            `Status: ${data.status}\n` +
+            `Time: ${responseTime}ms\n` +
+            `Cities: ${data.predictions.length}`
+          );
+        }
       } else {
-        console.log('No city suggestions found:', data.status);
+        console.log('⚠️ [CityAutocomplete] No city suggestions found:', data.status);
         setSuggestions([]);
         setShowSuggestions(false);
+        
+        // Update debug info
+        if (Platform.OS !== 'web') {
+          setDebugInfo(
+            `Platform: ${Platform.OS}\n` +
+            `Status: ${data.status}\n` +
+            `Time: ${responseTime}ms\n` +
+            `Cities: 0`
+          );
+        }
       }
     } catch (error) {
-      console.error('Error fetching city suggestions:', error);
+      console.error('❌ [CityAutocomplete] Exception:', error);
       setSuggestions([]);
       setShowSuggestions(false);
+      
+      // Update debug info
+      if (Platform.OS !== 'web') {
+        setDebugInfo(`Platform: ${Platform.OS}\nException: ${error.message}`);
+        
+        Alert.alert(
+          'Erreur',
+          `Une erreur est survenue:\n\nPlateforme: ${Platform.OS}\n${error.message}`,
+          [{ text: 'OK' }]
+        );
+      }
     } finally {
       setIsLoading(false);
     }
@@ -95,32 +157,51 @@ export default function CityAutocomplete({
 
   const fetchPlaceDetails = async (placeId: string, cityName: string) => {
     try {
-      console.log('Fetching place details for:', placeId);
+      console.log('🔍 [CityAutocomplete] Fetching place details for:', placeId);
 
       const { data, error } = await supabase.functions.invoke('google-places-proxy', {
         body: {
           action: 'place_details',
           placeId: placeId,
         },
+        headers: {
+          'x-platform': Platform.OS,
+        },
       });
 
       if (error) {
-        console.error('Error fetching place details:', error);
+        console.error('❌ [CityAutocomplete] Error fetching place details:', error);
         onSelectCity(cityName, placeId, 0, 0);
+        
+        if (Platform.OS !== 'web') {
+          Alert.alert(
+            'Erreur',
+            `Impossible de récupérer les coordonnées de la ville.\n\n${error.message}`,
+            [{ text: 'OK' }]
+          );
+        }
         return;
       }
 
       if (data.status === 'OK' && data.result?.geometry?.location) {
         const { lat, lng } = data.result.geometry.location;
-        console.log('Place coordinates:', { lat, lng });
+        console.log('✅ [CityAutocomplete] Place coordinates:', { lat, lng });
         onSelectCity(cityName, placeId, lat, lng);
       } else {
-        console.error('Error fetching place details:', data.status);
+        console.error('❌ [CityAutocomplete] Error fetching place details:', data.status);
         onSelectCity(cityName, placeId, 0, 0);
       }
     } catch (error) {
-      console.error('Error fetching place details:', error);
+      console.error('❌ [CityAutocomplete] Exception in fetchPlaceDetails:', error);
       onSelectCity(cityName, placeId, 0, 0);
+      
+      if (Platform.OS !== 'web') {
+        Alert.alert(
+          'Erreur',
+          `Une erreur est survenue:\n\n${error.message}`,
+          [{ text: 'OK' }]
+        );
+      }
     }
   };
 
@@ -129,6 +210,7 @@ export default function CityAutocomplete({
     onChangeText(cityName);
     setShowSuggestions(false);
     setSuggestions([]);
+    setDebugInfo('');
     fetchPlaceDetails(prediction.place_id, cityName);
   };
 
@@ -164,6 +246,18 @@ export default function CityAutocomplete({
           </View>
         )}
       </View>
+
+      {/* Debug Info (only on mobile platforms) */}
+      {Platform.OS !== 'web' && debugInfo !== '' && (
+        <View style={[styles.debugContainer, { backgroundColor: isDark ? colors.darkCard : '#E3F2FD' }]}>
+          <Text style={[styles.debugTitle, { color: isDark ? colors.darkText : colors.text }]}>
+            🔧 Debug Info:
+          </Text>
+          <Text style={[styles.debugText, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+            {debugInfo}
+          </Text>
+        </View>
+      )}
 
       {showSuggestions && suggestions.length > 0 && (
         <View
@@ -246,6 +340,23 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: 16,
     top: 16,
+  },
+  debugContainer: {
+    marginTop: 8,
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#2196F3',
+  },
+  debugTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    marginBottom: 6,
+  },
+  debugText: {
+    fontSize: 11,
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    lineHeight: 16,
   },
   suggestionsContainer: {
     marginTop: 4,

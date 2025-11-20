@@ -54,6 +54,7 @@ export default function AddressAutocomplete({
   const [apiError, setApiError] = useState<string | null>(null);
   const [apiStatus, setApiStatus] = useState<string | null>(null);
   const [showNoResults, setShowNoResults] = useState(false);
+  const [debugInfo, setDebugInfo] = useState<string>('');
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
@@ -72,6 +73,7 @@ export default function AddressAutocomplete({
       setShowNoResults(false);
       setApiError(null);
       setApiStatus(null);
+      setDebugInfo('');
     }
 
     return () => {
@@ -86,61 +88,65 @@ export default function AddressAutocomplete({
     setApiError(null);
     setApiStatus(null);
     setShowNoResults(false);
+    setDebugInfo('');
     
     try {
       console.log('🔍 [AddressAutocomplete] Fetching predictions for:', input);
       console.log('📱 [AddressAutocomplete] Platform:', Platform.OS);
 
+      const requestBody = {
+        action: 'autocomplete',
+        input: input,
+        location: '14.6928,-17.4467',
+        radius: 45000,
+        components: 'country:sn',
+        language: 'fr',
+        strictbounds: true,
+      };
+
+      console.log('📤 [AddressAutocomplete] Request body:', JSON.stringify(requestBody, null, 2));
+
+      // Update debug info for mobile
+      if (Platform.OS !== 'web') {
+        setDebugInfo(`Platform: ${Platform.OS}\nInput: "${input}"\nCalling API...`);
+      }
+
       // APPEL GOOGLE PLACES API - AUTOCOMPLÉTION D'ADRESSE
       // ====================================================
-      // Configuration pour Dakar métropolitaine :
-      // 
-      // ✅ AUCUN filtre types= : permet d'obtenir TOUS les types de lieux
-      //    - Adresses précises (rues, quartiers, communes, unités des Parcelles)
-      //    - Établissements (hôpitaux, mosquées, églises, écoles, universités)
-      //    - Points de repère (marchés, ronds-points, carrefours, monuments)
-      //    - Bâtiments administratifs et services publics
-      //    - Zones industrielles, usines
-      //    - Commerces, restaurants, hôtels
-      //    - Stations de transport
-      // 
-      // ✅ components=country:sn : restriction au Sénégal uniquement
-      // ✅ language=fr : langue française
-      // ✅ location=14.6928,-17.4467 : centré sur Dakar
-      // ✅ radius=45000 : 45 km pour couvrir toute la zone métropolitaine
-      //    (Dakar, Parcelles, Pikine, Guédiawaye, Keur Massar, Mbao, 
-      //     Bargny, Rufisque, Sébikotane, Bambilor, Diamaguène, Diamniadio)
-      // ✅ strictbounds=true : limite strictement à la zone spécifiée
+      // ✅ AUCUN filtre de plateforme - fonctionne sur Web, Android et iOS
+      // ✅ Appel HTTP direct via Supabase Edge Function
+      // ✅ Pas de condition "if Platform.OS === 'web'"
       
+      const startTime = Date.now();
       const { data, error } = await supabase.functions.invoke('google-places-proxy', {
-        body: {
-          action: 'autocomplete',
-          input: input,
-          // ⚠️ PAS de paramètre types - cela permet d'obtenir TOUS les types de lieux
-          location: '14.6928,-17.4467', // Centre sur Dakar
-          radius: 45000, // 45 km - couvre toute la zone métropolitaine de Dakar
-          components: 'country:sn', // Restriction au Sénégal
-          language: 'fr', // Langue française
-          strictbounds: true, // Limite strictement à la zone spécifiée
-        },
+        body: requestBody,
         headers: {
-          'x-platform': Platform.OS, // Send platform info to Edge Function
+          'x-platform': Platform.OS,
         },
       });
+      const responseTime = Date.now() - startTime;
+
+      console.log(`⏱️ [AddressAutocomplete] Response time: ${responseTime}ms`);
 
       if (error) {
         console.error('❌ [AddressAutocomplete] Supabase function error:', error);
-        setApiError(`Erreur de connexion: ${error.message}`);
+        const errorMsg = `Erreur de connexion: ${error.message}`;
+        setApiError(errorMsg);
         setApiStatus('SUPABASE_ERROR');
         setPredictions([]);
         setShowPredictions(false);
         setShowNoResults(false);
         
+        // Update debug info
+        if (Platform.OS !== 'web') {
+          setDebugInfo(`Platform: ${Platform.OS}\nError: ${error.message}\nTime: ${responseTime}ms`);
+        }
+        
         // Show alert on mobile for debugging
         if (Platform.OS !== 'web') {
           Alert.alert(
             'Erreur de connexion',
-            `Impossible de contacter le service d'autocomplétion.\n\nDétails: ${error.message}`,
+            `Impossible de contacter le service d'autocomplétion.\n\nPlateforme: ${Platform.OS}\nDétails: ${error.message}\nTemps: ${responseTime}ms`,
             [{ text: 'OK' }]
           );
         }
@@ -150,18 +156,26 @@ export default function AddressAutocomplete({
       console.log('📦 [AddressAutocomplete] API Response status:', data?.status);
       setApiStatus(data?.status || 'UNKNOWN');
 
+      // Update debug info with response
+      if (Platform.OS !== 'web') {
+        setDebugInfo(
+          `Platform: ${Platform.OS}\n` +
+          `Status: ${data?.status || 'UNKNOWN'}\n` +
+          `Time: ${responseTime}ms\n` +
+          `Predictions: ${data?.predictions?.length || 0}`
+        );
+      }
+
       if (data.status === 'OK' && data.predictions) {
         console.log(`✅ [AddressAutocomplete] Found ${data.predictions.length} predictions`);
         
         if (data.predictions.length === 0) {
-          // API returned OK but no predictions
           console.log('⚠️ [AddressAutocomplete] API returned OK but 0 predictions');
           setPredictions([]);
           setShowPredictions(false);
           setShowNoResults(true);
           setApiError(null);
         } else {
-          // Log des types de lieux trouvés pour débogage
           const placeTypes = data.predictions.slice(0, 5).map((p: Prediction) => ({
             name: p.structured_formatting.main_text,
             types: p.types
@@ -197,7 +211,7 @@ export default function AddressAutocomplete({
             `Status: REQUEST_DENIED\n\n` +
             `Raison: ${errorMsg}\n\n` +
             `🔧 SOLUTION:\n\n` +
-            `La clé API Google Maps a des restrictions HTTP referrer (Web uniquement).\n\n` +
+            `La clé API Google Maps a des restrictions.\n\n` +
             `Pour corriger:\n` +
             `1. Ouvrir Google Cloud Console\n` +
             `2. Aller dans "APIs & Services" > "Credentials"\n` +
@@ -248,16 +262,22 @@ export default function AddressAutocomplete({
       }
     } catch (error) {
       console.error('❌ [AddressAutocomplete] Exception:', error);
-      setApiError(`Erreur: ${error.message}`);
+      const errorMsg = `Erreur: ${error.message}`;
+      setApiError(errorMsg);
       setApiStatus('EXCEPTION');
       setPredictions([]);
       setShowNoResults(false);
+      
+      // Update debug info
+      if (Platform.OS !== 'web') {
+        setDebugInfo(`Platform: ${Platform.OS}\nException: ${error.message}`);
+      }
       
       // Show alert on mobile
       if (Platform.OS !== 'web') {
         Alert.alert(
           'Erreur',
-          `Une erreur est survenue:\n\n${error.message}`,
+          `Une erreur est survenue:\n\nPlateforme: ${Platform.OS}\n${error.message}`,
           [{ text: 'OK' }]
         );
       }
@@ -270,10 +290,6 @@ export default function AddressAutocomplete({
     try {
       console.log('🔍 [AddressAutocomplete] Fetching place details for place_id:', placeId);
 
-      // RÉCUPÉRATION LAT/LNG (Google Places Details API)
-      // =================================================
-      // Récupère la géométrie (latitude et longitude) du lieu sélectionné
-      
       const { data, error } = await supabase.functions.invoke('google-places-proxy', {
         body: {
           action: 'place_details',
@@ -343,19 +359,15 @@ export default function AddressAutocomplete({
     setShowNoResults(false);
     setApiError(null);
     setApiStatus(null);
+    setDebugInfo('');
     Keyboard.dismiss();
 
     console.log('✅ [AddressAutocomplete] Selected address:', address);
     console.log('🆔 [AddressAutocomplete] Place ID:', prediction.place_id);
     console.log('🏷️ [AddressAutocomplete] Place types:', prediction.types);
 
-    // RÉCUPÉRATION DES COORDONNÉES DU LIEU SÉLECTIONNÉ
-    // Appel Place Details pour obtenir lat/lng
     const location = await getPlaceDetails(prediction.place_id);
     if (location) {
-      // Stockage dans les variables du module :
-      // - pickupLat / pickupLng pour l'adresse de départ
-      // - dropoffLat / dropoffLng pour l'adresse d'arrivée
       onSelectAddress(address, location, prediction.place_id);
       console.log('✅ [AddressAutocomplete] Coordinates stored successfully');
     } else {
@@ -364,44 +376,31 @@ export default function AddressAutocomplete({
   };
 
   const getPlaceIcon = (types: string[]) => {
-    // Retourne l'icône appropriée selon le type de lieu
-    
-    // Établissements de santé
     if (types.includes('hospital')) return '🏥';
     if (types.includes('health')) return '⚕️';
     if (types.includes('doctor')) return '👨‍⚕️';
     if (types.includes('pharmacy')) return '💊';
     if (types.includes('dentist')) return '🦷';
-    
-    // Lieux de culte
     if (types.includes('mosque')) return '🕌';
     if (types.includes('church')) return '⛪';
     if (types.includes('hindu_temple')) return '🛕';
     if (types.includes('synagogue')) return '🕍';
     if (types.includes('place_of_worship')) return '🙏';
-    
-    // Établissements d'enseignement
     if (types.includes('university')) return '🎓';
     if (types.includes('school')) return '🏫';
     if (types.includes('secondary_school')) return '📚';
     if (types.includes('primary_school')) return '✏️';
     if (types.includes('library')) return '📖';
-    
-    // Commerces et marchés
     if (types.includes('shopping_mall')) return '🏬';
     if (types.includes('supermarket')) return '🛒';
     if (types.includes('market')) return '🏪';
     if (types.includes('store')) return '🏪';
     if (types.includes('convenience_store')) return '🏪';
-    
-    // Transport
     if (types.includes('bus_station')) return '🚌';
     if (types.includes('transit_station')) return '🚉';
     if (types.includes('train_station')) return '🚂';
     if (types.includes('airport')) return '✈️';
     if (types.includes('taxi_stand')) return '🚕';
-    
-    // Gouvernement et administration
     if (types.includes('local_government_office')) return '🏛️';
     if (types.includes('city_hall')) return '🏛️';
     if (types.includes('courthouse')) return '⚖️';
@@ -409,51 +408,33 @@ export default function AddressAutocomplete({
     if (types.includes('post_office')) return '📮';
     if (types.includes('police')) return '👮';
     if (types.includes('fire_station')) return '🚒';
-    
-    // Loisirs et culture
     if (types.includes('park')) return '🌳';
     if (types.includes('stadium')) return '🏟️';
     if (types.includes('museum')) return '🏛️';
     if (types.includes('art_gallery')) return '🖼️';
     if (types.includes('movie_theater')) return '🎬';
     if (types.includes('night_club')) return '🎉';
-    
-    // Restauration
     if (types.includes('restaurant')) return '🍽️';
     if (types.includes('cafe')) return '☕';
     if (types.includes('bar')) return '🍺';
     if (types.includes('bakery')) return '🥖';
-    
-    // Hébergement
     if (types.includes('lodging')) return '🏨';
     if (types.includes('hotel')) return '🏨';
-    
-    // Finances
     if (types.includes('bank')) return '🏦';
     if (types.includes('atm')) return '💳';
-    
-    // Industrie et entreprises
     if (types.includes('factory')) return '🏭';
     if (types.includes('industrial')) return '🏭';
-    
-    // Zones géographiques
     if (types.includes('locality')) return '🏘️';
     if (types.includes('sublocality')) return '🏘️';
     if (types.includes('neighborhood')) return '🏘️';
     if (types.includes('administrative_area_level_1')) return '🗺️';
     if (types.includes('administrative_area_level_2')) return '🗺️';
-    
-    // Rues et routes
     if (types.includes('route')) return '🛣️';
     if (types.includes('street_address')) return '🏠';
     if (types.includes('intersection')) return '🚦';
     if (types.includes('premise')) return '🏠';
-    
-    // Points d'intérêt
     if (types.includes('point_of_interest')) return '📍';
     if (types.includes('establishment')) return '🏢';
-    
-    // Icône par défaut
     return '📍';
   };
 
@@ -525,18 +506,15 @@ export default function AddressAutocomplete({
         </View>
       )}
 
-      {/* Platform Debug Info (only on non-web platforms in dev mode) */}
-      {Platform.OS !== 'web' && __DEV__ && (
-        <View style={[styles.debugContainer, { backgroundColor: isDark ? colors.darkCard : colors.card }]}>
-          <Text style={[styles.debugText, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-            🔧 Debug: Platform = {Platform.OS}
-            {apiStatus && ` | API Status = ${apiStatus}`}
+      {/* Debug Info (only on mobile platforms) */}
+      {Platform.OS !== 'web' && debugInfo !== '' && (
+        <View style={[styles.debugContainer, { backgroundColor: isDark ? colors.darkCard : '#E3F2FD' }]}>
+          <Text style={[styles.debugTitle, { color: isDark ? colors.darkText : colors.text }]}>
+            🔧 Debug Info:
           </Text>
-          {value.length > 1 && !isLoading && predictions.length === 0 && !apiError && !showNoResults && (
-            <Text style={[styles.debugText, { color: '#FF8C00', marginTop: 4 }]}>
-              ⚠️ En attente de résultats...
-            </Text>
-          )}
+          <Text style={[styles.debugText, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+            {debugInfo}
+          </Text>
         </View>
       )}
 
@@ -666,13 +644,21 @@ const styles = StyleSheet.create({
     lineHeight: 16,
   },
   debugContainer: {
-    marginTop: 4,
-    padding: 8,
-    borderRadius: 6,
+    marginTop: 8,
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#2196F3',
+  },
+  debugTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    marginBottom: 6,
   },
   debugText: {
     fontSize: 11,
     fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    lineHeight: 16,
   },
   predictionsContainer: {
     marginTop: 4,
