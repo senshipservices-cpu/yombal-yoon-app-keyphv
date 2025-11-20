@@ -7,6 +7,7 @@ import { colors } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
 import { useColis } from '@/contexts/ColisContext';
 import { useDelivery } from '@/contexts/DeliveryContext';
+import { useNotifications } from '@/contexts/NotificationContext';
 import { maskPhoneNumber } from '@/utils/phoneUtils';
 import ContactButtons from '@/components/ContactButtons';
 import * as Haptics from 'expo-haptics';
@@ -22,7 +23,8 @@ export default function DriverRouteToDeliveryScreen() {
   const parcelId = params.parcelId as string;
   
   const { getParcelById, updateParcelStatus } = useColis();
-  const { updateDeliveryPersonLocation, getDeliveryPersonById } = useDelivery();
+  const { updateDeliveryPersonLocation, getDeliveryPersonById, updateDeliveryPersonStatus } = useDelivery();
+  const { sendLocalNotification } = useNotifications();
   
   const [parcel, setParcel] = useState(getParcelById(parcelId));
   const [driverLocation, setDriverLocation] = useState<{ lat: number; lng: number } | null>(null);
@@ -236,16 +238,40 @@ export default function DriverRouteToDeliveryScreen() {
                 }
               }
 
+              // Update driver status in context
+              await updateDeliveryPersonStatus(deliveryPersonId, 'available');
+
+              // Send notifications to sender and recipient
+              try {
+                await sendLocalNotification(
+                  '✅ Colis livré',
+                  'Votre colis a été livré avec succès.',
+                  {
+                    type: 'parcel_delivered',
+                    parcelId: parcelId,
+                  }
+                );
+                console.log('✅ Delivery notification sent');
+              } catch (notifError) {
+                console.error('Error sending notification:', notifError);
+              }
+
               Alert.alert(
-                '🎉 Félicitations !',
+                '🎉 Livraison terminée. Merci !',
                 'Le colis a été livré avec succès. Vous êtes maintenant disponible pour de nouvelles livraisons.',
                 [
                   {
-                    text: 'OK',
+                    text: 'Voir mes livraisons',
                     onPress: () => {
-                      // Navigate back to home or pending requests
+                      router.replace('/colis/driver-pending-requests');
+                    },
+                  },
+                  {
+                    text: 'Retour à l\'accueil',
+                    onPress: () => {
                       router.replace('/');
                     },
+                    style: 'cancel',
                   },
                 ]
               );
@@ -463,7 +489,7 @@ export default function DriverRouteToDeliveryScreen() {
             color="#FFFFFF"
           />
           <Text style={styles.deliveredButtonText}>
-            {isDelivering ? 'CONFIRMATION...' : 'COLIS LIVRÉ'}
+            {isDelivering ? 'CONFIRMATION...' : 'LIVRAISON EFFECTUÉE'}
           </Text>
         </TouchableOpacity>
       </View>

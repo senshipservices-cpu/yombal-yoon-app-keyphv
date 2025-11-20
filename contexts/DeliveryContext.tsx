@@ -44,6 +44,7 @@ interface DeliveryContextType {
   refuseAssignment: (assignmentId: string, deliveryPersonId: string, reason?: string) => Promise<void>;
   updateAssignmentStatus: (assignmentId: string, status: ParcelAssignment['status']) => Promise<void>;
   updateDeliveryPersonLocation: (deliveryPersonId: string, location: Location) => Promise<void>;
+  updateDeliveryPersonStatus: (deliveryPersonId: string, status: 'available' | 'busy' | 'offline') => Promise<void>;
   getAssignmentByParcelId: (parcelId: string) => ParcelAssignment | undefined;
   getDeliveryPersonById: (deliveryPersonId: string) => DeliveryPerson | undefined;
   getPendingAssignmentsForDeliveryPerson: (deliveryPersonId: string) => ParcelAssignment[];
@@ -534,6 +535,40 @@ export function DeliveryProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const updateDeliveryPersonStatus = async (
+    deliveryPersonId: string,
+    status: 'available' | 'busy' | 'offline'
+  ) => {
+    try {
+      // Update in Supabase
+      if (isSupabaseConfigured() && !demoMode) {
+        console.log('Updating driver status in Supabase:', status);
+        
+        const { error } = await supabase
+          .from('drivers')
+          .update({ status })
+          .eq('id', deliveryPersonId);
+
+        if (error) {
+          console.error('Error updating driver status in Supabase:', error);
+        } else {
+          console.log('✅ Driver status updated in Supabase');
+        }
+      }
+
+      const updatedDeliveryPersons = deliveryPersons.map(dp =>
+        dp.id === deliveryPersonId ? { ...dp, status } : dp
+      );
+
+      setDeliveryPersons(updatedDeliveryPersons);
+      await AsyncStorage.setItem(DELIVERY_PERSONS_STORAGE_KEY, JSON.stringify(updatedDeliveryPersons));
+
+      console.log('Delivery person status updated:', status);
+    } catch (error) {
+      console.error('Error updating delivery person status:', error);
+    }
+  };
+
   const getAssignmentByParcelId = (parcelId: string): ParcelAssignment | undefined => {
     return assignments.find(
       a => a.parcelId === parcelId && (a.status === 'accepted' || a.status === 'en_route_pickup' || a.status === 'picked_up' || a.status === 'en_route_delivery' || a.status === 'delivered')
@@ -561,6 +596,7 @@ export function DeliveryProvider({ children }: { children: ReactNode }) {
         refuseAssignment,
         updateAssignmentStatus,
         updateDeliveryPersonLocation,
+        updateDeliveryPersonStatus,
         getAssignmentByParcelId,
         getDeliveryPersonById,
         getPendingAssignmentsForDeliveryPerson,

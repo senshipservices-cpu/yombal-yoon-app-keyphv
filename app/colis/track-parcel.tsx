@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform, RefreshControl } from 'react-native';
 import { useTheme } from '@react-navigation/native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { colors } from '@/styles/commonStyles';
@@ -9,6 +9,8 @@ import { useColis } from '@/contexts/ColisContext';
 import { useDelivery } from '@/contexts/DeliveryContext';
 import ContactButtons from '@/components/ContactButtons';
 import { maskPhoneNumber } from '@/utils/phoneUtils';
+import { supabase, isSupabaseConfigured } from '@/config/supabase';
+import { demoMode } from '@/config/demoMode';
 
 const YOMBAL_YOON_PHONE = "+221765676486";
 
@@ -17,12 +19,73 @@ export default function TrackParcelScreen() {
   const isDark = theme.dark;
   const router = useRouter();
   const { parcelId } = useLocalSearchParams<{ parcelId: string }>();
-  const { getParcelById } = useColis();
+  const { getParcelById, refreshParcels } = useColis();
   const { getAssignmentByParcelId, getDeliveryPersonById } = useDelivery();
 
-  const parcel = getParcelById(parcelId || '');
+  const [parcel, setParcel] = useState(getParcelById(parcelId || ''));
+  const [driverLocation, setDriverLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+
   const assignment = getAssignmentByParcelId(parcelId || '');
   const deliveryPerson = assignment ? getDeliveryPersonById(assignment.deliveryPersonId) : undefined;
+
+  // Refresh parcel data periodically if not delivered
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      if (parcel && parcel.status !== 'delivered' && parcel.status !== 'cancelled') {
+        await refreshParcels();
+        const updatedParcel = getParcelById(parcelId || '');
+        setParcel(updatedParcel);
+        
+        // Also fetch driver location if assigned
+        if (updatedParcel?.assignedDriverId) {
+          await fetchDriverLocation(updatedParcel.assignedDriverId);
+        }
+      }
+    }, 10000); // Refresh every 10 seconds
+
+    return () => clearInterval(interval);
+  }, [parcel, parcelId]);
+
+  // Fetch driver location from Supabase
+  const fetchDriverLocation = async (driverId: string) => {
+    if (isSupabaseConfigured() && !demoMode) {
+      try {
+        const { data, error } = await supabase
+          .from('drivers')
+          .select('last_lat, last_lng')
+          .eq('id', driverId)
+          .single();
+
+        if (error) {
+          console.error('Error fetching driver location:', error);
+          return;
+        }
+
+        if (data && data.last_lat && data.last_lng) {
+          setDriverLocation({
+            lat: data.last_lat,
+            lng: data.last_lng,
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching driver location:', error);
+      }
+    }
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await refreshParcels();
+    const updatedParcel = getParcelById(parcelId || '');
+    setParcel(updatedParcel);
+    
+    if (updatedParcel?.assignedDriverId) {
+      await fetchDriverLocation(updatedParcel.assignedDriverId);
+    }
+    
+    setRefreshing(false);
+  };
 
   if (!parcel) {
     return (
@@ -67,36 +130,28 @@ export default function TrackParcelScreen() {
           title: 'Livreur assigné',
           description: 'Un livreur a accepté votre demande',
         };
-      case 'en_route_pickup':
+      case 'accepted':
         return {
           icon: 'car.fill',
           androidIcon: 'directions-car',
-          color: '#FF8C00',
-          title: 'En route vers vous',
-          description: 'Le livreur se dirige vers l\'adresse de départ',
+          color: colors.primary,
+          title: 'En route pour récupération',
+          description: 'Un livreur est en route pour récupérer votre colis',
         };
       case 'picked_up':
         return {
-          icon: 'checkmark.circle.fill',
-          androidIcon: 'check-circle',
-          color: colors.primary,
-          title: 'Colis récupéré',
-          description: 'Le livreur a récupéré votre colis',
-        };
-      case 'en_route_delivery':
-        return {
-          icon: 'car.fill',
-          androidIcon: 'directions-car',
-          color: '#FF8C00',
-          title: 'En livraison',
-          description: 'Le livreur se dirige vers le destinataire',
+          icon: 'shippingbox.fill',
+          androidIcon: 'local-shipping',
+          color: colors.accent,
+          title: 'Colis récupéré, en route vers le destinataire',
+          description: 'Le livreur a récupéré votre colis et se dirige vers le destinataire',
         };
       case 'delivered':
         return {
           icon: 'checkmark.seal.fill',
           androidIcon: 'verified',
           color: colors.primary,
-          title: 'Livré',
+          title: 'Colis livré',
           description: 'Votre colis a été livré avec succès',
         };
       case 'cancelled':
@@ -122,10 +177,8 @@ export default function TrackParcelScreen() {
 
   const statusSteps = [
     { key: 'pending', label: 'En attente', completed: true },
-    { key: 'assigned', label: 'Assigné', completed: ['assigned', 'en_route_pickup', 'picked_up', 'en_route_delivery', 'delivered'].includes(parcel.status) },
-    { key: 'en_route_pickup', label: 'En route', completed: ['en_route_pickup', 'picked_up', 'en_route_delivery', 'delivered'].includes(parcel.status) },
-    { key: 'picked_up', label: 'Récupéré', completed: ['picked_up', 'en_route_delivery', 'delivered'].includes(parcel.status) },
-    { key: 'en_route_delivery', label: 'En livraison', completed: ['en_route_delivery', 'delivered'].includes(parcel.status) },
+    { key: 'accepted', label: 'Livreur en route', completed: ['accepted', 'picked_up', 'delivered'].includes(parcel.status) },
+    { key: 'picked_up', label: 'Colis récupéré', completed: ['picked_up', 'delivered'].includes(parcel.status) },
     { key: 'delivered', label: 'Livré', completed: parcel.status === 'delivered' },
   ];
 
@@ -135,6 +188,14 @@ export default function TrackParcelScreen() {
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
+          />
+        }
       >
         {/* Header */}
         <View style={[styles.header, { paddingTop: Platform.OS === 'android' ? 48 : 60 }]}>
@@ -216,7 +277,7 @@ export default function TrackParcelScreen() {
         )}
 
         {/* Delivery Person Info */}
-        {deliveryPerson && (
+        {deliveryPerson && parcel.status !== 'delivered' && parcel.status !== 'cancelled' && (
           <View style={[styles.card, { backgroundColor: isDark ? colors.darkCard : colors.card }]}>
             <Text style={[styles.cardTitle, { color: isDark ? colors.darkText : colors.text }]}>
               Votre Livreur
@@ -250,6 +311,21 @@ export default function TrackParcelScreen() {
                 </Text>
               </View>
             </View>
+            
+            {/* Real-time location info */}
+            {driverLocation && (
+              <View style={[styles.locationInfo, { backgroundColor: isDark ? colors.darkBackground : colors.background }]}>
+                <IconSymbol
+                  ios_icon_name="location.fill"
+                  android_material_icon_name="my-location"
+                  size={20}
+                  color={colors.primary}
+                />
+                <Text style={[styles.locationText, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+                  Position mise à jour en temps réel
+                </Text>
+              </View>
+            )}
             
             {/* Note about map */}
             <View style={[styles.mapNote, { backgroundColor: isDark ? colors.darkBackground : colors.background }]}>
@@ -498,6 +574,18 @@ const styles = StyleSheet.create({
   },
   deliveryPersonVehicle: {
     fontSize: 14,
+  },
+  locationInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 12,
+  },
+  locationText: {
+    fontSize: 14,
+    fontWeight: '600',
   },
   mapNote: {
     flexDirection: 'row',
