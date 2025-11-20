@@ -53,10 +53,12 @@ export default function AddressAutocomplete({
   const [showPredictions, setShowPredictions] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
   const [apiStatus, setApiStatus] = useState<string | null>(null);
+  const [showNoResults, setShowNoResults] = useState(false);
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-    if (value.length > 2) {
+    // Reduced minimum length from 3 to 2 characters
+    if (value.length > 1) {
       if (debounceTimer.current) {
         clearTimeout(debounceTimer.current);
       }
@@ -67,6 +69,7 @@ export default function AddressAutocomplete({
     } else {
       setPredictions([]);
       setShowPredictions(false);
+      setShowNoResults(false);
       setApiError(null);
       setApiStatus(null);
     }
@@ -82,6 +85,7 @@ export default function AddressAutocomplete({
     setIsLoading(true);
     setApiError(null);
     setApiStatus(null);
+    setShowNoResults(false);
     
     try {
       console.log('🔍 [AddressAutocomplete] Fetching predictions for:', input);
@@ -130,6 +134,7 @@ export default function AddressAutocomplete({
         setApiStatus('SUPABASE_ERROR');
         setPredictions([]);
         setShowPredictions(false);
+        setShowNoResults(false);
         
         // Show alert on mobile for debugging
         if (Platform.OS !== 'web') {
@@ -148,21 +153,32 @@ export default function AddressAutocomplete({
       if (data.status === 'OK' && data.predictions) {
         console.log(`✅ [AddressAutocomplete] Found ${data.predictions.length} predictions`);
         
-        // Log des types de lieux trouvés pour débogage
-        const placeTypes = data.predictions.slice(0, 5).map((p: Prediction) => ({
-          name: p.structured_formatting.main_text,
-          types: p.types
-        }));
-        console.log('📍 [AddressAutocomplete] Place types found:', placeTypes);
-        
-        setPredictions(data.predictions);
-        setShowPredictions(true);
-        setApiError(null);
+        if (data.predictions.length === 0) {
+          // API returned OK but no predictions
+          console.log('⚠️ [AddressAutocomplete] API returned OK but 0 predictions');
+          setPredictions([]);
+          setShowPredictions(false);
+          setShowNoResults(true);
+          setApiError(null);
+        } else {
+          // Log des types de lieux trouvés pour débogage
+          const placeTypes = data.predictions.slice(0, 5).map((p: Prediction) => ({
+            name: p.structured_formatting.main_text,
+            types: p.types
+          }));
+          console.log('📍 [AddressAutocomplete] Place types found:', placeTypes);
+          
+          setPredictions(data.predictions);
+          setShowPredictions(true);
+          setShowNoResults(false);
+          setApiError(null);
+        }
       } else if (data.status === 'ZERO_RESULTS') {
-        console.log('⚠️ [AddressAutocomplete] No predictions found');
+        console.log('⚠️ [AddressAutocomplete] ZERO_RESULTS from Google API');
         setPredictions([]);
         setShowPredictions(false);
-        setApiError('Aucun résultat trouvé pour cette recherche');
+        setShowNoResults(true);
+        setApiError(null);
       } else if (data.status === 'REQUEST_DENIED') {
         console.error('🚫 [AddressAutocomplete] REQUEST_DENIED from Google API');
         console.error('Error message:', data.error_message);
@@ -171,6 +187,7 @@ export default function AddressAutocomplete({
         setApiError(errorMsg);
         setPredictions([]);
         setShowPredictions(false);
+        setShowNoResults(false);
         
         // Show detailed alert on mobile with solution
         if (Platform.OS !== 'web') {
@@ -196,6 +213,7 @@ export default function AddressAutocomplete({
         setApiError('Quota API dépassé. Veuillez réessayer plus tard.');
         setPredictions([]);
         setShowPredictions(false);
+        setShowNoResults(false);
         
         if (Platform.OS !== 'web') {
           Alert.alert(
@@ -209,6 +227,7 @@ export default function AddressAutocomplete({
         setApiError('Requête invalide');
         setPredictions([]);
         setShowPredictions(false);
+        setShowNoResults(false);
       } else {
         console.log('⚠️ [AddressAutocomplete] Autocomplete API response status:', data.status);
         if (data.error_message) {
@@ -225,12 +244,14 @@ export default function AddressAutocomplete({
           }
         }
         setPredictions([]);
+        setShowNoResults(false);
       }
     } catch (error) {
       console.error('❌ [AddressAutocomplete] Exception:', error);
       setApiError(`Erreur: ${error.message}`);
       setApiStatus('EXCEPTION');
       setPredictions([]);
+      setShowNoResults(false);
       
       // Show alert on mobile
       if (Platform.OS !== 'web') {
@@ -319,6 +340,7 @@ export default function AddressAutocomplete({
     onChangeText(address);
     setShowPredictions(false);
     setPredictions([]);
+    setShowNoResults(false);
     setApiError(null);
     setApiStatus(null);
     Keyboard.dismiss();
@@ -485,6 +507,24 @@ export default function AddressAutocomplete({
         </View>
       )}
 
+      {/* No Results Message */}
+      {showNoResults && !apiError && !isLoading && value.length > 1 && (
+        <View style={[styles.noResultsContainer, { backgroundColor: isDark ? colors.darkCard : '#FFF8E1' }]}>
+          <Text style={styles.noResultsIcon}>🔍</Text>
+          <View style={styles.noResultsTextContainer}>
+            <Text style={[styles.noResultsTitle, { color: isDark ? colors.darkText : colors.text }]}>
+              Aucun résultat trouvé
+            </Text>
+            <Text style={[styles.noResultsText, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+              Essayez avec un nom de lieu plus complet ou un quartier de Dakar
+            </Text>
+            <Text style={[styles.noResultsExample, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+              Exemples: &quot;Plateau&quot;, &quot;Parcelles Assainies&quot;, &quot;Marché Sandaga&quot;
+            </Text>
+          </View>
+        </View>
+      )}
+
       {/* Platform Debug Info (only on non-web platforms in dev mode) */}
       {Platform.OS !== 'web' && __DEV__ && (
         <View style={[styles.debugContainer, { backgroundColor: isDark ? colors.darkCard : colors.card }]}>
@@ -492,9 +532,9 @@ export default function AddressAutocomplete({
             🔧 Debug: Platform = {Platform.OS}
             {apiStatus && ` | API Status = ${apiStatus}`}
           </Text>
-          {value.length > 2 && !isLoading && predictions.length === 0 && !apiError && (
+          {value.length > 1 && !isLoading && predictions.length === 0 && !apiError && !showNoResults && (
             <Text style={[styles.debugText, { color: '#FF8C00', marginTop: 4 }]}>
-              ⚠️ Aucune suggestion reçue. Vérifiez la clé API Google Maps.
+              ⚠️ En attente de résultats...
             </Text>
           )}
         </View>
@@ -592,6 +632,38 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
     fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+  },
+  noResultsContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginTop: 8,
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#FFB300',
+  },
+  noResultsIcon: {
+    fontSize: 20,
+    marginRight: 8,
+    marginTop: 2,
+  },
+  noResultsTextContainer: {
+    flex: 1,
+  },
+  noResultsTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  noResultsText: {
+    fontSize: 13,
+    lineHeight: 18,
+    marginBottom: 6,
+  },
+  noResultsExample: {
+    fontSize: 12,
+    fontStyle: 'italic',
+    lineHeight: 16,
   },
   debugContainer: {
     marginTop: 4,

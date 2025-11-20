@@ -248,17 +248,23 @@ Deno.serve(async (req) => {
         requestParams: params,
       };
     } else if (data.predictions) {
-      console.log(`✅ Found ${data.predictions.length} predictions`);
+      const predictionCount = data.predictions.length;
+      console.log(`✅ Found ${predictionCount} predictions`);
       
       // Log sample of place types for debugging
-      if (data.predictions.length > 0) {
+      if (predictionCount > 0) {
         const sampleTypes = data.predictions.slice(0, 3).map((p: any) => ({
           name: p.description,
           types: p.types
         }));
         console.log('📍 Sample place types:', JSON.stringify(sampleTypes, null, 2));
       } else {
-        console.log('⚠️ Predictions array is empty');
+        console.log('⚠️ Predictions array is empty (status=OK but 0 results)');
+        console.log('   This usually means:');
+        console.log('   - The search term is too generic or too short');
+        console.log('   - No places match the search criteria in the specified area');
+        console.log('   - The strictbounds parameter is too restrictive');
+        console.log('   Suggestion: Try a more specific search term or a known landmark');
       }
     } else if (data.rows) {
       // Distance Matrix response
