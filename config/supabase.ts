@@ -30,7 +30,14 @@ import Constants from 'expo-constants';
  *   dropoff_lat DOUBLE PRECISION,
  *   dropoff_lng DOUBLE PRECISION,
  *   distance_km DOUBLE PRECISION,
- *   price_fcfa INTEGER
+ *   price_fcfa INTEGER,
+ *   assigned_driver_id TEXT,
+ *   assigned_at TIMESTAMP WITH TIME ZONE,
+ *   accepted_at TIMESTAMP WITH TIME ZONE,
+ *   refused_at TIMESTAMP WITH TIME ZONE,
+ *   refused_reason TEXT,
+ *   picked_up_at TIMESTAMP WITH TIME ZONE,
+ *   delivered_at TIMESTAMP WITH TIME ZONE
  * );
  * 
  * -- Create an index for faster queries by sender phone
@@ -38,6 +45,9 @@ import Constants from 'expo-constants';
  * 
  * -- Create an index for faster queries by status
  * CREATE INDEX idx_parcels_status ON parcels(status);
+ * 
+ * -- Create an index for faster queries by assigned driver
+ * CREATE INDEX idx_parcels_assigned_driver ON parcels(assigned_driver_id);
  * 
  * -- Enable Row Level Security (RLS) - Optional but recommended
  * ALTER TABLE parcels ENABLE ROW LEVEL SECURITY;
@@ -88,4 +98,11 @@ export interface ParcelRow {
   dropoff_lng: number | null;
   distance_km: number | null;
   price_fcfa: number | null;
+  assigned_driver_id: string | null;
+  assigned_at: string | null;
+  accepted_at: string | null;
+  refused_at: string | null;
+  refused_reason: string | null;
+  picked_up_at: string | null;
+  delivered_at: string | null;
 }

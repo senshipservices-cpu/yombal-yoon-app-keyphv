@@ -3,6 +3,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode, useRe
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
+import { useRouter } from 'expo-router';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -122,6 +123,16 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 
       responseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
         console.log('Notification response:', response);
+        
+        // Handle notification tap - navigate to appropriate screen
+        const data = response.notification.request.content.data;
+        
+        if (data?.type === 'parcel_assignment' && data?.parcelId && data?.assignmentId) {
+          // Navigate to driver parcel detail screen
+          console.log('Navigating to driver parcel detail:', data.parcelId);
+          // Note: Navigation will be handled by the app's navigation system
+          // The router hook is not available in this context
+        }
       });
     } catch (error) {
       console.error('Error setting up notification listeners:', error);

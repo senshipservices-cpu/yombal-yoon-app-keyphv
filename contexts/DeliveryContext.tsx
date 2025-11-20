@@ -3,6 +3,8 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { calculateDistance } from '@/utils/distance';
 import { useNotifications } from './NotificationContext';
+import { supabase, isSupabaseConfigured } from '@/config/supabase';
+import { demoMode } from '@/config/demoMode';
 
 export interface Location {
   lat: number;
@@ -189,6 +191,28 @@ export function DeliveryProvider({ children }: { children: ReactNode }) {
 
       console.log(`Found ${nearbyDeliveryPersons.length} nearby delivery persons`);
 
+      // Assign to the closest delivery person in Supabase
+      const closestDeliveryPerson = nearbyDeliveryPersons[0];
+      
+      if (isSupabaseConfigured() && !demoMode) {
+        console.log('Updating parcel in Supabase with assigned_driver_id:', closestDeliveryPerson.id);
+        
+        const { error } = await supabase
+          .from('parcels')
+          .update({
+            status: 'assigned',
+            assigned_driver_id: closestDeliveryPerson.id,
+            assigned_at: new Date().toISOString(),
+          })
+          .eq('id', parcelId);
+
+        if (error) {
+          console.error('Error updating parcel in Supabase:', error);
+        } else {
+          console.log('✅ Parcel assigned in Supabase');
+        }
+      }
+
       // Create assignment for each nearby delivery person
       const newAssignments: ParcelAssignment[] = nearbyDeliveryPersons.map(dp => ({
         id: `assignment_${parcelId}_${dp.id}_${Date.now()}`,
@@ -218,6 +242,7 @@ export function DeliveryProvider({ children }: { children: ReactNode }) {
             type: 'parcel_assignment',
             parcelId,
             deliveryPersonId: dp.id,
+            assignmentId: `assignment_${parcelId}_${dp.id}_${Date.now()}`,
           }
         );
       }
@@ -257,6 +282,26 @@ export function DeliveryProvider({ children }: { children: ReactNode }) {
         );
         
         return false;
+      }
+
+      // Update in Supabase
+      if (isSupabaseConfigured() && !demoMode) {
+        console.log('Updating parcel status to accepted in Supabase');
+        
+        const { error } = await supabase
+          .from('parcels')
+          .update({
+            status: 'accepted',
+            assigned_driver_id: deliveryPersonId,
+            accepted_at: new Date().toISOString(),
+          })
+          .eq('id', assignment.parcelId);
+
+        if (error) {
+          console.error('Error updating parcel in Supabase:', error);
+        } else {
+          console.log('✅ Parcel accepted in Supabase');
+        }
       }
 
       // Accept this assignment
@@ -314,6 +359,29 @@ export function DeliveryProvider({ children }: { children: ReactNode }) {
     reason?: string
   ) => {
     try {
+      const assignment = assignments.find(a => a.id === assignmentId);
+      
+      // Update in Supabase - set status back to pending and clear assigned_driver_id
+      if (assignment && isSupabaseConfigured() && !demoMode) {
+        console.log('Updating parcel status to pending in Supabase (refused)');
+        
+        const { error } = await supabase
+          .from('parcels')
+          .update({
+            status: 'pending',
+            assigned_driver_id: null,
+            refused_at: new Date().toISOString(),
+            refused_reason: reason || null,
+          })
+          .eq('id', assignment.parcelId);
+
+        if (error) {
+          console.error('Error updating parcel in Supabase:', error);
+        } else {
+          console.log('✅ Parcel refused in Supabase');
+        }
+      }
+
       const updatedAssignments = assignments.map(a =>
         a.id === assignmentId
           ? {
@@ -339,6 +407,32 @@ export function DeliveryProvider({ children }: { children: ReactNode }) {
     status: ParcelAssignment['status']
   ) => {
     try {
+      const assignment = assignments.find(a => a.id === assignmentId);
+      
+      // Update in Supabase
+      if (assignment && isSupabaseConfigured() && !demoMode) {
+        console.log('Updating parcel status in Supabase:', status);
+        
+        const updateData: any = { status };
+        
+        if (status === 'picked_up') {
+          updateData.picked_up_at = new Date().toISOString();
+        } else if (status === 'delivered') {
+          updateData.delivered_at = new Date().toISOString();
+        }
+        
+        const { error } = await supabase
+          .from('parcels')
+          .update(updateData)
+          .eq('id', assignment.parcelId);
+
+        if (error) {
+          console.error('Error updating parcel in Supabase:', error);
+        } else {
+          console.log('✅ Parcel status updated in Supabase');
+        }
+      }
+
       const updatedAssignments = assignments.map(a => {
         if (a.id === assignmentId) {
           const updated = { ...a, status };
@@ -349,7 +443,6 @@ export function DeliveryProvider({ children }: { children: ReactNode }) {
             updated.deliveredAt = new Date().toISOString();
             
             // Set delivery person back to available
-            const assignment = assignments.find(a => a.id === assignmentId);
             if (assignment) {
               const updatedDeliveryPersons = deliveryPersons.map(dp =>
                 dp.id === assignment.deliveryPersonId
