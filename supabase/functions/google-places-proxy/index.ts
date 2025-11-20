@@ -1,10 +1,41 @@
 
-const GOOGLE_MAPS_API_KEY = "AIzaSyCyIEHUEYap3t8z_lqy2tCNhHFBhYHTSHQ";
+// GOOGLE MAPS API PROXY - YOMBAL YOON
+// ====================================
+// Cette Edge Function sert de proxy pour les appels à Google Maps API
+// Elle supporte plusieurs clés API selon la plateforme (Web, Android, iOS)
+
+// Configuration des clés API
+// ---------------------------
+// Option 1: Clé unique (développement)
+const GOOGLE_MAPS_API_KEY_DEFAULT = "AIzaSyCyIEHUEYap3t8z_lqy2tCNhHFBhYHTSHQ";
+
+// Option 2: Clés séparées par plateforme (production - recommandé)
+const GOOGLE_MAPS_API_KEY_WEB = Deno.env.get('GOOGLE_MAPS_API_KEY_WEB') || GOOGLE_MAPS_API_KEY_DEFAULT;
+const GOOGLE_MAPS_API_KEY_ANDROID = Deno.env.get('GOOGLE_MAPS_API_KEY_ANDROID') || GOOGLE_MAPS_API_KEY_DEFAULT;
+const GOOGLE_MAPS_API_KEY_IOS = Deno.env.get('GOOGLE_MAPS_API_KEY_IOS') || GOOGLE_MAPS_API_KEY_DEFAULT;
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-platform'
 };
+
+// Fonction pour sélectionner la bonne clé API selon la plateforme
+function getApiKeyForPlatform(platform: string): string {
+  console.log(`🔑 Selecting API key for platform: ${platform}`);
+  
+  switch (platform.toLowerCase()) {
+    case 'ios':
+      console.log('   → Using iOS API key');
+      return GOOGLE_MAPS_API_KEY_IOS;
+    case 'android':
+      console.log('   → Using Android API key');
+      return GOOGLE_MAPS_API_KEY_ANDROID;
+    case 'web':
+    default:
+      console.log('   → Using Web API key');
+      return GOOGLE_MAPS_API_KEY_WEB;
+  }
+}
 
 Deno.serve(async (req) => {
   // Handle CORS preflight requests
@@ -16,14 +47,18 @@ Deno.serve(async (req) => {
     const { action, ...params } = await req.json();
     
     // Detect platform from headers or user agent
-    const platform = req.headers.get('x-platform') || 'unknown';
+    const platform = req.headers.get('x-platform') || 'web';
     const userAgent = req.headers.get('user-agent') || '';
+    
+    // Select the appropriate API key for the platform
+    const apiKey = getApiKeyForPlatform(platform);
     
     console.log('='.repeat(80));
     console.log('📱 REQUEST INFO:');
     console.log('  Platform:', platform);
     console.log('  User-Agent:', userAgent);
     console.log('  Action:', action);
+    console.log('  API Key:', apiKey.substring(0, 20) + '...');
     console.log('  Params:', JSON.stringify(params, null, 2));
     console.log('='.repeat(80));
 
@@ -56,7 +91,7 @@ Deno.serve(async (req) => {
         const baseUrl = 'https://maps.googleapis.com/maps/api/place/autocomplete/json';
         const urlParams = new URLSearchParams({
           input: params.input,
-          key: GOOGLE_MAPS_API_KEY,
+          key: apiKey,
         });
 
         // ⚠️ IMPORTANT : NE JAMAIS INCLURE le paramètre 'types'
@@ -107,7 +142,7 @@ Deno.serve(async (req) => {
         }
 
         url = `${baseUrl}?${urlParams.toString()}`;
-        console.log('🔗 Autocomplete URL:', url.replace(GOOGLE_MAPS_API_KEY, 'API_KEY_HIDDEN'));
+        console.log('🔗 Autocomplete URL:', url.replace(apiKey, 'API_KEY_HIDDEN'));
         
         const startTime = Date.now();
         response = await fetch(url);
@@ -133,11 +168,11 @@ Deno.serve(async (req) => {
           types: '(cities)',
           components: 'country:sn',
           language: 'fr',
-          key: GOOGLE_MAPS_API_KEY,
+          key: apiKey,
         });
 
         url = `${baseUrl}?${urlParams.toString()}`;
-        console.log('🔗 City Autocomplete URL:', url.replace(GOOGLE_MAPS_API_KEY, 'API_KEY_HIDDEN'));
+        console.log('🔗 City Autocomplete URL:', url.replace(apiKey, 'API_KEY_HIDDEN'));
         response = await fetch(url);
         console.log(`📊 HTTP Status: ${response.status} ${response.statusText}`);
         break;
@@ -150,8 +185,8 @@ Deno.serve(async (req) => {
         // Utilisé après qu'une suggestion d'autocomplétion soit sélectionnée
         
         const fields = params.fields || 'geometry,formatted_address,name,types,address_components';
-        url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${params.placeId}&fields=${fields}&language=fr&key=${GOOGLE_MAPS_API_KEY}`;
-        console.log('🔗 Place Details URL:', url.replace(GOOGLE_MAPS_API_KEY, 'API_KEY_HIDDEN'));
+        url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${params.placeId}&fields=${fields}&language=fr&key=${apiKey}`;
+        console.log('🔗 Place Details URL:', url.replace(apiKey, 'API_KEY_HIDDEN'));
         response = await fetch(url);
         console.log(`📊 HTTP Status: ${response.status} ${response.statusText}`);
         break;
@@ -184,8 +219,8 @@ Deno.serve(async (req) => {
         const mode = params.mode || 'driving';
         const language = params.language || 'fr';
 
-        url = `https://maps.googleapis.com/maps/api/distancematrix/json?origins=${origins}&destinations=${destinations}&mode=${mode}&language=${language}&key=${GOOGLE_MAPS_API_KEY}`;
-        console.log('🔗 Distance Matrix URL:', url.replace(GOOGLE_MAPS_API_KEY, 'API_KEY_HIDDEN'));
+        url = `https://maps.googleapis.com/maps/api/distancematrix/json?origins=${origins}&destinations=${destinations}&mode=${mode}&language=${language}&key=${apiKey}`;
+        console.log('🔗 Distance Matrix URL:', url.replace(apiKey, 'API_KEY_HIDDEN'));
         response = await fetch(url);
         console.log(`📊 HTTP Status: ${response.status} ${response.statusText}`);
         break;
@@ -211,6 +246,8 @@ Deno.serve(async (req) => {
       console.error('❌ API ERROR DETECTED:');
       console.error('  Status:', data.status);
       console.error('  Error Message:', data.error_message || 'No error message provided');
+      console.error('  Platform:', platform);
+      console.error('  API Key used:', apiKey.substring(0, 20) + '...');
       
       // Log detailed error information for debugging
       if (data.status === 'REQUEST_DENIED') {
@@ -228,7 +265,7 @@ Deno.serve(async (req) => {
         console.error('  - Add iOS app restrictions (bundle ID)');
         console.error('  - Enable: Places API, Geocoding API, Distance Matrix API');
         console.error('');
-        console.error('📚 Documentation: See GOOGLE_MAPS_API_FIX.md');
+        console.error('📚 Documentation: See GOOGLE_MAPS_FIX_GUIDE.md');
       } else if (data.status === 'OVER_QUERY_LIMIT') {
         console.error('⚠️ OVER_QUERY_LIMIT - API quota exceeded');
         console.error('  - Check your Google Cloud Console billing');
@@ -246,6 +283,7 @@ Deno.serve(async (req) => {
         userAgent,
         timestamp: new Date().toISOString(),
         requestParams: params,
+        apiKeyPrefix: apiKey.substring(0, 20) + '...',
       };
     } else if (data.predictions) {
       const predictionCount = data.predictions.length;
