@@ -4,6 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import { useRouter } from 'expo-router';
+import * as Haptics from 'expo-haptics';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -53,6 +54,7 @@ interface NotificationContextType {
   clearAllNotifications: () => Promise<void>;
   isLoading: boolean;
   hasPermission: boolean;
+  navigateToParcelDetail: (parcelId: string, assignmentId: string) => void;
 }
 
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
@@ -67,6 +69,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   const [hasPermission, setHasPermission] = useState(false);
   const notificationListener = useRef<any>();
   const responseListener = useRef<any>();
+  const router = useRouter();
 
   useEffect(() => {
     loadData();
@@ -98,10 +101,26 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const navigateToParcelDetail = (parcelId: string, assignmentId: string) => {
+    console.log('Navigating to driver parcel detail:', parcelId, assignmentId);
+    try {
+      router.push({
+        pathname: '/colis/driver-parcel-detail',
+        params: {
+          parcelId,
+          assignmentId,
+        },
+      });
+    } catch (error) {
+      console.error('Error navigating to parcel detail:', error);
+    }
+  };
+
   const setupNotificationListeners = () => {
     try {
+      // Listener for notifications received while app is in foreground
       notificationListener.current = Notifications.addNotificationReceivedListener(notification => {
-        console.log('Notification received:', notification);
+        console.log('📱 Notification received (foreground):', notification);
         
         const newNotification: NotificationData = {
           id: notification.request.identifier,
@@ -114,24 +133,55 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
           read: false,
         };
 
+        // Save notification to history
         setNotifications(prev => {
           const updated = [newNotification, ...prev];
           AsyncStorage.setItem(NOTIFICATIONS_STORAGE_KEY, JSON.stringify(updated));
           return updated;
         });
+
+        // Trigger haptic feedback
+        if (Platform.OS === 'ios') {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        } else {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+        }
+
+        // If it's a parcel assignment notification, navigate directly to detail screen
+        const data = notification.request.content.data;
+        if (data?.type === 'parcel_assignment' && data?.parcelId && data?.assignmentId) {
+          console.log('🚀 Auto-navigating to parcel detail (foreground)');
+          // Small delay to ensure the notification is processed
+          setTimeout(() => {
+            navigateToParcelDetail(data.parcelId, data.assignmentId);
+          }, 500);
+        }
       });
 
+      // Listener for when user taps on a notification
       responseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
-        console.log('Notification response:', response);
+        console.log('👆 Notification tapped:', response);
         
+        // Trigger haptic feedback
+        if (Platform.OS === 'ios') {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        } else {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        }
+
         // Handle notification tap - navigate to appropriate screen
         const data = response.notification.request.content.data;
         
         if (data?.type === 'parcel_assignment' && data?.parcelId && data?.assignmentId) {
-          // Navigate to driver parcel detail screen
-          console.log('Navigating to driver parcel detail:', data.parcelId);
-          // Note: Navigation will be handled by the app's navigation system
-          // The router hook is not available in this context
+          console.log('🚀 Navigating to parcel detail from notification tap');
+          navigateToParcelDetail(data.parcelId, data.assignmentId);
+        } else if (data?.type === 'reservation_created' && data?.rideId) {
+          router.push({
+            pathname: '/covoiturage/my-rides',
+            params: {
+              rideId: data.rideId,
+            },
+          });
         }
       });
     } catch (error) {
@@ -150,6 +200,9 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
             importance: Notifications.AndroidImportance.MAX,
             vibrationPattern: [0, 250, 250, 250],
             lightColor: '#008000',
+            sound: 'default',
+            enableVibrate: true,
+            showBadge: true,
           });
 
           await Notifications.setNotificationChannelAsync('covoiturage', {
@@ -157,6 +210,9 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
             importance: Notifications.AndroidImportance.MAX,
             vibrationPattern: [0, 250, 250, 250],
             lightColor: '#FF8C00',
+            sound: 'default',
+            enableVibrate: true,
+            showBadge: true,
           });
 
           await Notifications.setNotificationChannelAsync('colis', {
@@ -164,9 +220,12 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
             importance: Notifications.AndroidImportance.MAX,
             vibrationPattern: [0, 250, 250, 250],
             lightColor: '#FF0000',
+            sound: 'default',
+            enableVibrate: true,
+            showBadge: true,
           });
 
-          console.log('Android notification channels created successfully');
+          console.log('✅ Android notification channels created successfully');
         } catch (channelError) {
           console.log('Error creating notification channels (may be expected on emulator):', channelError);
         }
@@ -187,7 +246,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       }
 
       setHasPermission(true);
-      console.log('Push notification permissions granted');
+      console.log('✅ Push notification permissions granted');
 
       // Generate a mock token for demo purposes
       const token = `mock_token_${Platform.OS}_${userId}_${Date.now()}`;
@@ -213,7 +272,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       
       await AsyncStorage.setItem(DEVICE_TOKENS_STORAGE_KEY, JSON.stringify(tokens));
 
-      console.log('Device token registered successfully:', token, 'Roles:', roles);
+      console.log('✅ Device token registered successfully:', token, 'Roles:', roles);
     } catch (error) {
       console.error('Error registering for push notifications:', error);
       setHasPermission(false);
@@ -234,17 +293,21 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         ? 'covoiturage'
         : 'default';
 
+      console.log('📤 Sending local notification:', title, 'Channel:', channelId);
+
       await Notifications.scheduleNotificationAsync({
         content: {
           title,
           body,
           data,
           sound: true,
+          vibrate: [0, 250, 250, 250],
+          priority: Notifications.AndroidNotificationPriority.MAX,
         },
         trigger: null,
       });
 
-      console.log('Local notification sent:', title);
+      console.log('✅ Local notification sent:', title);
     } catch (error) {
       console.error('Error sending local notification:', error);
     }
@@ -298,6 +361,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         clearAllNotifications,
         isLoading,
         hasPermission,
+        navigateToParcelDetail,
       }}
     >
       {children}

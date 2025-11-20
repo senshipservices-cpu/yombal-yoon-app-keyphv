@@ -9,6 +9,7 @@ import { useColis } from '@/contexts/ColisContext';
 import { useDelivery } from '@/contexts/DeliveryContext';
 import { maskPhoneNumber } from '@/utils/phoneUtils';
 import ContactButtons from '@/components/ContactButtons';
+import * as Haptics from 'expo-haptics';
 
 export default function DriverParcelDetailScreen() {
   const theme = useTheme();
@@ -26,9 +27,20 @@ export default function DriverParcelDetailScreen() {
   const [isRefusing, setIsRefusing] = useState(false);
 
   useEffect(() => {
+    console.log('📱 Driver Parcel Detail Screen loaded');
+    console.log('Parcel ID:', parcelId);
+    console.log('Assignment ID:', assignmentId);
+    
     // Refresh parcel data
     const updatedParcel = getParcelById(parcelId);
     setParcel(updatedParcel);
+    
+    // Trigger haptic feedback when screen loads
+    if (Platform.OS === 'ios') {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } else {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    }
   }, [parcelId]);
 
   if (!parcel) {
@@ -57,6 +69,14 @@ export default function DriverParcelDetailScreen() {
 
   const handleAccept = async () => {
     setIsAccepting(true);
+    
+    // Haptic feedback
+    if (Platform.OS === 'ios') {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } else {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
+    
     try {
       // Mock delivery person ID - in production, use actual logged-in driver ID
       const deliveryPersonId = 'dp1';
@@ -68,8 +88,8 @@ export default function DriverParcelDetailScreen() {
         await updateParcelStatus(parcelId, 'accepted');
         
         Alert.alert(
-          'Demande acceptée',
-          'Vous avez accepté cette demande de colis.',
+          '✅ Demande acceptée',
+          'Vous avez accepté cette demande de colis. Rendez-vous à l\'adresse de départ pour récupérer le colis.',
           [
             {
               text: 'OK',
@@ -82,7 +102,7 @@ export default function DriverParcelDetailScreen() {
         );
       } else {
         Alert.alert(
-          'Colis déjà pris',
+          '❌ Colis déjà pris',
           'Ce colis a déjà été accepté par un autre livreur.',
           [
             {
@@ -101,6 +121,13 @@ export default function DriverParcelDetailScreen() {
   };
 
   const handleRefuse = async () => {
+    // Haptic feedback
+    if (Platform.OS === 'ios') {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    } else {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    
     Alert.alert(
       'Refuser la demande',
       'Êtes-vous sûr de vouloir refuser cette demande ?',
@@ -202,7 +229,7 @@ export default function DriverParcelDetailScreen() {
             />
           </TouchableOpacity>
           <View style={styles.headerTextContainer}>
-            <Text style={styles.headerTitle}>Détail de la demande</Text>
+            <Text style={styles.headerTitle}>🚨 Nouvelle demande</Text>
             <Text style={styles.headerSubtitle}>Colis Thiak Thiak</Text>
           </View>
         </View>
@@ -215,6 +242,21 @@ export default function DriverParcelDetailScreen() {
               {getStatusText(parcel.status)}
             </Text>
           </View>
+
+          {/* Urgent Notice */}
+          {(parcel.status === 'assigned' || parcel.status === 'pending') && (
+            <View style={[styles.urgentNotice, { backgroundColor: colors.accent + '20' }]}>
+              <IconSymbol
+                ios_icon_name="exclamationmark.circle.fill"
+                android_material_icon_name="info"
+                size={24}
+                color={colors.accent}
+              />
+              <Text style={[styles.urgentNoticeText, { color: colors.accent }]}>
+                Veuillez accepter ou refuser cette demande rapidement
+              </Text>
+            </View>
+          )}
 
           {/* Parcel Info Card */}
           <View style={[styles.card, { backgroundColor: isDark ? colors.darkCard : colors.card }]}>
@@ -479,11 +521,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 20,
-    marginBottom: 20,
+    marginBottom: 16,
   },
   statusBadgeText: {
     fontSize: 16,
     fontWeight: '700',
+  },
+  urgentNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 20,
+  },
+  urgentNoticeText: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '600',
+    lineHeight: 20,
   },
   card: {
     borderRadius: 16,

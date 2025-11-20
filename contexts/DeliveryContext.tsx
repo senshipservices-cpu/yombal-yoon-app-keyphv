@@ -181,8 +181,8 @@ export function DeliveryProvider({ children }: { children: ReactNode }) {
     pickupAddress: string
   ) => {
     try {
-      // Find delivery persons within 5km
-      const nearbyDeliveryPersons = findNearbyDeliveryPersons(pickupLocation, 5);
+      // Find delivery persons within 10km (updated from 5km)
+      const nearbyDeliveryPersons = findNearbyDeliveryPersons(pickupLocation, 10);
       
       if (nearbyDeliveryPersons.length === 0) {
         console.log('No available delivery persons nearby');
@@ -226,7 +226,7 @@ export function DeliveryProvider({ children }: { children: ReactNode }) {
       setAssignments(updatedAssignments);
       await AsyncStorage.setItem(ASSIGNMENTS_STORAGE_KEY, JSON.stringify(updatedAssignments));
 
-      // Send notifications to nearby delivery persons
+      // Send notifications to nearby delivery persons with full-screen intent
       for (const dp of nearbyDeliveryPersons) {
         const distance = calculateDistance(
           pickupLocation.lat,
@@ -235,19 +235,25 @@ export function DeliveryProvider({ children }: { children: ReactNode }) {
           dp.currentLocation.lng
         );
         
+        const assignmentId = `assignment_${parcelId}_${dp.id}_${Date.now()}`;
+        
+        console.log(`📤 Sending notification to driver ${dp.name} (${distance.toFixed(1)} km away)`);
+        
         await sendLocalNotification(
-          'Nouvelle demande de colis',
+          '🚨 Nouvelle demande de colis',
           `Colis à récupérer à ${pickupAddress} (${distance.toFixed(1)} km)`,
           {
             type: 'parcel_assignment',
             parcelId,
             deliveryPersonId: dp.id,
-            assignmentId: `assignment_${parcelId}_${dp.id}_${Date.now()}`,
+            assignmentId,
+            pickupAddress,
+            distance: distance.toFixed(1),
           }
         );
       }
 
-      console.log('Parcel assigned to nearby delivery persons');
+      console.log('✅ Parcel assigned to nearby delivery persons with notifications');
     } catch (error) {
       console.error('Error assigning parcel:', error);
     }
@@ -276,7 +282,7 @@ export function DeliveryProvider({ children }: { children: ReactNode }) {
         
         // Notify this delivery person
         await sendLocalNotification(
-          'Colis déjà pris',
+          '❌ Colis déjà pris',
           'Ce colis a déjà été accepté par un autre livreur',
           { type: 'parcel_already_taken' }
         );
@@ -339,13 +345,13 @@ export function DeliveryProvider({ children }: { children: ReactNode }) {
       const otherAssignments = parcelAssignments.filter(a => a.deliveryPersonId !== deliveryPersonId);
       for (const otherAssignment of otherAssignments) {
         await sendLocalNotification(
-          'Colis déjà pris',
+          '❌ Colis déjà pris',
           'Ce colis a été accepté par un autre livreur',
           { type: 'parcel_already_taken' }
         );
       }
 
-      console.log('Assignment accepted successfully');
+      console.log('✅ Assignment accepted successfully');
       return true;
     } catch (error) {
       console.error('Error accepting assignment:', error);
@@ -396,7 +402,7 @@ export function DeliveryProvider({ children }: { children: ReactNode }) {
       setAssignments(updatedAssignments);
       await AsyncStorage.setItem(ASSIGNMENTS_STORAGE_KEY, JSON.stringify(updatedAssignments));
 
-      console.log('Assignment refused');
+      console.log('✅ Assignment refused');
     } catch (error) {
       console.error('Error refusing assignment:', error);
     }
@@ -462,7 +468,7 @@ export function DeliveryProvider({ children }: { children: ReactNode }) {
       setAssignments(updatedAssignments);
       await AsyncStorage.setItem(ASSIGNMENTS_STORAGE_KEY, JSON.stringify(updatedAssignments));
 
-      console.log('Assignment status updated:', status);
+      console.log('✅ Assignment status updated:', status);
     } catch (error) {
       console.error('Error updating assignment status:', error);
     }
