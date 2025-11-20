@@ -9,6 +9,8 @@ import {
   ScrollView,
   ActivityIndicator,
   Keyboard,
+  Platform,
+  Alert,
 } from 'react-native';
 import { useTheme } from '@react-navigation/native';
 import { colors } from '@/styles/commonStyles';
@@ -49,6 +51,7 @@ export default function AddressAutocomplete({
   const [predictions, setPredictions] = useState<Prediction[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [showPredictions, setShowPredictions] = useState(false);
+  const [apiError, setApiError] = useState<string | null>(null);
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
@@ -63,6 +66,7 @@ export default function AddressAutocomplete({
     } else {
       setPredictions([]);
       setShowPredictions(false);
+      setApiError(null);
     }
 
     return () => {
@@ -74,8 +78,11 @@ export default function AddressAutocomplete({
 
   const fetchPredictions = async (input: string) => {
     setIsLoading(true);
+    setApiError(null);
+    
     try {
-      console.log('🔍 Fetching address predictions for:', input);
+      console.log('🔍 [AddressAutocomplete] Fetching predictions for:', input);
+      console.log('📱 [AddressAutocomplete] Platform:', Platform.OS);
 
       // APPEL GOOGLE PLACES API - AUTOCOMPLÉTION D'ADRESSE
       // ====================================================
@@ -109,41 +116,101 @@ export default function AddressAutocomplete({
           language: 'fr', // Langue française
           strictbounds: true, // Limite strictement à la zone spécifiée
         },
+        headers: {
+          'x-platform': Platform.OS, // Send platform info to Edge Function
+        },
       });
 
       if (error) {
-        console.error('❌ Error fetching address predictions:', error);
+        console.error('❌ [AddressAutocomplete] Supabase function error:', error);
+        setApiError(`Erreur de connexion: ${error.message}`);
         setPredictions([]);
         setShowPredictions(false);
+        
+        // Show alert on mobile for debugging
+        if (Platform.OS !== 'web') {
+          Alert.alert(
+            'Erreur de connexion',
+            `Impossible de contacter le service d'autocomplétion.\n\nDétails: ${error.message}`,
+            [{ text: 'OK' }]
+          );
+        }
         return;
       }
 
+      console.log('📦 [AddressAutocomplete] API Response status:', data?.status);
+
       if (data.status === 'OK' && data.predictions) {
-        console.log(`✅ Found ${data.predictions.length} predictions`);
+        console.log(`✅ [AddressAutocomplete] Found ${data.predictions.length} predictions`);
         
         // Log des types de lieux trouvés pour débogage
         const placeTypes = data.predictions.slice(0, 5).map((p: Prediction) => ({
           name: p.structured_formatting.main_text,
           types: p.types
         }));
-        console.log('📍 Place types found:', placeTypes);
+        console.log('📍 [AddressAutocomplete] Place types found:', placeTypes);
         
         setPredictions(data.predictions);
         setShowPredictions(true);
+        setApiError(null);
       } else if (data.status === 'ZERO_RESULTS') {
-        console.log('⚠️ No predictions found');
+        console.log('⚠️ [AddressAutocomplete] No predictions found');
         setPredictions([]);
         setShowPredictions(false);
+        setApiError(null);
+      } else if (data.status === 'REQUEST_DENIED') {
+        console.error('🚫 [AddressAutocomplete] REQUEST_DENIED from Google API');
+        console.error('Error message:', data.error_message);
+        
+        const errorMsg = data.error_message || 'Accès refusé par Google Maps API';
+        setApiError(errorMsg);
+        setPredictions([]);
+        setShowPredictions(false);
+        
+        // Show detailed alert on mobile
+        if (Platform.OS !== 'web') {
+          Alert.alert(
+            '🚫 Erreur API Google Maps',
+            `L'autocomplétion ne fonctionne pas sur ${Platform.OS}.\n\n` +
+            `Raison: ${errorMsg}\n\n` +
+            `Causes possibles:\n` +
+            `• La clé API a des restrictions HTTP referrer (Web uniquement)\n` +
+            `• La clé API n'autorise pas les requêtes mobiles\n` +
+            `• Les APIs Places ne sont pas activées\n\n` +
+            `Solution: Configurer la clé API pour autoriser les apps mobiles dans Google Cloud Console.`,
+            [{ text: 'OK' }]
+          );
+        }
       } else {
-        console.log('⚠️ Autocomplete API response status:', data.status);
+        console.log('⚠️ [AddressAutocomplete] Autocomplete API response status:', data.status);
         if (data.error_message) {
           console.error('API Error:', data.error_message);
+          setApiError(data.error_message);
+          
+          // Show alert on mobile
+          if (Platform.OS !== 'web') {
+            Alert.alert(
+              'Erreur API',
+              `Status: ${data.status}\n\n${data.error_message}`,
+              [{ text: 'OK' }]
+            );
+          }
         }
         setPredictions([]);
       }
     } catch (error) {
-      console.error('❌ Error fetching address predictions:', error);
+      console.error('❌ [AddressAutocomplete] Exception:', error);
+      setApiError(`Erreur: ${error.message}`);
       setPredictions([]);
+      
+      // Show alert on mobile
+      if (Platform.OS !== 'web') {
+        Alert.alert(
+          'Erreur',
+          `Une erreur est survenue:\n\n${error.message}`,
+          [{ text: 'OK' }]
+        );
+      }
     } finally {
       setIsLoading(false);
     }
@@ -151,7 +218,7 @@ export default function AddressAutocomplete({
 
   const getPlaceDetails = async (placeId: string): Promise<Location | null> => {
     try {
-      console.log('🔍 Fetching place details for place_id:', placeId);
+      console.log('🔍 [AddressAutocomplete] Fetching place details for place_id:', placeId);
 
       // RÉCUPÉRATION LAT/LNG (Google Places Details API)
       // =================================================
@@ -162,10 +229,21 @@ export default function AddressAutocomplete({
           action: 'place_details',
           placeId: placeId,
         },
+        headers: {
+          'x-platform': Platform.OS,
+        },
       });
 
       if (error) {
-        console.error('❌ Error fetching place details:', error);
+        console.error('❌ [AddressAutocomplete] Error fetching place details:', error);
+        
+        if (Platform.OS !== 'web') {
+          Alert.alert(
+            'Erreur',
+            `Impossible de récupérer les coordonnées:\n\n${error.message}`,
+            [{ text: 'OK' }]
+          );
+        }
         return null;
       }
 
@@ -174,19 +252,35 @@ export default function AddressAutocomplete({
           lat: data.result.geometry.location.lat,
           lng: data.result.geometry.location.lng,
         };
-        console.log('✅ Retrieved coordinates:', location);
-        console.log('📍 Place name:', data.result.name);
-        console.log('🏷️ Place types:', data.result.types);
+        console.log('✅ [AddressAutocomplete] Retrieved coordinates:', location);
+        console.log('📍 [AddressAutocomplete] Place name:', data.result.name);
+        console.log('🏷️ [AddressAutocomplete] Place types:', data.result.types);
         return location;
       } else {
-        console.error('❌ Place Details API error:', data.status);
+        console.error('❌ [AddressAutocomplete] Place Details API error:', data.status);
         if (data.error_message) {
           console.error('API Error:', data.error_message);
+          
+          if (Platform.OS !== 'web') {
+            Alert.alert(
+              'Erreur API',
+              `Status: ${data.status}\n\n${data.error_message}`,
+              [{ text: 'OK' }]
+            );
+          }
         }
       }
       return null;
     } catch (error) {
-      console.error('❌ Error fetching place details:', error);
+      console.error('❌ [AddressAutocomplete] Exception in getPlaceDetails:', error);
+      
+      if (Platform.OS !== 'web') {
+        Alert.alert(
+          'Erreur',
+          `Une erreur est survenue:\n\n${error.message}`,
+          [{ text: 'OK' }]
+        );
+      }
       return null;
     }
   };
@@ -196,11 +290,12 @@ export default function AddressAutocomplete({
     onChangeText(address);
     setShowPredictions(false);
     setPredictions([]);
+    setApiError(null);
     Keyboard.dismiss();
 
-    console.log('✅ Selected address:', address);
-    console.log('🆔 Place ID:', prediction.place_id);
-    console.log('🏷️ Place types:', prediction.types);
+    console.log('✅ [AddressAutocomplete] Selected address:', address);
+    console.log('🆔 [AddressAutocomplete] Place ID:', prediction.place_id);
+    console.log('🏷️ [AddressAutocomplete] Place types:', prediction.types);
 
     // RÉCUPÉRATION DES COORDONNÉES DU LIEU SÉLECTIONNÉ
     // Appel Place Details pour obtenir lat/lng
@@ -210,9 +305,9 @@ export default function AddressAutocomplete({
       // - pickupLat / pickupLng pour l'adresse de départ
       // - dropoffLat / dropoffLng pour l'adresse d'arrivée
       onSelectAddress(address, location, prediction.place_id);
-      console.log('✅ Coordinates stored successfully');
+      console.log('✅ [AddressAutocomplete] Coordinates stored successfully');
     } else {
-      console.error('❌ Failed to retrieve coordinates for selected address');
+      console.error('❌ [AddressAutocomplete] Failed to retrieve coordinates for selected address');
     }
   };
 
@@ -322,7 +417,8 @@ export default function AddressAutocomplete({
             {
               backgroundColor: isDark ? colors.darkBackground : colors.background,
               color: isDark ? colors.darkText : colors.text,
-              borderColor: isDark ? colors.darkCard : colors.border,
+              borderColor: apiError ? '#FF0000' : (isDark ? colors.darkCard : colors.border),
+              borderWidth: apiError ? 2 : 1,
             },
           ]}
           placeholder={placeholder}
@@ -341,6 +437,25 @@ export default function AddressAutocomplete({
           </View>
         )}
       </View>
+
+      {/* Error Message */}
+      {apiError && (
+        <View style={[styles.errorContainer, { backgroundColor: '#FF000020' }]}>
+          <Text style={styles.errorIcon}>⚠️</Text>
+          <Text style={[styles.errorText, { color: '#FF0000' }]}>
+            {apiError}
+          </Text>
+        </View>
+      )}
+
+      {/* Platform Debug Info (only on non-web platforms) */}
+      {Platform.OS !== 'web' && __DEV__ && (
+        <View style={[styles.debugContainer, { backgroundColor: isDark ? colors.darkCard : colors.card }]}>
+          <Text style={[styles.debugText, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+            🔧 Debug: Platform = {Platform.OS}
+          </Text>
+        </View>
+      )}
 
       {showPredictions && predictions.length > 0 && (
         <View
@@ -407,6 +522,33 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: 14,
     top: 14,
+  },
+  errorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#FF0000',
+  },
+  errorIcon: {
+    fontSize: 20,
+    marginRight: 8,
+  },
+  errorText: {
+    flex: 1,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  debugContainer: {
+    marginTop: 4,
+    padding: 8,
+    borderRadius: 6,
+  },
+  debugText: {
+    fontSize: 11,
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
   },
   predictionsContainer: {
     marginTop: 4,
