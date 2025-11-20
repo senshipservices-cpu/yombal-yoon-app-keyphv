@@ -83,13 +83,20 @@ export default function ColisScreen() {
       });
 
       if (result.success && result.requestId) {
-        // Assign to nearby delivery persons (only in local mode)
-        if (demoMode && departureLocation) {
+        console.log('✅ Parcel request created successfully:', result.requestId);
+        
+        // ALWAYS assign to nearby delivery persons (not just in demo mode)
+        // This is a core feature of the app
+        if (departureLocation) {
+          console.log('📍 Assigning parcel to nearby delivery persons...');
           await assignParcelToNearbyDeliveryPersons(
             result.requestId,
             departureLocation,
             departureAddress.trim()
           );
+          console.log('✅ Parcel assigned to nearby delivery persons');
+        } else {
+          console.log('⚠️ No departure location available, skipping assignment');
         }
 
         // Clear form

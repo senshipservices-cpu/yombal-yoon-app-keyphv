@@ -9,6 +9,7 @@ export interface ProfileData {
     driver: boolean;
     passenger: boolean;
     delivery: boolean;
+    sender: boolean;
   };
 }
 
@@ -54,6 +55,7 @@ const defaultProfile: ProfileData = {
     driver: false,
     passenger: false,
     delivery: false,
+    sender: false,
   },
 };
 
@@ -133,7 +135,12 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
     try {
       const storedProfile = await AsyncStorage.getItem(PROFILE_STORAGE_KEY);
       if (storedProfile) {
-        setProfile(JSON.parse(storedProfile));
+        const parsedProfile = JSON.parse(storedProfile);
+        // Ensure sender role exists (for backward compatibility)
+        if (!parsedProfile.roles.hasOwnProperty('sender')) {
+          parsedProfile.roles.sender = false;
+        }
+        setProfile(parsedProfile);
         console.log('Profile loaded from storage');
       } else {
         console.log('No stored profile found, using default');

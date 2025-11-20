@@ -16,6 +16,7 @@ import { IconSymbol } from '@/components/IconSymbol';
 import { useDelivery } from '@/contexts/DeliveryContext';
 import { useColis } from '@/contexts/ColisContext';
 import { useNotifications } from '@/contexts/NotificationContext';
+import { useProfile } from '@/contexts/ProfileContext';
 import EmptyState from '@/components/EmptyState';
 import ErrorState from '@/components/ErrorState';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
@@ -27,13 +28,22 @@ export default function PendingAssignmentsScreen() {
   const { assignments, acceptAssignment, refuseAssignment } = useDelivery();
   const { getParcelById } = useColis();
   const { sendLocalNotification, registerForPushNotifications } = useNotifications();
+  const { profile } = useProfile();
   const { isConnected, retry } = useNetworkStatus();
 
   const deliveryPersonId = 'dp1';
 
-  const registerNotifications = useCallback(() => {
-    registerForPushNotifications();
-  }, [registerForPushNotifications]);
+  const registerNotifications = useCallback(async () => {
+    // Register for push notifications with delivery role
+    const activeRoles: string[] = [];
+    if (profile.roles.driver) activeRoles.push('driver');
+    if (profile.roles.passenger) activeRoles.push('passenger');
+    if (profile.roles.delivery) activeRoles.push('delivery');
+    if (profile.roles.sender) activeRoles.push('sender');
+
+    console.log('📱 Registering push notifications for delivery person with roles:', activeRoles);
+    await registerForPushNotifications(profile.phone || deliveryPersonId, activeRoles);
+  }, [registerForPushNotifications, profile.phone, profile.roles]);
 
   useEffect(() => {
     // Register for push notifications when screen loads
@@ -129,10 +139,26 @@ export default function PendingAssignmentsScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.content}>
+          {/* Info Card */}
+          <View style={[styles.infoCard, { backgroundColor: colors.primary + '20' }]}>
+            <IconSymbol
+              ios_icon_name="bell.badge.fill"
+              android_material_icon_name="notifications-active"
+              size={32}
+              color={colors.primary}
+            />
+            <Text style={[styles.infoTitle, { color: isDark ? colors.darkText : colors.text }]}>
+              Notifications activées
+            </Text>
+            <Text style={[styles.infoText, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+              Vous recevrez une notification dès qu&apos;une nouvelle demande de colis est disponible près de vous.
+            </Text>
+          </View>
+
           {pendingAssignments.length === 0 ? (
             <EmptyState
               icon={{ ios: 'shippingbox', android: 'local-shipping' }}
-              title="Aucun livreur disponible actuellement"
+              title="Aucune demande en attente"
               message="Il n'y a pas de demandes de livraison en attente pour le moment. Vous serez notifié dès qu'une nouvelle demande arrive."
             />
           ) : (
@@ -224,7 +250,7 @@ export default function PendingAssignmentsScreen() {
                           color={colors.textSecondary}
                         />
                         <Text style={[styles.detailText, { color: colors.accent }]}>
-                          {parcel.pricing.total} FCFA ({parcel.pricing.distance} km)
+                          {parcel.pricing.total} FCFA ({parcel.pricing.distance.toFixed(1)} km)
                         </Text>
                       </View>
                     )}
@@ -304,6 +330,26 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 20,
+  },
+  infoCard: {
+    borderRadius: 16,
+    padding: 20,
+    alignItems: 'center',
+    marginBottom: 20,
+    borderWidth: 2,
+    borderColor: colors.primary,
+  },
+  infoTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginTop: 12,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  infoText: {
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 20,
   },
   assignmentCard: {
     borderRadius: 16,

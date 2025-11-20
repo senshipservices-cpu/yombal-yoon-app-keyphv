@@ -8,6 +8,7 @@ import { colors } from "@/styles/commonStyles";
 import { LinearGradient } from "expo-linear-gradient";
 import { useProfile } from "@/contexts/ProfileContext";
 import { useRouter } from "expo-router";
+import { useNotifications } from "@/contexts/NotificationContext";
 
 const SUPPORT_PHONE = "+221765676486";
 
@@ -16,12 +17,24 @@ export default function ProfileScreen() {
   const isDark = theme.dark;
   const router = useRouter();
   const { profile, updateProfile, resetProfile, isLoading } = useProfile();
+  const { registerForPushNotifications } = useNotifications();
 
   const [fullName, setFullName] = useState(profile.fullName);
   const [phone, setPhone] = useState(profile.phone);
   const [isDriver, setIsDriver] = useState(profile.roles.driver);
   const [isPassenger, setIsPassenger] = useState(profile.roles.passenger);
   const [isDelivery, setIsDelivery] = useState(profile.roles.delivery);
+  const [isSender, setIsSender] = useState(profile.roles.sender);
+
+  useEffect(() => {
+    // Update local state when profile changes
+    setFullName(profile.fullName);
+    setPhone(profile.phone);
+    setIsDriver(profile.roles.driver);
+    setIsPassenger(profile.roles.passenger);
+    setIsDelivery(profile.roles.delivery);
+    setIsSender(profile.roles.sender);
+  }, [profile]);
 
   const handleSave = async () => {
     await updateProfile({
@@ -31,8 +44,20 @@ export default function ProfileScreen() {
         driver: isDriver,
         passenger: isPassenger,
         delivery: isDelivery,
+        sender: isSender,
       },
     });
+
+    // Register for push notifications with updated roles
+    const activeRoles: string[] = [];
+    if (isDriver) activeRoles.push('driver');
+    if (isPassenger) activeRoles.push('passenger');
+    if (isDelivery) activeRoles.push('delivery');
+    if (isSender) activeRoles.push('sender');
+
+    console.log('Registering push notifications with roles:', activeRoles);
+    await registerForPushNotifications(phone || 'current_user', activeRoles);
+
     Alert.alert("Succès", "Votre profil a été mis à jour");
   };
 
@@ -52,6 +77,7 @@ export default function ProfileScreen() {
             setIsDriver(false);
             setIsPassenger(false);
             setIsDelivery(false);
+            setIsSender(false);
             Alert.alert("Succès", "Votre profil a été réinitialisé");
           },
         },
@@ -336,6 +362,26 @@ export default function ProfileScreen() {
               onValueChange={setIsDelivery}
               trackColor={{ false: colors.border, true: colors.secondary + '80' }}
               thumbColor={isDelivery ? colors.secondary : colors.textSecondary}
+            />
+          </View>
+
+          <View style={styles.roleItem}>
+            <View style={styles.roleInfo}>
+              <IconSymbol
+                ios_icon_name="paperplane.fill"
+                android_material_icon_name="send"
+                size={24}
+                color="#FF8C00"
+              />
+              <Text style={[styles.roleLabel, { color: isDark ? colors.darkText : colors.text }]}>
+                Envoyeur de Colis
+              </Text>
+            </View>
+            <Switch
+              value={isSender}
+              onValueChange={setIsSender}
+              trackColor={{ false: colors.border, true: '#FF8C00' + '80' }}
+              thumbColor={isSender ? '#FF8C00' : colors.textSecondary}
             />
           </View>
         </View>
