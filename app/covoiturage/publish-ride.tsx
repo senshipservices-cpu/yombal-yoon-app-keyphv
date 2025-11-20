@@ -70,48 +70,6 @@ export default function PublishRideScreen() {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [successAnimation] = useState(new Animated.Value(0));
 
-  useEffect(() => {
-    loadFavoriteRoute();
-  }, []);
-
-  useEffect(() => {
-    if (departureLat && departureLng && arrivalLat && arrivalLng) {
-      calculateDistanceAndDuration();
-    }
-  }, [departureLat, departureLng, arrivalLat, arrivalLng, calculateDistanceAndDuration]);
-
-  const loadFavoriteRoute = async () => {
-    try {
-      const storedRoute = await AsyncStorage.getItem(FAVORITE_ROUTE_KEY);
-      if (storedRoute) {
-        const route: FavoriteRoute = JSON.parse(storedRoute);
-        setFavoriteRoute(route);
-        console.log('Favorite route loaded:', route);
-      }
-    } catch (error) {
-      console.error('Error loading favorite route:', error);
-    }
-  };
-
-  const saveFavoriteRoute = async () => {
-    try {
-      if (!departureTime) return;
-
-      const route: FavoriteRoute = {
-        departureCity: departureCity.trim(),
-        arrivalCity: arrivalCity.trim(),
-        departureTime: formatTime(departureTime),
-        vehicleType: vehicleType.trim() || undefined,
-      };
-
-      await AsyncStorage.setItem(FAVORITE_ROUTE_KEY, JSON.stringify(route));
-      setFavoriteRoute(route);
-      console.log('Favorite route saved:', route);
-    } catch (error) {
-      console.error('Error saving favorite route:', error);
-    }
-  };
-
   const calculateDistanceAndDuration = useCallback(async () => {
     if (!departureLat || !departureLng || !arrivalLat || !arrivalLng) {
       return;
@@ -166,6 +124,48 @@ export default function PublishRideScreen() {
       setIsCalculatingDistance(false);
     }
   }, [departureLat, departureLng, arrivalLat, arrivalLng]);
+
+  useEffect(() => {
+    loadFavoriteRoute();
+  }, []);
+
+  useEffect(() => {
+    if (departureLat && departureLng && arrivalLat && arrivalLng) {
+      calculateDistanceAndDuration();
+    }
+  }, [departureLat, departureLng, arrivalLat, arrivalLng, calculateDistanceAndDuration]);
+
+  const loadFavoriteRoute = async () => {
+    try {
+      const storedRoute = await AsyncStorage.getItem(FAVORITE_ROUTE_KEY);
+      if (storedRoute) {
+        const route: FavoriteRoute = JSON.parse(storedRoute);
+        setFavoriteRoute(route);
+        console.log('Favorite route loaded:', route);
+      }
+    } catch (error) {
+      console.error('Error loading favorite route:', error);
+    }
+  };
+
+  const saveFavoriteRoute = async () => {
+    try {
+      if (!departureTime) return;
+
+      const route: FavoriteRoute = {
+        departureCity: departureCity.trim(),
+        arrivalCity: arrivalCity.trim(),
+        departureTime: formatTime(departureTime),
+        vehicleType: vehicleType.trim() || undefined,
+      };
+
+      await AsyncStorage.setItem(FAVORITE_ROUTE_KEY, JSON.stringify(route));
+      setFavoriteRoute(route);
+      console.log('Favorite route saved:', route);
+    } catch (error) {
+      console.error('Error saving favorite route:', error);
+    }
+  };
 
   const handleUseUsualRoute = () => {
     if (!favoriteRoute) {
