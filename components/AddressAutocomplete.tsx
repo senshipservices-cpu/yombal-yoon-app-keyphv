@@ -52,6 +52,7 @@ export default function AddressAutocomplete({
   const [isLoading, setIsLoading] = useState(false);
   const [showPredictions, setShowPredictions] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
+  const [apiStatus, setApiStatus] = useState<string | null>(null);
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
@@ -67,6 +68,7 @@ export default function AddressAutocomplete({
       setPredictions([]);
       setShowPredictions(false);
       setApiError(null);
+      setApiStatus(null);
     }
 
     return () => {
@@ -79,6 +81,7 @@ export default function AddressAutocomplete({
   const fetchPredictions = async (input: string) => {
     setIsLoading(true);
     setApiError(null);
+    setApiStatus(null);
     
     try {
       console.log('🔍 [AddressAutocomplete] Fetching predictions for:', input);
@@ -124,6 +127,7 @@ export default function AddressAutocomplete({
       if (error) {
         console.error('❌ [AddressAutocomplete] Supabase function error:', error);
         setApiError(`Erreur de connexion: ${error.message}`);
+        setApiStatus('SUPABASE_ERROR');
         setPredictions([]);
         setShowPredictions(false);
         
@@ -139,6 +143,7 @@ export default function AddressAutocomplete({
       }
 
       console.log('📦 [AddressAutocomplete] API Response status:', data?.status);
+      setApiStatus(data?.status || 'UNKNOWN');
 
       if (data.status === 'OK' && data.predictions) {
         console.log(`✅ [AddressAutocomplete] Found ${data.predictions.length} predictions`);
@@ -157,7 +162,7 @@ export default function AddressAutocomplete({
         console.log('⚠️ [AddressAutocomplete] No predictions found');
         setPredictions([]);
         setShowPredictions(false);
-        setApiError(null);
+        setApiError('Aucun résultat trouvé pour cette recherche');
       } else if (data.status === 'REQUEST_DENIED') {
         console.error('🚫 [AddressAutocomplete] REQUEST_DENIED from Google API');
         console.error('Error message:', data.error_message);
@@ -167,20 +172,43 @@ export default function AddressAutocomplete({
         setPredictions([]);
         setShowPredictions(false);
         
-        // Show detailed alert on mobile
+        // Show detailed alert on mobile with solution
         if (Platform.OS !== 'web') {
           Alert.alert(
             '🚫 Erreur API Google Maps',
             `L'autocomplétion ne fonctionne pas sur ${Platform.OS}.\n\n` +
+            `Status: REQUEST_DENIED\n\n` +
             `Raison: ${errorMsg}\n\n` +
-            `Causes possibles:\n` +
-            `• La clé API a des restrictions HTTP referrer (Web uniquement)\n` +
-            `• La clé API n'autorise pas les requêtes mobiles\n` +
-            `• Les APIs Places ne sont pas activées\n\n` +
-            `Solution: Configurer la clé API pour autoriser les apps mobiles dans Google Cloud Console.`,
+            `🔧 SOLUTION:\n\n` +
+            `La clé API Google Maps a des restrictions HTTP referrer (Web uniquement).\n\n` +
+            `Pour corriger:\n` +
+            `1. Ouvrir Google Cloud Console\n` +
+            `2. Aller dans "APIs & Services" > "Credentials"\n` +
+            `3. Modifier la clé API\n` +
+            `4. Supprimer les restrictions HTTP referrer\n` +
+            `5. OU créer une nouvelle clé pour mobile\n` +
+            `6. Activer: Places API, Geocoding API, Distance Matrix API`,
             [{ text: 'OK' }]
           );
         }
+      } else if (data.status === 'OVER_QUERY_LIMIT') {
+        console.error('⚠️ [AddressAutocomplete] OVER_QUERY_LIMIT');
+        setApiError('Quota API dépassé. Veuillez réessayer plus tard.');
+        setPredictions([]);
+        setShowPredictions(false);
+        
+        if (Platform.OS !== 'web') {
+          Alert.alert(
+            '⚠️ Quota dépassé',
+            'Le quota de l\'API Google Maps a été dépassé. Veuillez réessayer plus tard.',
+            [{ text: 'OK' }]
+          );
+        }
+      } else if (data.status === 'INVALID_REQUEST') {
+        console.error('⚠️ [AddressAutocomplete] INVALID_REQUEST');
+        setApiError('Requête invalide');
+        setPredictions([]);
+        setShowPredictions(false);
       } else {
         console.log('⚠️ [AddressAutocomplete] Autocomplete API response status:', data.status);
         if (data.error_message) {
@@ -201,6 +229,7 @@ export default function AddressAutocomplete({
     } catch (error) {
       console.error('❌ [AddressAutocomplete] Exception:', error);
       setApiError(`Erreur: ${error.message}`);
+      setApiStatus('EXCEPTION');
       setPredictions([]);
       
       // Show alert on mobile
@@ -291,6 +320,7 @@ export default function AddressAutocomplete({
     setShowPredictions(false);
     setPredictions([]);
     setApiError(null);
+    setApiStatus(null);
     Keyboard.dismiss();
 
     console.log('✅ [AddressAutocomplete] Selected address:', address);
@@ -442,18 +472,31 @@ export default function AddressAutocomplete({
       {apiError && (
         <View style={[styles.errorContainer, { backgroundColor: '#FF000020' }]}>
           <Text style={styles.errorIcon}>⚠️</Text>
-          <Text style={[styles.errorText, { color: '#FF0000' }]}>
-            {apiError}
-          </Text>
+          <View style={styles.errorTextContainer}>
+            <Text style={[styles.errorText, { color: '#FF0000' }]}>
+              {apiError}
+            </Text>
+            {apiStatus && (
+              <Text style={[styles.errorStatus, { color: '#FF0000' }]}>
+                Status: {apiStatus}
+              </Text>
+            )}
+          </View>
         </View>
       )}
 
-      {/* Platform Debug Info (only on non-web platforms) */}
+      {/* Platform Debug Info (only on non-web platforms in dev mode) */}
       {Platform.OS !== 'web' && __DEV__ && (
         <View style={[styles.debugContainer, { backgroundColor: isDark ? colors.darkCard : colors.card }]}>
           <Text style={[styles.debugText, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
             🔧 Debug: Platform = {Platform.OS}
+            {apiStatus && ` | API Status = ${apiStatus}`}
           </Text>
+          {value.length > 2 && !isLoading && predictions.length === 0 && !apiError && (
+            <Text style={[styles.debugText, { color: '#FF8C00', marginTop: 4 }]}>
+              ⚠️ Aucune suggestion reçue. Vérifiez la clé API Google Maps.
+            </Text>
+          )}
         </View>
       )}
 
@@ -525,7 +568,7 @@ const styles = StyleSheet.create({
   },
   errorContainer: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     marginTop: 8,
     padding: 12,
     borderRadius: 8,
@@ -535,11 +578,20 @@ const styles = StyleSheet.create({
   errorIcon: {
     fontSize: 20,
     marginRight: 8,
+    marginTop: 2,
+  },
+  errorTextContainer: {
+    flex: 1,
   },
   errorText: {
-    flex: 1,
     fontSize: 13,
     lineHeight: 18,
+    marginBottom: 4,
+  },
+  errorStatus: {
+    fontSize: 11,
+    fontWeight: '600',
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
   },
   debugContainer: {
     marginTop: 4,

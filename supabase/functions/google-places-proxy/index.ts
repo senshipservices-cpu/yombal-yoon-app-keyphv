@@ -226,17 +226,26 @@ Deno.serve(async (req) => {
         console.error('  - OR create a separate API key for mobile apps');
         console.error('  - Add Android app restrictions (package name + SHA-1)');
         console.error('  - Add iOS app restrictions (bundle ID)');
+        console.error('  - Enable: Places API, Geocoding API, Distance Matrix API');
+        console.error('');
+        console.error('📚 Documentation: See GOOGLE_MAPS_API_FIX.md');
       } else if (data.status === 'OVER_QUERY_LIMIT') {
         console.error('⚠️ OVER_QUERY_LIMIT - API quota exceeded');
+        console.error('  - Check your Google Cloud Console billing');
+        console.error('  - Verify daily quotas are not exceeded');
       } else if (data.status === 'INVALID_REQUEST') {
         console.error('⚠️ INVALID_REQUEST - Check request parameters');
+        console.error('  - Input:', params.input);
+        console.error('  - Location:', params.location);
+        console.error('  - Components:', params.components);
       }
       
-      // Add platform info to error response
+      // Add platform info to error response for better debugging
       data.platform_info = {
         platform,
         userAgent,
         timestamp: new Date().toISOString(),
+        requestParams: params,
       };
     } else if (data.predictions) {
       console.log(`✅ Found ${data.predictions.length} predictions`);
@@ -248,6 +257,8 @@ Deno.serve(async (req) => {
           types: p.types
         }));
         console.log('📍 Sample place types:', JSON.stringify(sampleTypes, null, 2));
+      } else {
+        console.log('⚠️ Predictions array is empty');
       }
     } else if (data.rows) {
       // Distance Matrix response
