@@ -6,7 +6,7 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  FlatList,
+  ScrollView,
   ActivityIndicator,
   Keyboard,
 } from 'react-native';
@@ -310,26 +310,6 @@ export default function AddressAutocomplete({
     return '📍';
   };
 
-  const renderPrediction = ({ item }: { item: Prediction }) => (
-    <TouchableOpacity
-      style={[
-        styles.predictionItem,
-        { backgroundColor: isDark ? colors.darkCard : colors.card },
-      ]}
-      onPress={() => handleSelectPrediction(item)}
-    >
-      <Text style={styles.placeIcon}>{getPlaceIcon(item.types)}</Text>
-      <View style={styles.predictionTextContainer}>
-        <Text style={[styles.mainText, { color: isDark ? colors.darkText : colors.text }]}>
-          {item.structured_formatting.main_text}
-        </Text>
-        <Text style={[styles.secondaryText, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-          {item.structured_formatting.secondary_text}
-        </Text>
-      </View>
-    </TouchableOpacity>
-  );
-
   return (
     <View style={styles.container}>
       <Text style={[styles.label, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
@@ -372,14 +352,32 @@ export default function AddressAutocomplete({
             },
           ]}
         >
-          <FlatList
-            data={predictions}
-            renderItem={renderPrediction}
-            keyExtractor={(item) => item.place_id}
+          <ScrollView
             style={styles.predictionsList}
             keyboardShouldPersistTaps="handled"
-            nestedScrollEnabled
-          />
+            showsVerticalScrollIndicator={true}
+          >
+            {predictions.map((item) => (
+              <TouchableOpacity
+                key={item.place_id}
+                style={[
+                  styles.predictionItem,
+                  { backgroundColor: isDark ? colors.darkCard : colors.card },
+                ]}
+                onPress={() => handleSelectPrediction(item)}
+              >
+                <Text style={styles.placeIcon}>{getPlaceIcon(item.types)}</Text>
+                <View style={styles.predictionTextContainer}>
+                  <Text style={[styles.mainText, { color: isDark ? colors.darkText : colors.text }]}>
+                    {item.structured_formatting.main_text}
+                  </Text>
+                  <Text style={[styles.secondaryText, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+                    {item.structured_formatting.secondary_text}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
         </View>
       )}
     </View>
@@ -414,7 +412,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
     borderWidth: 1,
     borderRadius: 12,
-    maxHeight: 300,
+    maxHeight: 250,
     overflow: 'hidden',
     boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.1)',
     elevation: 5,
