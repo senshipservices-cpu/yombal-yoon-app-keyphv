@@ -131,19 +131,49 @@ export function DeliveryProvider({ children }: { children: ReactNode }) {
 
   const loadData = async () => {
     try {
-      const storedDeliveryPersons = await AsyncStorage.getItem(DELIVERY_PERSONS_STORAGE_KEY);
-      const storedAssignments = await AsyncStorage.getItem(ASSIGNMENTS_STORAGE_KEY);
+      // Load drivers from Supabase if configured
+      if (isSupabaseConfigured() && !demoMode) {
+        console.log('Loading drivers from Supabase...');
+        const { data, error } = await supabase
+          .from('drivers')
+          .select('*');
 
-      if (storedDeliveryPersons) {
-        setDeliveryPersons(JSON.parse(storedDeliveryPersons));
-        console.log('Delivery persons loaded from storage');
+        if (error) {
+          console.error('Error loading drivers from Supabase:', error);
+        } else if (data && data.length > 0) {
+          const drivers: DeliveryPerson[] = data.map((row: any) => ({
+            id: row.id,
+            name: row.name,
+            phone: row.phone,
+            status: row.status as 'available' | 'busy' | 'offline',
+            currentLocation: {
+              lat: row.last_lat || 14.6937,
+              lng: row.last_lng || -17.4441,
+            },
+            rating: row.rating || 5.0,
+            completedDeliveries: row.completed_deliveries || 0,
+            vehicleType: row.vehicle_type as 'moto' | 'car' | 'bicycle',
+          }));
+          setDeliveryPersons(drivers);
+          console.log(`Loaded ${drivers.length} drivers from Supabase`);
+        }
       } else {
-        // Initialize with mock data
-        setDeliveryPersons(mockDeliveryPersons);
-        await AsyncStorage.setItem(DELIVERY_PERSONS_STORAGE_KEY, JSON.stringify(mockDeliveryPersons));
-        console.log('Initialized with mock delivery persons');
+        // Load from AsyncStorage (local mode)
+        const storedDeliveryPersons = await AsyncStorage.getItem(DELIVERY_PERSONS_STORAGE_KEY);
+
+        if (storedDeliveryPersons) {
+          setDeliveryPersons(JSON.parse(storedDeliveryPersons));
+          console.log('Delivery persons loaded from storage');
+        } else {
+          // Initialize with mock data
+          setDeliveryPersons(mockDeliveryPersons);
+          await AsyncStorage.setItem(DELIVERY_PERSONS_STORAGE_KEY, JSON.stringify(mockDeliveryPersons));
+          console.log('Initialized with mock delivery persons');
+        }
       }
 
+      // Load assignments from AsyncStorage
+      const storedAssignments = await AsyncStorage.getItem(ASSIGNMENTS_STORAGE_KEY);
       if (storedAssignments) {
         setAssignments(JSON.parse(storedAssignments));
         console.log('Assignments loaded from storage');
@@ -294,7 +324,7 @@ export function DeliveryProvider({ children }: { children: ReactNode }) {
       if (isSupabaseConfigured() && !demoMode) {
         console.log('Updating parcel status to accepted in Supabase');
         
-        const { error } = await supabase
+        const { error: parcelError } = await supabase
           .from('parcels')
           .update({
             status: 'accepted',
@@ -303,10 +333,22 @@ export function DeliveryProvider({ children }: { children: ReactNode }) {
           })
           .eq('id', assignment.parcelId);
 
-        if (error) {
-          console.error('Error updating parcel in Supabase:', error);
+        if (parcelError) {
+          console.error('Error updating parcel in Supabase:', parcelError);
         } else {
           console.log('✅ Parcel accepted in Supabase');
+        }
+
+        // Update driver status to busy
+        const { error: driverError } = await supabase
+          .from('drivers')
+          .update({ status: 'busy' })
+          .eq('id', deliveryPersonId);
+
+        if (driverError) {
+          console.error('Error updating driver status in Supabase:', driverError);
+        } else {
+          console.log('✅ Driver status updated to busy in Supabase');
         }
       }
 

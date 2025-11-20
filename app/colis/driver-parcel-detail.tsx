@@ -10,6 +10,8 @@ import { useDelivery } from '@/contexts/DeliveryContext';
 import { maskPhoneNumber } from '@/utils/phoneUtils';
 import ContactButtons from '@/components/ContactButtons';
 import * as Haptics from 'expo-haptics';
+import { supabase, isSupabaseConfigured } from '@/config/supabase';
+import { demoMode } from '@/config/demoMode';
 
 export default function DriverParcelDetailScreen() {
   const theme = useTheme();
@@ -87,15 +89,30 @@ export default function DriverParcelDetailScreen() {
         // Update parcel status to 'accepted'
         await updateParcelStatus(parcelId, 'accepted');
         
+        // Update driver status to 'busy' in Supabase
+        if (isSupabaseConfigured() && !demoMode) {
+          const { error } = await supabase
+            .from('drivers')
+            .update({ status: 'busy' })
+            .eq('id', deliveryPersonId);
+
+          if (error) {
+            console.error('Error updating driver status in Supabase:', error);
+          }
+        }
+        
         Alert.alert(
           '✅ Demande acceptée',
-          'Vous avez accepté cette demande de colis. Rendez-vous à l\'adresse de départ pour récupérer le colis.',
+          'Rendez-vous chez l\'expéditeur pour récupérer le colis.',
           [
             {
               text: 'OK',
               onPress: () => {
-                // Navigate to active deliveries screen
-                router.replace('/delivery/active-delivery');
+                // Navigate to route to pickup screen
+                router.replace({
+                  pathname: '/colis/driver-route-to-pickup',
+                  params: { parcelId },
+                });
               },
             },
           ]
