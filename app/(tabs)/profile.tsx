@@ -9,7 +9,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useProfile } from "@/contexts/ProfileContext";
 import { useRouter } from "expo-router";
 
-const SUPPORT_PHONE = "+22177XXXXXXX";
+const SUPPORT_PHONE = "+221765676486";
 
 export default function ProfileScreen() {
   const theme = useTheme();
