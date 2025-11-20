@@ -6,11 +6,11 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  ScrollView,
   ActivityIndicator,
   Keyboard,
   Platform,
   Alert,
+  FlatList,
 } from 'react-native';
 import { useTheme } from '@react-navigation/native';
 import { colors } from '@/styles/commonStyles';
@@ -438,6 +438,30 @@ export default function AddressAutocomplete({
     return '📍';
   };
 
+  const renderPredictionItem = ({ item }: { item: Prediction }) => (
+    <TouchableOpacity
+      style={[
+        styles.predictionItem,
+        { 
+          backgroundColor: isDark ? colors.darkCard : colors.card,
+          borderBottomColor: isDark ? colors.darkBorder : colors.border,
+        },
+      ]}
+      onPress={() => handleSelectPrediction(item)}
+      activeOpacity={0.7}
+    >
+      <Text style={styles.placeIcon}>{getPlaceIcon(item.types)}</Text>
+      <View style={styles.predictionTextContainer}>
+        <Text style={[styles.mainText, { color: isDark ? colors.darkText : colors.text }]}>
+          {item.structured_formatting.main_text}
+        </Text>
+        <Text style={[styles.secondaryText, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+          {item.structured_formatting.secondary_text}
+        </Text>
+      </View>
+    </TouchableOpacity>
+  );
+
   return (
     <View style={styles.container}>
       <Text style={[styles.label, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
@@ -518,6 +542,7 @@ export default function AddressAutocomplete({
         </View>
       )}
 
+      {/* Predictions List - Using FlatList for better Android compatibility */}
       {showPredictions && predictions.length > 0 && (
         <View
           style={[
@@ -528,32 +553,17 @@ export default function AddressAutocomplete({
             },
           ]}
         >
-          <ScrollView
-            style={styles.predictionsList}
+          <FlatList
+            data={predictions}
+            renderItem={renderPredictionItem}
+            keyExtractor={(item) => item.place_id}
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={true}
-          >
-            {predictions.map((item) => (
-              <TouchableOpacity
-                key={item.place_id}
-                style={[
-                  styles.predictionItem,
-                  { backgroundColor: isDark ? colors.darkCard : colors.card },
-                ]}
-                onPress={() => handleSelectPrediction(item)}
-              >
-                <Text style={styles.placeIcon}>{getPlaceIcon(item.types)}</Text>
-                <View style={styles.predictionTextContainer}>
-                  <Text style={[styles.mainText, { color: isDark ? colors.darkText : colors.text }]}>
-                    {item.structured_formatting.main_text}
-                  </Text>
-                  <Text style={[styles.secondaryText, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-                    {item.structured_formatting.secondary_text}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
+            nestedScrollEnabled={true}
+            scrollEnabled={true}
+            style={styles.predictionsList}
+            contentContainerStyle={styles.predictionsListContent}
+          />
         </View>
       )}
     </View>
@@ -563,7 +573,8 @@ export default function AddressAutocomplete({
 const styles = StyleSheet.create({
   container: {
     marginBottom: 16,
-    zIndex: 1,
+    zIndex: 1000,
+    position: 'relative',
   },
   label: {
     fontSize: 14,
@@ -661,27 +672,44 @@ const styles = StyleSheet.create({
     lineHeight: 16,
   },
   predictionsContainer: {
-    marginTop: 4,
+    marginTop: 8,
     borderWidth: 1,
     borderRadius: 12,
-    maxHeight: 250,
+    maxHeight: 300,
     overflow: 'hidden',
-    boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.1)',
-    elevation: 5,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 12,
+      },
+      android: {
+        elevation: 8,
+      },
+      web: {
+        boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.1)',
+      },
+    }),
   },
   predictionsList: {
     flex: 1,
   },
+  predictionsListContent: {
+    flexGrow: 1,
+  },
   predictionItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 12,
+    padding: 14,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    minHeight: 60,
   },
   placeIcon: {
     fontSize: 24,
     marginRight: 12,
+    width: 32,
+    textAlign: 'center',
   },
   predictionTextContainer: {
     flex: 1,
@@ -689,9 +717,10 @@ const styles = StyleSheet.create({
   mainText: {
     fontSize: 15,
     fontWeight: '600',
-    marginBottom: 2,
+    marginBottom: 4,
   },
   secondaryText: {
     fontSize: 13,
+    lineHeight: 18,
   },
 });

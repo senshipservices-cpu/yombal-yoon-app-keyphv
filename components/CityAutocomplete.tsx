@@ -214,6 +214,47 @@ export default function CityAutocomplete({
     fetchPlaceDetails(prediction.place_id, cityName);
   };
 
+  const renderSuggestionItem = ({ item }: { item: PlacePrediction }) => (
+    <TouchableOpacity
+      style={[
+        styles.suggestionItem,
+        { 
+          borderBottomColor: isDark ? colors.darkBorder : colors.border,
+          backgroundColor: isDark ? colors.darkCard : colors.card,
+        },
+      ]}
+      onPress={() => handleSelectSuggestion(item)}
+      activeOpacity={0.7}
+    >
+      <IconSymbol
+        ios_icon_name="mappin.circle.fill"
+        android_material_icon_name="place"
+        size={20}
+        color={colors.primary}
+      />
+      <View style={styles.suggestionTextContainer}>
+        <Text
+          style={[
+            styles.suggestionMainText,
+            { color: isDark ? colors.darkText : colors.text },
+          ]}
+        >
+          {item.structured_formatting.main_text}
+        </Text>
+        {item.structured_formatting.secondary_text && (
+          <Text
+            style={[
+              styles.suggestionSecondaryText,
+              { color: isDark ? colors.darkTextSecondary : colors.textSecondary },
+            ]}
+          >
+            {item.structured_formatting.secondary_text}
+          </Text>
+        )}
+      </View>
+    </TouchableOpacity>
+  );
+
   return (
     <View style={styles.container}>
       {label && (
@@ -259,58 +300,27 @@ export default function CityAutocomplete({
         </View>
       )}
 
+      {/* Suggestions List - Using FlatList for better Android compatibility */}
       {showSuggestions && suggestions.length > 0 && (
         <View
           style={[
             styles.suggestionsContainer,
             {
               backgroundColor: isDark ? colors.darkCard : colors.card,
-              borderColor: colors.border,
+              borderColor: isDark ? colors.darkBorder : colors.border,
             },
           ]}
         >
           <FlatList
             data={suggestions}
             keyExtractor={(item) => item.place_id}
-            renderItem={({ item }) => (
-              <TouchableOpacity
-                style={[
-                  styles.suggestionItem,
-                  { borderBottomColor: colors.border },
-                ]}
-                onPress={() => handleSelectSuggestion(item)}
-                activeOpacity={0.7}
-              >
-                <IconSymbol
-                  ios_icon_name="mappin.circle.fill"
-                  android_material_icon_name="place"
-                  size={20}
-                  color={colors.primary}
-                />
-                <View style={styles.suggestionTextContainer}>
-                  <Text
-                    style={[
-                      styles.suggestionMainText,
-                      { color: isDark ? colors.darkText : colors.text },
-                    ]}
-                  >
-                    {item.structured_formatting.main_text}
-                  </Text>
-                  {item.structured_formatting.secondary_text && (
-                    <Text
-                      style={[
-                        styles.suggestionSecondaryText,
-                        { color: isDark ? colors.darkTextSecondary : colors.textSecondary },
-                      ]}
-                    >
-                      {item.structured_formatting.secondary_text}
-                    </Text>
-                  )}
-                </View>
-              </TouchableOpacity>
-            )}
-            scrollEnabled={false}
+            renderItem={renderSuggestionItem}
+            scrollEnabled={true}
             nestedScrollEnabled={true}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={true}
+            style={styles.suggestionsList}
+            contentContainerStyle={styles.suggestionsListContent}
           />
         </View>
       )}
@@ -321,6 +331,8 @@ export default function CityAutocomplete({
 const styles = StyleSheet.create({
   container: {
     marginBottom: 20,
+    zIndex: 1000,
+    position: 'relative',
   },
   label: {
     fontSize: 16,
@@ -359,19 +371,39 @@ const styles = StyleSheet.create({
     lineHeight: 16,
   },
   suggestionsContainer: {
-    marginTop: 4,
+    marginTop: 8,
     borderRadius: 12,
     borderWidth: 1,
-    maxHeight: 200,
-    boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.1)',
-    elevation: 5,
+    maxHeight: 250,
+    overflow: 'hidden',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 12,
+      },
+      android: {
+        elevation: 8,
+      },
+      web: {
+        boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.1)',
+      },
+    }),
+  },
+  suggestionsList: {
+    flex: 1,
+  },
+  suggestionsListContent: {
+    flexGrow: 1,
   },
   suggestionItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 12,
+    padding: 14,
     gap: 12,
     borderBottomWidth: 1,
+    minHeight: 60,
   },
   suggestionTextContainer: {
     flex: 1,
@@ -379,9 +411,10 @@ const styles = StyleSheet.create({
   suggestionMainText: {
     fontSize: 15,
     fontWeight: '600',
-    marginBottom: 2,
+    marginBottom: 4,
   },
   suggestionSecondaryText: {
     fontSize: 13,
+    lineHeight: 18,
   },
 });
