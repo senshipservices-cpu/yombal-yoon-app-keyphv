@@ -404,12 +404,6 @@ export default function PublishRideScreen() {
   const handleSubmit = async () => {
     console.log('Submit button pressed');
 
-    // Check phone verification first
-    if (!isPhoneVerified) {
-      setShowVerificationModal(true);
-      return;
-    }
-
     console.log('Form state:', {
       departureCity,
       arrivalCity,
@@ -438,6 +432,12 @@ export default function PublishRideScreen() {
         'Veuillez corriger les erreurs suivantes :\n\n' + validation.errors.map((e, i) => `${i + 1}. ${e}`).join('\n'),
         [{ text: 'OK' }]
       );
+      return;
+    }
+
+    // Check phone verification after form validation
+    if (!isPhoneVerified) {
+      setShowVerificationModal(true);
       return;
     }
 
@@ -859,32 +859,6 @@ export default function PublishRideScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.content}>
-          {!isPhoneVerified && (
-            <View style={[styles.verificationWarning, { backgroundColor: colors.warning + '20', borderColor: colors.warning }]}>
-              <IconSymbol
-                ios_icon_name="exclamationmark.triangle.fill"
-                android_material_icon_name="warning"
-                size={24}
-                color={colors.warning}
-              />
-              <View style={styles.warningTextContainer}>
-                <Text style={[styles.warningTitle, { color: colors.warning }]}>
-                  Vérification requise
-                </Text>
-                <Text style={[styles.warningText, { color: isDark ? colors.darkText : colors.text }]}>
-                  Veuillez vérifier votre numéro pour utiliser le service de covoiturage Yombal Yoon.
-                </Text>
-              </View>
-              <TouchableOpacity
-                style={[styles.verifyButton, { backgroundColor: colors.warning }]}
-                onPress={() => setShowVerificationModal(true)}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.verifyButtonText}>Vérifier</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-
           <TouchableOpacity
             style={[
               styles.usualRouteButton,
@@ -1148,7 +1122,6 @@ export default function PublishRideScreen() {
             />
           </View>
 
-          {/* Success Banner - Positioned just above the button */}
           {showSuccessModal && (
             <View style={[styles.inlineSuccessCard, { backgroundColor: colors.success + '20' }]}>
               <IconSymbol
@@ -1172,18 +1145,18 @@ export default function PublishRideScreen() {
             style={[
               styles.submitButton,
               {
-                backgroundColor: (isButtonEnabled && isPhoneVerified) ? colors.primary : colors.border,
-                opacity: (isButtonEnabled && isPhoneVerified) ? 1 : 0.6,
+                backgroundColor: isButtonEnabled ? colors.primary : colors.border,
+                opacity: isButtonEnabled ? 1 : 0.6,
               },
             ]}
             onPress={handleSubmit}
-            disabled={!isButtonEnabled && !isPhoneVerified}
+            disabled={!isButtonEnabled}
             activeOpacity={0.7}
           >
-            <Text style={[styles.submitButtonText, { color: (isButtonEnabled && isPhoneVerified) ? '#FFFFFF' : colors.textSecondary }]}>
+            <Text style={[styles.submitButtonText, { color: isButtonEnabled ? '#FFFFFF' : colors.textSecondary }]}>
               {!isPhoneVerified ? 'Vérifier le numéro pour publier' : 'Publier un trajet'}
             </Text>
-            {isButtonEnabled && isPhoneVerified && (
+            {isButtonEnabled && (
               <IconSymbol
                 ios_icon_name="checkmark.circle.fill"
                 android_material_icon_name="check-circle"
@@ -1193,7 +1166,7 @@ export default function PublishRideScreen() {
             )}
           </TouchableOpacity>
 
-          {(!isButtonEnabled || !isPhoneVerified) && (
+          {!isButtonEnabled && (
             <View style={styles.helpTextContainer}>
               <IconSymbol
                 ios_icon_name="info.circle"
@@ -1202,9 +1175,7 @@ export default function PublishRideScreen() {
                 color={colors.textSecondary}
               />
               <Text style={[styles.helpText, { color: colors.textSecondary }]}>
-                {!isPhoneVerified 
-                  ? 'Vérifiez votre numéro de téléphone pour publier un trajet.'
-                  : 'Remplissez tous les champs obligatoires (*) et sélectionnez les villes dans les suggestions pour activer le bouton.'}
+                Remplissez tous les champs obligatoires (*) et sélectionnez les villes dans les suggestions pour activer le bouton.
               </Text>
             </View>
           )}
@@ -1253,37 +1224,6 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 20,
-  },
-  verificationWarning: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 20,
-    gap: 12,
-    borderWidth: 2,
-  },
-  warningTextContainer: {
-    flex: 1,
-  },
-  warningTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    marginBottom: 4,
-  },
-  warningText: {
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  verifyButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 8,
-  },
-  verifyButtonText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '700',
   },
   usualRouteButton: {
     flexDirection: 'row',
