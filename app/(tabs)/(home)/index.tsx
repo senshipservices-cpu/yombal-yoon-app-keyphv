@@ -197,11 +197,11 @@ export default function HomeScreen() {
             Nos Services
           </Text>
 
-          {services.map((service, index) => {
+          {services.map((service) => {
             const isHighlighted = service.id === highlightedService;
             return (
               <TouchableOpacity
-                key={index}
+                key={service.id}
                 style={[
                   styles.serviceCard,
                   { backgroundColor: isDark ? colors.darkCard : colors.card },

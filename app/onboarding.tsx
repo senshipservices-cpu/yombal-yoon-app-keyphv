@@ -98,8 +98,9 @@ export default function OnboardingScreen() {
 
   const handleNext = () => {
     if (currentSlide < totalSlides - 1) {
-      goToSlide(currentSlide + 1);
-      console.log('Moving to next slide:', currentSlide + 1);
+      const nextSlide = currentSlide + 1;
+      goToSlide(nextSlide);
+      console.log('Moving to next slide:', nextSlide);
     } else {
       console.log('Already on last slide');
     }
@@ -146,7 +147,7 @@ export default function OnboardingScreen() {
         scrollEnabled={true}
       >
         {slides.map((slide, index) => (
-          <View key={index} style={[styles.slide, { width: SCREEN_WIDTH }]}>
+          <View key={`slide-${index}`} style={[styles.slide, { width: SCREEN_WIDTH }]}>
             <View style={styles.slideContent}>
               <View style={[styles.iconContainer, { backgroundColor: slide.color + '20' }]}>
                 <IconSymbol
@@ -164,7 +165,7 @@ export default function OnboardingScreen() {
         ))}
 
         {/* Role Selection Slide */}
-        <View style={[styles.slide, { width: SCREEN_WIDTH }]}>
+        <View key="role-selection-slide" style={[styles.slide, { width: SCREEN_WIDTH }]}>
           <View style={styles.slideContent}>
             <View style={[styles.iconContainer, { backgroundColor: colors.primary + '20' }]}>
               <IconSymbol
