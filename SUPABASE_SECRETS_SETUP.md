@@ -53,6 +53,8 @@ Valeur : whatsapp:+14155238886
    - Suivez les instructions pour activer le sandbox
    - Le numéro sandbox est : `whatsapp:+14155238886`
 
+**Note importante :** Les messages WhatsApp seront envoyés au numéro **+221 76 567 64 86**
+
 ---
 
 ## ✅ Vérification

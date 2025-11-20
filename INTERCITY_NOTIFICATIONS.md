@@ -6,7 +6,7 @@
 Chaque fois qu'un utilisateur clique sur le bouton **COMMANDER** dans le formulaire "Livraison Inter régions", l'équipe Yombal Yoon est immédiatement notifiée via :
 
 - **Email** : senshipservices@gmail.com
-- **WhatsApp** : +221 77 567 64 86
+- **WhatsApp** : +221 76 567 64 86
 
 ## ✅ Fonctionnalités implémentées
 
@@ -88,7 +88,7 @@ TWILIO_WHATSAPP_NUMBER=whatsapp:+14155238886
 3. **Demande enregistrée** dans la base de données Supabase (`intercity_deliveries`)
 4. **Notifications envoyées** en arrière-plan :
    - Email à senshipservices@gmail.com
-   - WhatsApp à +221 77 567 64 86
+   - WhatsApp à +221 76 567 64 86
 5. **Confirmation affichée** à l'utilisateur
 6. **Équipe Yombal Yoon contacte** le client manuellement
 
@@ -132,7 +132,7 @@ Les notifications sont envoyées en arrière-plan et n'affectent pas l'expérien
    - Vérifiez la boîte mail senshipservices@gmail.com
 
 4. **WhatsApp** :
-   - Vérifiez le téléphone +221 77 567 64 86
+   - Vérifiez le téléphone +221 76 567 64 86
 
 ## 🧪 Tests
 
