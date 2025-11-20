@@ -224,19 +224,6 @@ export default function ColisScreen() {
             </View>
           </View>
 
-          {/* Success Message */}
-          {showSuccess && (
-            <View style={[styles.successCard, { backgroundColor: colors.primary + '20' }]}>
-              <Text style={[styles.successIcon]}>✅</Text>
-              <Text style={[styles.successTitle, { color: colors.primary }]}>
-                Demande enregistrée !
-              </Text>
-              <Text style={[styles.successText, { color: isDark ? colors.darkText : colors.text }]}>
-                Votre demande de colis a été enregistrée. Un livreur Yombal Yoon prendra contact avec vous.
-              </Text>
-            </View>
-          )}
-
           {/* Form */}
           <View style={[styles.formCard, { backgroundColor: isDark ? colors.darkCard : colors.card }]}>
             <Text style={[styles.sectionTitle, { color: isDark ? colors.darkText : colors.text }]}>
@@ -478,6 +465,19 @@ export default function ColisScreen() {
               />
             </View>
 
+            {/* Success Message - Positioned just above the button */}
+            {showSuccess && (
+              <View style={[styles.successCard, { backgroundColor: colors.primary + '20' }]}>
+                <Text style={[styles.successIcon]}>✅</Text>
+                <Text style={[styles.successTitle, { color: colors.primary }]}>
+                  Demande enregistrée !
+                </Text>
+                <Text style={[styles.successText, { color: isDark ? colors.darkText : colors.text }]}>
+                  Votre demande de colis a été enregistrée. Un livreur Yombal Yoon prendra contact avec vous.
+                </Text>
+              </View>
+            )}
+
             <TouchableOpacity
               style={[
                 styles.submitButton,
@@ -642,26 +642,26 @@ const styles = StyleSheet.create({
   },
   successCard: {
     borderRadius: 16,
-    padding: 24,
+    padding: 20,
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 16,
     borderWidth: 2,
     borderColor: colors.primary,
   },
   successIcon: {
-    fontSize: 48,
-    marginBottom: 12,
+    fontSize: 40,
+    marginBottom: 8,
   },
   successTitle: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: '700',
-    marginBottom: 8,
+    marginBottom: 6,
     textAlign: 'center',
   },
   successText: {
-    fontSize: 16,
+    fontSize: 14,
     textAlign: 'center',
-    lineHeight: 24,
+    lineHeight: 20,
   },
   formCard: {
     borderRadius: 16,

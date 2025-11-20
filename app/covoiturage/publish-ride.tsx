@@ -1098,6 +1098,26 @@ export default function PublishRideScreen() {
             />
           </View>
 
+          {/* Success Banner - Positioned just above the button */}
+          {showSuccessModal && (
+            <View style={[styles.inlineSuccessCard, { backgroundColor: colors.success + '20' }]}>
+              <IconSymbol
+                ios_icon_name="checkmark.circle.fill"
+                android_material_icon_name="check-circle"
+                size={32}
+                color={colors.success}
+              />
+              <View style={styles.inlineSuccessTextContainer}>
+                <Text style={[styles.inlineSuccessTitle, { color: colors.success }]}>
+                  Trajet publié avec succès !
+                </Text>
+                <Text style={[styles.inlineSuccessText, { color: isDark ? colors.darkText : colors.text }]}>
+                  Votre trajet est maintenant visible
+                </Text>
+              </View>
+            </View>
+          )}
+
           <TouchableOpacity
             style={[
               styles.submitButton,
@@ -1280,6 +1300,28 @@ const styles = StyleSheet.create({
   },
   pickerText: {
     fontSize: 16,
+  },
+  inlineSuccessCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    gap: 12,
+    borderWidth: 2,
+    borderColor: colors.success,
+  },
+  inlineSuccessTextContainer: {
+    flex: 1,
+  },
+  inlineSuccessTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  inlineSuccessText: {
+    fontSize: 13,
+    lineHeight: 18,
   },
   submitButton: {
     borderRadius: 12,

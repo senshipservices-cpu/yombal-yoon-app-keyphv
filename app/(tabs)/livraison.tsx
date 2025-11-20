@@ -152,20 +152,6 @@ export default function LivraisonScreen() {
           </View>
         </View>
 
-        {/* Success Message */}
-        {showSuccess && (
-          <View style={[styles.successCard, { backgroundColor: colors.primary }]}>
-            <IconSymbol
-              ios_icon_name="checkmark.circle.fill"
-              android_material_icon_name="check-circle"
-              size={32}
-              color="#FFFFFF"
-            />
-            <Text style={styles.successText}>✅ Demande enregistrée !</Text>
-            <Text style={styles.successSubtext}>L&apos;équipe Yombal Yoon vous contactera bientôt.</Text>
-          </View>
-        )}
-
         {/* Form */}
         <View style={styles.content}>
           <View style={[styles.card, { backgroundColor: isDark ? colors.darkCard : colors.card }]}>
@@ -330,6 +316,22 @@ export default function LivraisonScreen() {
             </View>
           )}
 
+          {/* Success Message - Positioned just above the button */}
+          {showSuccess && (
+            <View style={[styles.successCard, { backgroundColor: colors.primary }]}>
+              <IconSymbol
+                ios_icon_name="checkmark.circle.fill"
+                android_material_icon_name="check-circle"
+                size={28}
+                color="#FFFFFF"
+              />
+              <View style={styles.successTextContainer}>
+                <Text style={styles.successText}>✅ Demande enregistrée !</Text>
+                <Text style={styles.successSubtext}>L&apos;équipe Yombal Yoon vous contactera bientôt.</Text>
+              </View>
+            </View>
+          )}
+
           <TouchableOpacity
             style={[
               styles.submitButton, 
@@ -469,24 +471,28 @@ const styles = StyleSheet.create({
     opacity: 0.8,
   },
   successCard: {
-    margin: 20,
-    padding: 20,
-    borderRadius: 16,
+    flexDirection: 'row',
     alignItems: 'center',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 16,
+    gap: 12,
     boxShadow: '0px 4px 12px rgba(0, 128, 0, 0.2)',
     elevation: 5,
   },
+  successTextContainer: {
+    flex: 1,
+  },
   successText: {
-    fontSize: 20,
+    fontSize: 16,
     fontWeight: '700',
     color: '#FFFFFF',
-    marginTop: 12,
+    marginBottom: 2,
   },
   successSubtext: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#FFFFFF',
-    marginTop: 4,
-    opacity: 0.9,
+    opacity: 0.95,
   },
   content: {
     padding: 20,
