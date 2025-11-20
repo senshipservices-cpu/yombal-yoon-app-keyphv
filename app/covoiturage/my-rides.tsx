@@ -16,6 +16,7 @@ import { colors } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
 import { useCovoiturage } from '@/contexts/CovoiturageContext';
 import { useNotifications } from '@/contexts/NotificationContext';
+import VerifiedDriverBadge from '@/components/VerifiedDriverBadge';
 
 export default function MyRidesScreen() {
   const theme = useTheme();
@@ -367,6 +368,13 @@ export default function MyRidesScreen() {
                       </View>
                     ) : null}
                   </View>
+
+                  {/* Verified Driver Badge */}
+                  <VerifiedDriverBadge
+                    isVerified={true}
+                    memberSince="2024"
+                    ridesPublished={myRides.length}
+                  />
 
                   <View style={styles.rideDetails}>
                     <View style={styles.detailRow}>

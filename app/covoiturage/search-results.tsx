@@ -16,8 +16,12 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { colors } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
 import { useNotifications } from '@/contexts/NotificationContext';
+import { useOTP } from '@/contexts/OTPContext';
 import EmptyState from '@/components/EmptyState';
 import ErrorState from '@/components/ErrorState';
+import PhoneVerificationModal from '@/components/PhoneVerificationModal';
+import SecurityReminderModal from '@/components/SecurityReminderModal';
+import VerifiedDriverBadge from '@/components/VerifiedDriverBadge';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { supabase } from '@/app/integrations/supabase/client';
 
@@ -36,6 +40,7 @@ interface RideResult {
   status: string;
   distance_km: number | null;
   duration_minutes: number | null;
+  created_at: string;
 }
 
 export default function SearchResultsScreen() {
@@ -45,6 +50,7 @@ export default function SearchResultsScreen() {
   const params = useLocalSearchParams();
   const { sendLocalNotification } = useNotifications();
   const { isConnected, retry } = useNetworkStatus();
+  const { isPhoneVerified, loadVerificationStatus } = useOTP();
 
   const departureCity = params.departureCity as string;
   const arrivalCity = params.arrivalCity as string;
@@ -58,6 +64,9 @@ export default function SearchResultsScreen() {
   const [passengerName, setPassengerName] = useState('');
   const [passengerPhone, setPassengerPhone] = useState('');
   const [isBooking, setIsBooking] = useState(false);
+  const [showVerificationModal, setShowVerificationModal] = useState(false);
+  const [showSecurityModal, setShowSecurityModal] = useState(false);
+  const [pendingBooking, setPendingBooking] = useState<RideResult | null>(null);
 
   const searchRides = useCallback(async () => {
     setIsLoading(true);
@@ -102,7 +111,28 @@ export default function SearchResultsScreen() {
 
   useEffect(() => {
     searchRides();
-  }, [searchRides]);
+    loadVerificationStatus();
+  }, [searchRides, loadVerificationStatus]);
+
+  const handleBookRideClick = (ride: RideResult) => {
+    // Check phone verification first
+    if (!isPhoneVerified) {
+      setShowVerificationModal(true);
+      return;
+    }
+
+    // Show security reminder
+    setPendingBooking(ride);
+    setShowSecurityModal(true);
+  };
+
+  const handleSecurityConfirm = () => {
+    setShowSecurityModal(false);
+    if (pendingBooking) {
+      setSelectedRideId(pendingBooking.id);
+      setPendingBooking(null);
+    }
+  };
 
   const handleBookRide = async (ride: RideResult) => {
     if (!passengerName.trim()) {
@@ -215,6 +245,11 @@ export default function SearchResultsScreen() {
     return `${mins} min`;
   };
 
+  const getMemberSince = (createdAt: string): string => {
+    const date = new Date(createdAt);
+    return date.getFullYear().toString();
+  };
+
   if (!isConnected) {
     return (
       <View style={[styles.container, { backgroundColor: isDark ? colors.darkBackground : colors.background }]}>
@@ -244,6 +279,27 @@ export default function SearchResultsScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: isDark ? colors.darkBackground : colors.background }]}>
+      <PhoneVerificationModal
+        visible={showVerificationModal}
+        onClose={() => setShowVerificationModal(false)}
+        onSuccess={() => {
+          Alert.alert(
+            'Numéro vérifié !',
+            'Vous pouvez maintenant réserver un trajet.',
+            [{ text: 'OK' }]
+          );
+        }}
+      />
+
+      <SecurityReminderModal
+        visible={showSecurityModal}
+        onConfirm={handleSecurityConfirm}
+        onCancel={() => {
+          setShowSecurityModal(false);
+          setPendingBooking(null);
+        }}
+      />
+
       <View style={[styles.header, { backgroundColor: '#FF8C00' }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <IconSymbol
@@ -287,6 +343,32 @@ export default function SearchResultsScreen() {
             </Text>
           </View>
 
+          {!isPhoneVerified && (
+            <View style={[styles.verificationWarning, { backgroundColor: colors.warning + '20', borderColor: colors.warning }]}>
+              <IconSymbol
+                ios_icon_name="exclamationmark.triangle.fill"
+                android_material_icon_name="warning"
+                size={24}
+                color={colors.warning}
+              />
+              <View style={styles.warningTextContainer}>
+                <Text style={[styles.warningTitle, { color: colors.warning }]}>
+                  Vérification requise
+                </Text>
+                <Text style={[styles.warningText, { color: isDark ? colors.darkText : colors.text }]}>
+                  Veuillez vérifier votre numéro pour réserver un trajet.
+                </Text>
+              </View>
+              <TouchableOpacity
+                style={[styles.verifyButton, { backgroundColor: colors.warning }]}
+                onPress={() => setShowVerificationModal(true)}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.verifyButtonText}>Vérifier</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
           {isLoading ? (
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="large" color={colors.primary} />
@@ -306,6 +388,7 @@ export default function SearchResultsScreen() {
             rides.map((ride, index) => {
               const { date, time } = formatDateTime(ride.departure_datetime);
               const totalPrice = ride.price_per_seat * passengers;
+              const memberSince = getMemberSince(ride.created_at);
 
               return (
                 <View
@@ -322,9 +405,15 @@ export default function SearchResultsScreen() {
                       />
                     </View>
                     <View style={styles.driverInfo}>
-                      <Text style={[styles.driverName, { color: isDark ? colors.darkText : colors.text }]}>
-                        {ride.driver_name}
-                      </Text>
+                      <View style={styles.driverNameRow}>
+                        <Text style={[styles.driverName, { color: isDark ? colors.darkText : colors.text }]}>
+                          {ride.driver_name}
+                        </Text>
+                        <VerifiedDriverBadge
+                          isVerified={true}
+                          compact={true}
+                        />
+                      </View>
                       {ride.vehicle_type && (
                         <Text style={[styles.vehicleType, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
                           {ride.vehicle_type}
@@ -332,6 +421,13 @@ export default function SearchResultsScreen() {
                       )}
                     </View>
                   </View>
+
+                  {/* Driver Reliability Section */}
+                  <VerifiedDriverBadge
+                    isVerified={true}
+                    memberSince={memberSince}
+                    ridesPublished={5}
+                  />
 
                   {/* Distance and Duration Badge */}
                   {ride.distance_km && ride.duration_minutes && (
@@ -476,11 +572,20 @@ export default function SearchResultsScreen() {
                     </View>
                   ) : (
                     <TouchableOpacity
-                      style={[styles.bookButton, { backgroundColor: colors.primary }]}
-                      onPress={() => setSelectedRideId(ride.id)}
+                      style={[
+                        styles.bookButton,
+                        { 
+                          backgroundColor: isPhoneVerified ? colors.primary : colors.border,
+                          opacity: isPhoneVerified ? 1 : 0.6,
+                        }
+                      ]}
+                      onPress={() => handleBookRideClick(ride)}
+                      disabled={!isPhoneVerified}
                       activeOpacity={0.7}
                     >
-                      <Text style={styles.bookButtonText}>Réserver</Text>
+                      <Text style={styles.bookButtonText}>
+                        {isPhoneVerified ? 'Réserver' : 'Vérifier le numéro pour réserver'}
+                      </Text>
                     </TouchableOpacity>
                   )}
                 </View>
@@ -549,6 +654,37 @@ const styles = StyleSheet.create({
   searchDetails: {
     fontSize: 14,
   },
+  verificationWarning: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 20,
+    gap: 12,
+    borderWidth: 2,
+  },
+  warningTextContainer: {
+    flex: 1,
+  },
+  warningTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  warningText: {
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  verifyButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  verifyButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
   loadingContainer: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -564,11 +700,11 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.08)',
     elevation: 3,
+    gap: 12,
   },
   rideHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
     gap: 12,
   },
   driverAvatar: {
@@ -581,10 +717,15 @@ const styles = StyleSheet.create({
   driverInfo: {
     flex: 1,
   },
+  driverNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 2,
+  },
   driverName: {
     fontSize: 16,
     fontWeight: '700',
-    marginBottom: 2,
   },
   vehicleType: {
     fontSize: 13,
@@ -597,7 +738,6 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 20,
     gap: 6,
-    marginBottom: 12,
   },
   distanceBadgeText: {
     fontSize: 13,
@@ -605,7 +745,6 @@ const styles = StyleSheet.create({
   },
   rideDetails: {
     gap: 8,
-    marginBottom: 16,
   },
   detailRow: {
     flexDirection: 'row',

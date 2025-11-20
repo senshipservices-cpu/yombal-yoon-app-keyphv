@@ -21,7 +21,9 @@ import { colors } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
 import { useCovoiturage } from '@/contexts/CovoiturageContext';
 import { useProfile } from '@/contexts/ProfileContext';
+import { useOTP } from '@/contexts/OTPContext';
 import CityAutocomplete from '@/components/CityAutocomplete';
+import PhoneVerificationModal from '@/components/PhoneVerificationModal';
 import { supabase } from '@/config/supabase';
 
 const FAVORITE_ROUTE_KEY = '@yombal_yoon_favorite_route';
@@ -39,6 +41,7 @@ export default function PublishRideScreen() {
   const router = useRouter();
   const { addRide } = useCovoiturage();
   const { profile } = useProfile();
+  const { isPhoneVerified, loadVerificationStatus } = useOTP();
 
   const [departureCity, setDepartureCity] = useState('');
   const [arrivalCity, setArrivalCity] = useState('');
@@ -69,6 +72,7 @@ export default function PublishRideScreen() {
 
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [successAnimation] = useState(new Animated.Value(0));
+  const [showVerificationModal, setShowVerificationModal] = useState(false);
 
   const calculateDistanceAndDuration = useCallback(async () => {
     if (!departureLat || !departureLng || !arrivalLat || !arrivalLng) {
@@ -127,7 +131,8 @@ export default function PublishRideScreen() {
 
   useEffect(() => {
     loadFavoriteRoute();
-  }, []);
+    loadVerificationStatus();
+  }, [loadVerificationStatus]);
 
   useEffect(() => {
     if (departureLat && departureLng && arrivalLat && arrivalLng) {
@@ -398,6 +403,13 @@ export default function PublishRideScreen() {
 
   const handleSubmit = async () => {
     console.log('Submit button pressed');
+
+    // Check phone verification first
+    if (!isPhoneVerified) {
+      setShowVerificationModal(true);
+      return;
+    }
+
     console.log('Form state:', {
       departureCity,
       arrivalCity,
@@ -814,6 +826,18 @@ export default function PublishRideScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: isDark ? colors.darkBackground : colors.background }]}>
+      <PhoneVerificationModal
+        visible={showVerificationModal}
+        onClose={() => setShowVerificationModal(false)}
+        onSuccess={() => {
+          Alert.alert(
+            'Numéro vérifié !',
+            'Vous pouvez maintenant publier votre trajet.',
+            [{ text: 'OK' }]
+          );
+        }}
+      />
+
       <View style={[styles.header, { backgroundColor: '#FF8C00' }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <IconSymbol
@@ -835,6 +859,32 @@ export default function PublishRideScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.content}>
+          {!isPhoneVerified && (
+            <View style={[styles.verificationWarning, { backgroundColor: colors.warning + '20', borderColor: colors.warning }]}>
+              <IconSymbol
+                ios_icon_name="exclamationmark.triangle.fill"
+                android_material_icon_name="warning"
+                size={24}
+                color={colors.warning}
+              />
+              <View style={styles.warningTextContainer}>
+                <Text style={[styles.warningTitle, { color: colors.warning }]}>
+                  Vérification requise
+                </Text>
+                <Text style={[styles.warningText, { color: isDark ? colors.darkText : colors.text }]}>
+                  Veuillez vérifier votre numéro pour utiliser le service de covoiturage Yombal Yoon.
+                </Text>
+              </View>
+              <TouchableOpacity
+                style={[styles.verifyButton, { backgroundColor: colors.warning }]}
+                onPress={() => setShowVerificationModal(true)}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.verifyButtonText}>Vérifier</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
           <TouchableOpacity
             style={[
               styles.usualRouteButton,
@@ -1122,18 +1172,18 @@ export default function PublishRideScreen() {
             style={[
               styles.submitButton,
               {
-                backgroundColor: isButtonEnabled ? colors.primary : colors.border,
-                opacity: isButtonEnabled ? 1 : 0.6,
+                backgroundColor: (isButtonEnabled && isPhoneVerified) ? colors.primary : colors.border,
+                opacity: (isButtonEnabled && isPhoneVerified) ? 1 : 0.6,
               },
             ]}
             onPress={handleSubmit}
-            disabled={!isButtonEnabled}
+            disabled={!isButtonEnabled && !isPhoneVerified}
             activeOpacity={0.7}
           >
-            <Text style={[styles.submitButtonText, { color: isButtonEnabled ? '#FFFFFF' : colors.textSecondary }]}>
-              Publier un trajet
+            <Text style={[styles.submitButtonText, { color: (isButtonEnabled && isPhoneVerified) ? '#FFFFFF' : colors.textSecondary }]}>
+              {!isPhoneVerified ? 'Vérifier le numéro pour publier' : 'Publier un trajet'}
             </Text>
-            {isButtonEnabled && (
+            {isButtonEnabled && isPhoneVerified && (
               <IconSymbol
                 ios_icon_name="checkmark.circle.fill"
                 android_material_icon_name="check-circle"
@@ -1143,7 +1193,7 @@ export default function PublishRideScreen() {
             )}
           </TouchableOpacity>
 
-          {!isButtonEnabled && (
+          {(!isButtonEnabled || !isPhoneVerified) && (
             <View style={styles.helpTextContainer}>
               <IconSymbol
                 ios_icon_name="info.circle"
@@ -1152,7 +1202,9 @@ export default function PublishRideScreen() {
                 color={colors.textSecondary}
               />
               <Text style={[styles.helpText, { color: colors.textSecondary }]}>
-                Remplissez tous les champs obligatoires (*) et sélectionnez les villes dans les suggestions pour activer le bouton.
+                {!isPhoneVerified 
+                  ? 'Vérifiez votre numéro de téléphone pour publier un trajet.'
+                  : 'Remplissez tous les champs obligatoires (*) et sélectionnez les villes dans les suggestions pour activer le bouton.'}
               </Text>
             </View>
           )}
@@ -1201,6 +1253,37 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 20,
+  },
+  verificationWarning: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 20,
+    gap: 12,
+    borderWidth: 2,
+  },
+  warningTextContainer: {
+    flex: 1,
+  },
+  warningTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  warningText: {
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  verifyButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  verifyButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
   },
   usualRouteButton: {
     flexDirection: 'row',
