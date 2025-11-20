@@ -13,8 +13,11 @@ import AddressAutocomplete from "@/components/AddressAutocomplete";
 import PhoneVerificationModal from "@/components/PhoneVerificationModal";
 import SecurityReminderModal from "@/components/SecurityReminderModal";
 import VerifiedDriverBadge from "@/components/VerifiedDriverBadge";
+import ContactButtons from "@/components/ContactButtons";
 import { maskPhoneNumber } from "@/utils/phoneUtils";
 import { demoMode, demoParcels } from "@/config/demoMode";
+
+const YOMBAL_YOON_PHONE = "+221765676486";
 
 export default function ColisScreen() {
   const theme = useTheme();
@@ -140,10 +143,10 @@ export default function ColisScreen() {
         // Show success message
         setShowSuccess(true);
         
-        // Hide success message after 5 seconds
+        // Hide success message after 8 seconds
         setTimeout(() => {
           setShowSuccess(false);
-        }, 5000);
+        }, 8000);
       } else {
         Alert.alert(
           'Erreur', 
@@ -232,7 +235,7 @@ export default function ColisScreen() {
             {/* Verified Badge */}
             {isPhoneVerified && (
               <View style={styles.verifiedBadgeContainer}>
-                <VerifiedDriverBadge isVerified={true} compact={true} />
+                <VerifiedDriverBadge isVerified={true} compact={true} type="sender" />
               </View>
             )}
             
@@ -516,11 +519,16 @@ export default function ColisScreen() {
               <View style={[styles.successCard, { backgroundColor: colors.primary + '20' }]}>
                 <Text style={[styles.successIcon]}>✅</Text>
                 <Text style={[styles.successTitle, { color: colors.primary }]}>
-                  Demande enregistrée !
+                  Demande envoyée en toute sécurité !
                 </Text>
                 <Text style={[styles.successText, { color: isDark ? colors.darkText : colors.text }]}>
-                  Votre demande de colis a été enregistrée. Un livreur Yombal Yoon prendra contact avec vous.
+                  Votre demande a été envoyée en toute sécurité. Vous pouvez contacter l&apos;équipe Yombal Yoon à tout moment.
                 </Text>
+                
+                {/* Contact Buttons in Success Banner */}
+                <View style={styles.successContactButtons}>
+                  <ContactButtons phoneNumber={YOMBAL_YOON_PHONE} compact={false} />
+                </View>
               </View>
             )}
 
@@ -746,6 +754,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: 'center',
     lineHeight: 20,
+    marginBottom: 16,
+  },
+  successContactButtons: {
+    width: '100%',
+    marginTop: 8,
   },
   formCard: {
     borderRadius: 16,

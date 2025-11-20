@@ -364,6 +364,41 @@ export function ColisProvider({ children }: { children: ReactNode }) {
     setCalculatedPrice(0);
   };
 
+  // Helper function to create internal log
+  const createInternalLog = async (parcelId: string, requestData: Omit<ParcelRequest, 'id' | 'status' | 'createdAt'>) => {
+    try {
+      console.log('📝 Creating internal log for parcel:', parcelId);
+      
+      const logData = {
+        parcel_id: parcelId,
+        user_id: 'current_user', // In production, use actual user ID
+        sender_phone: requestData.senderPhone,
+        recipient_phone: requestData.recipientPhone,
+        pickup_lat: requestData.departureLocation?.lat || null,
+        pickup_lng: requestData.departureLocation?.lng || null,
+        dropoff_lat: requestData.arrivalLocation?.lat || null,
+        dropoff_lng: requestData.arrivalLocation?.lng || null,
+        pickup_address: requestData.departureAddress,
+        dropoff_address: requestData.arrivalAddress,
+        distance_km: requestData.pricing?.distance || null,
+        price_fcfa: requestData.pricing?.total || null,
+        status: 'pending',
+      };
+
+      const { error } = await supabase
+        .from('parcel_logs')
+        .insert([logData]);
+
+      if (error) {
+        console.error('❌ Error creating internal log:', error);
+      } else {
+        console.log('✅ Internal log created successfully');
+      }
+    } catch (error) {
+      console.error('❌ Error creating internal log:', error);
+    }
+  };
+
   const addParcelRequest = async (
     requestData: Omit<ParcelRequest, 'id' | 'status' | 'createdAt'>
   ): Promise<{ success: boolean; requestId?: string; error?: string }> => {
@@ -371,7 +406,14 @@ export function ColisProvider({ children }: { children: ReactNode }) {
       // If Supabase is configured and not in demo mode, insert to Supabase
       if (isSupabaseConfigured() && !demoMode) {
         console.log('Inserting parcel to Supabase...');
-        return await insertToSupabase(requestData);
+        const result = await insertToSupabase(requestData);
+        
+        // Create internal log if successful
+        if (result.success && result.requestId) {
+          await createInternalLog(result.requestId, requestData);
+        }
+        
+        return result;
       } else {
         // Otherwise, save to AsyncStorage (local mode)
         console.log('Saving parcel to AsyncStorage (local mode)...');

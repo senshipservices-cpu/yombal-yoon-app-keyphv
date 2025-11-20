@@ -7,6 +7,10 @@ import { colors } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
 import { useColis } from '@/contexts/ColisContext';
 import { useDelivery } from '@/contexts/DeliveryContext';
+import ContactButtons from '@/components/ContactButtons';
+import { maskPhoneNumber } from '@/utils/phoneUtils';
+
+const YOMBAL_YOON_PHONE = "+221765676486";
 
 export default function TrackParcelScreen() {
   const theme = useTheme();
@@ -270,20 +274,30 @@ export default function TrackParcelScreen() {
           
           <View style={styles.detailRow}>
             <Text style={[styles.detailLabel, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-              De
+              Expéditeur
             </Text>
-            <Text style={[styles.detailValue, { color: isDark ? colors.darkText : colors.text }]}>
-              {parcel.senderName}
-            </Text>
+            <View style={styles.detailValueContainer}>
+              <Text style={[styles.detailValue, { color: isDark ? colors.darkText : colors.text }]}>
+                {parcel.senderName}
+              </Text>
+              <Text style={[styles.detailPhone, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+                {maskPhoneNumber(parcel.senderPhone)}
+              </Text>
+            </View>
           </View>
 
           <View style={styles.detailRow}>
             <Text style={[styles.detailLabel, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-              À
+              Destinataire
             </Text>
-            <Text style={[styles.detailValue, { color: isDark ? colors.darkText : colors.text }]}>
-              {parcel.recipientName}
-            </Text>
+            <View style={styles.detailValueContainer}>
+              <Text style={[styles.detailValue, { color: isDark ? colors.darkText : colors.text }]}>
+                {parcel.recipientName}
+              </Text>
+              <Text style={[styles.detailPhone, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+                {maskPhoneNumber(parcel.recipientPhone)}
+              </Text>
+            </View>
           </View>
 
           <View style={styles.divider} />
@@ -314,7 +328,7 @@ export default function TrackParcelScreen() {
                   Distance
                 </Text>
                 <Text style={[styles.detailValue, { color: isDark ? colors.darkText : colors.text }]}>
-                  {parcel.pricing.distance} km
+                  {parcel.pricing.distance.toFixed(1)} km
                 </Text>
               </View>
 
@@ -328,6 +342,25 @@ export default function TrackParcelScreen() {
               </View>
             </React.Fragment>
           )}
+        </View>
+
+        {/* Contact Yombal Yoon Section */}
+        <View style={[styles.card, { backgroundColor: isDark ? colors.darkCard : colors.card }]}>
+          <View style={styles.contactHeader}>
+            <IconSymbol
+              ios_icon_name="headphones"
+              android_material_icon_name="headset-mic"
+              size={24}
+              color={colors.primary}
+            />
+            <Text style={[styles.cardTitle, { color: isDark ? colors.darkText : colors.text, marginBottom: 0 }]}>
+              Besoin d&apos;aide ?
+            </Text>
+          </View>
+          <Text style={[styles.contactDescription, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+            Contactez l&apos;équipe Yombal Yoon pour toute question sur votre envoi.
+          </Text>
+          <ContactButtons phoneNumber={YOMBAL_YOON_PHONE} compact={false} />
         </View>
       </ScrollView>
     </View>
@@ -488,16 +521,35 @@ const styles = StyleSheet.create({
   detailLabel: {
     fontSize: 14,
     fontWeight: '600',
-    width: 80,
+    width: 100,
+  },
+  detailValueContainer: {
+    flex: 1,
+    alignItems: 'flex-end',
   },
   detailValue: {
-    flex: 1,
     fontSize: 14,
     textAlign: 'right',
+  },
+  detailPhone: {
+    fontSize: 12,
+    textAlign: 'right',
+    marginTop: 2,
   },
   divider: {
     height: 1,
     backgroundColor: colors.border,
     marginVertical: 12,
+  },
+  contactHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 12,
+  },
+  contactDescription: {
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: 16,
   },
 });
