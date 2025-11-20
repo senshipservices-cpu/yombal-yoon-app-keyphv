@@ -137,7 +137,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
       if (storedProfile) {
         const parsedProfile = JSON.parse(storedProfile);
         // Ensure sender role exists (for backward compatibility)
-        if (!parsedProfile.roles.hasOwnProperty('sender')) {
+        if (!Object.hasOwn(parsedProfile.roles, 'sender')) {
           parsedProfile.roles.sender = false;
         }
         setProfile(parsedProfile);
