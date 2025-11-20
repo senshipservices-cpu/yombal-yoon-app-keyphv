@@ -499,21 +499,6 @@ export default function ColisScreen() {
               />
             </View>
 
-            {/* Verification Warning */}
-            {!isPhoneVerified && (
-              <View style={[styles.warningCard, { backgroundColor: colors.warning + '20' }]}>
-                <IconSymbol
-                  ios_icon_name="exclamationmark.triangle.fill"
-                  android_material_icon_name="warning"
-                  size={24}
-                  color={colors.warning}
-                />
-                <Text style={[styles.warningText, { color: colors.warning }]}>
-                  Veuillez vérifier votre numéro pour envoyer un colis via Yombal Yoon.
-                </Text>
-              </View>
-            )}
-
             {/* Success Message - Positioned just above the button */}
             {showSuccess && (
               <View style={[styles.successCard, { backgroundColor: colors.primary + '20' }]}>
@@ -715,22 +700,6 @@ const styles = StyleSheet.create({
   quickActionText: {
     fontSize: 14,
     fontWeight: '600',
-  },
-  warningCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    borderWidth: 2,
-    borderColor: colors.warning,
-  },
-  warningText: {
-    flex: 1,
-    fontSize: 14,
-    fontWeight: '600',
-    lineHeight: 20,
   },
   successCard: {
     borderRadius: 16,
