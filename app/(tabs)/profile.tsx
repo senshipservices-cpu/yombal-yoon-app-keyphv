@@ -185,118 +185,7 @@ export default function ProfileScreen() {
           />
         </TouchableOpacity>
 
-        {/* Assistance Yombal Yoon Section */}
-        <View style={[styles.assistanceCard, { backgroundColor: isDark ? colors.darkCard : colors.card }]}>
-          <View style={styles.assistanceHeader}>
-            <IconSymbol
-              ios_icon_name="headphones"
-              android_material_icon_name="headset-mic"
-              size={28}
-              color={colors.primary}
-            />
-            <Text style={[styles.sectionTitle, { color: isDark ? colors.darkText : colors.text, marginBottom: 0 }]}>
-              Assistance Yombal Yoon
-            </Text>
-          </View>
-
-          <Text style={[styles.assistanceDescription, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-            Notre équipe est disponible pour vous aider avec vos trajets et vos envois de colis.
-          </Text>
-
-          <View style={styles.assistanceButtons}>
-            <TouchableOpacity
-              style={[styles.assistanceButton, { backgroundColor: colors.primary }]}
-              activeOpacity={0.8}
-              onPress={handleCallSupport}
-            >
-              <IconSymbol
-                ios_icon_name="phone.fill"
-                android_material_icon_name="phone"
-                size={22}
-                color="#FFFFFF"
-              />
-              <Text style={styles.assistanceButtonText}>Appeler Yombal Yoon</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.assistanceButton, { backgroundColor: '#25D366' }]}
-              activeOpacity={0.8}
-              onPress={handleWhatsAppSupport}
-            >
-              <IconSymbol
-                ios_icon_name="message.fill"
-                android_material_icon_name="chat"
-                size={22}
-                color="#FFFFFF"
-              />
-              <Text style={styles.assistanceButtonText}>WhatsApp Yombal Yoon</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.assistanceButton, { backgroundColor: colors.accent }]}
-              activeOpacity={0.8}
-              onPress={() => router.push('/feedback')}
-            >
-              <IconSymbol
-                ios_icon_name="bubble.left.and.bubble.right.fill"
-                android_material_icon_name="feedback"
-                size={22}
-                color="#FFFFFF"
-              />
-              <Text style={styles.assistanceButtonText}>Donner mon avis</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Profile Form */}
-        <View style={[styles.formCard, { backgroundColor: isDark ? colors.darkCard : colors.card }]}>
-          <Text style={[styles.sectionTitle, { color: isDark ? colors.darkText : colors.text }]}>
-            Informations personnelles
-          </Text>
-
-          <View style={styles.inputGroup}>
-            <Text style={[styles.label, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-              Nom complet
-            </Text>
-            <TextInput
-              style={[
-                styles.input,
-                {
-                  backgroundColor: isDark ? colors.darkBackground : colors.background,
-                  color: isDark ? colors.darkText : colors.text,
-                  borderColor: isDark ? colors.darkTextSecondary + '30' : colors.border,
-                },
-              ]}
-              value={fullName}
-              onChangeText={setFullName}
-              placeholder="Entrez votre nom complet"
-              placeholderTextColor={isDark ? colors.darkTextSecondary : colors.textSecondary}
-            />
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={[styles.label, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-              Téléphone
-            </Text>
-            <TextInput
-              style={[
-                styles.input,
-                {
-                  backgroundColor: isDark ? colors.darkBackground : colors.background,
-                  color: isDark ? colors.darkText : colors.text,
-                  borderColor: isDark ? colors.darkTextSecondary + '30' : colors.border,
-                },
-              ]}
-              value={phone}
-              onChangeText={setPhone}
-              placeholder="+221 XX XXX XX XX"
-              placeholderTextColor={isDark ? colors.darkTextSecondary : colors.textSecondary}
-              keyboardType="phone-pad"
-            />
-          </View>
-        </View>
-
-        {/* Roles Section */}
+        {/* Roles Section - MOVED TO TOP */}
         <View style={[styles.formCard, { backgroundColor: isDark ? colors.darkCard : colors.card }]}>
           <Text style={[styles.sectionTitle, { color: isDark ? colors.darkText : colors.text }]}>
             Mes rôles
@@ -383,6 +272,117 @@ export default function ProfileScreen() {
               trackColor={{ false: colors.border, true: '#FF8C00' + '80' }}
               thumbColor={isSender ? '#FF8C00' : colors.textSecondary}
             />
+          </View>
+        </View>
+
+        {/* Profile Form */}
+        <View style={[styles.formCard, { backgroundColor: isDark ? colors.darkCard : colors.card }]}>
+          <Text style={[styles.sectionTitle, { color: isDark ? colors.darkText : colors.text }]}>
+            Informations personnelles
+          </Text>
+
+          <View style={styles.inputGroup}>
+            <Text style={[styles.label, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+              Nom complet
+            </Text>
+            <TextInput
+              style={[
+                styles.input,
+                {
+                  backgroundColor: isDark ? colors.darkBackground : colors.background,
+                  color: isDark ? colors.darkText : colors.text,
+                  borderColor: isDark ? colors.darkTextSecondary + '30' : colors.border,
+                },
+              ]}
+              value={fullName}
+              onChangeText={setFullName}
+              placeholder="Entrez votre nom complet"
+              placeholderTextColor={isDark ? colors.darkTextSecondary : colors.textSecondary}
+            />
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={[styles.label, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+              Téléphone
+            </Text>
+            <TextInput
+              style={[
+                styles.input,
+                {
+                  backgroundColor: isDark ? colors.darkBackground : colors.background,
+                  color: isDark ? colors.darkText : colors.text,
+                  borderColor: isDark ? colors.darkTextSecondary + '30' : colors.border,
+                },
+              ]}
+              value={phone}
+              onChangeText={setPhone}
+              placeholder="+221 XX XXX XX XX"
+              placeholderTextColor={isDark ? colors.darkTextSecondary : colors.textSecondary}
+              keyboardType="phone-pad"
+            />
+          </View>
+        </View>
+
+        {/* Assistance Yombal Yoon Section */}
+        <View style={[styles.assistanceCard, { backgroundColor: isDark ? colors.darkCard : colors.card }]}>
+          <View style={styles.assistanceHeader}>
+            <IconSymbol
+              ios_icon_name="headphones"
+              android_material_icon_name="headset-mic"
+              size={28}
+              color={colors.primary}
+            />
+            <Text style={[styles.sectionTitle, { color: isDark ? colors.darkText : colors.text, marginBottom: 0 }]}>
+              Assistance Yombal Yoon
+            </Text>
+          </View>
+
+          <Text style={[styles.assistanceDescription, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+            Notre équipe est disponible pour vous aider avec vos trajets et vos envois de colis.
+          </Text>
+
+          <View style={styles.assistanceButtons}>
+            <TouchableOpacity
+              style={[styles.assistanceButton, { backgroundColor: colors.primary }]}
+              activeOpacity={0.8}
+              onPress={handleCallSupport}
+            >
+              <IconSymbol
+                ios_icon_name="phone.fill"
+                android_material_icon_name="phone"
+                size={22}
+                color="#FFFFFF"
+              />
+              <Text style={styles.assistanceButtonText}>Appeler Yombal Yoon</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.assistanceButton, { backgroundColor: '#25D366' }]}
+              activeOpacity={0.8}
+              onPress={handleWhatsAppSupport}
+            >
+              <IconSymbol
+                ios_icon_name="message.fill"
+                android_material_icon_name="chat"
+                size={22}
+                color="#FFFFFF"
+              />
+              <Text style={styles.assistanceButtonText}>WhatsApp Yombal Yoon</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.assistanceButton, { backgroundColor: colors.accent }]}
+              activeOpacity={0.8}
+              onPress={() => router.push('/feedback')}
+            >
+              <IconSymbol
+                ios_icon_name="bubble.left.and.bubble.right.fill"
+                android_material_icon_name="feedback"
+                size={22}
+                color="#FFFFFF"
+              />
+              <Text style={styles.assistanceButtonText}>Donner mon avis</Text>
+            </TouchableOpacity>
           </View>
         </View>
 
