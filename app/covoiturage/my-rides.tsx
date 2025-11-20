@@ -17,6 +17,9 @@ import { IconSymbol } from '@/components/IconSymbol';
 import { useCovoiturage } from '@/contexts/CovoiturageContext';
 import { useNotifications } from '@/contexts/NotificationContext';
 import VerifiedDriverBadge from '@/components/VerifiedDriverBadge';
+import ContactButtons from '@/components/ContactButtons';
+import { maskPhoneNumber } from '@/utils/phoneUtils';
+import { supabase } from '@/app/integrations/supabase/client';
 
 export default function MyRidesScreen() {
   const theme = useTheme();
@@ -26,6 +29,7 @@ export default function MyRidesScreen() {
   const { sendLocalNotification, registerForPushNotifications } = useNotifications();
   const [refreshing, setRefreshing] = React.useState(false);
   const [cancellingRideId, setCancellingRideId] = React.useState<string | null>(null);
+  const [passengerPhones, setPassengerPhones] = React.useState<{ [key: string]: string }>({});
 
   const registerNotifications = useCallback(() => {
     registerForPushNotifications();
@@ -34,11 +38,37 @@ export default function MyRidesScreen() {
   useEffect(() => {
     // Register for push notifications when screen loads
     registerNotifications();
+    loadPassengerPhones();
   }, [registerNotifications]);
+
+  const loadPassengerPhones = async () => {
+    try {
+      // Fetch all bookings to get passenger phone numbers
+      const { data: bookings, error } = await supabase
+        .from('carpool_bookings')
+        .select('id, passenger_phone');
+
+      if (error) {
+        console.error('Error fetching passenger phones:', error);
+        return;
+      }
+
+      if (bookings) {
+        const phoneMap: { [key: string]: string } = {};
+        bookings.forEach(booking => {
+          phoneMap[booking.id] = booking.passenger_phone;
+        });
+        setPassengerPhones(phoneMap);
+      }
+    } catch (error) {
+      console.error('Error loading passenger phones:', error);
+    }
+  };
 
   const handleRefresh = async () => {
     setRefreshing(true);
     await refreshData();
+    await loadPassengerPhones();
     setTimeout(() => setRefreshing(false), 1000);
   };
 
@@ -458,50 +488,90 @@ export default function MyRidesScreen() {
                         Réservations ({reservations.length})
                       </Text>
 
-                      {reservations.map((reservation, resIndex) => (
-                        <View
-                          key={resIndex}
-                          style={[
-                            styles.reservationCard,
-                            { backgroundColor: isDark ? colors.darkBackground : colors.background },
-                          ]}
-                        >
-                          <View style={styles.reservationHeader}>
-                            <Text style={[styles.passengerName, { color: isDark ? colors.darkText : colors.text }]}>
-                              {reservation.passengerName}
-                            </Text>
-                            <View style={[styles.statusBadge, { backgroundColor: getStatusColor(reservation.status) + '20' }]}>
-                              <Text style={[styles.statusText, { color: getStatusColor(reservation.status) }]}>
-                                {getStatusText(reservation.status)}
+                      {reservations.map((reservation, resIndex) => {
+                        const passengerPhone = passengerPhones[reservation.id] || '';
+                        const maskedPhone = maskPhoneNumber(passengerPhone);
+
+                        return (
+                          <View
+                            key={resIndex}
+                            style={[
+                              styles.reservationCard,
+                              { backgroundColor: isDark ? colors.darkBackground : colors.background },
+                            ]}
+                          >
+                            <View style={styles.reservationHeader}>
+                              <Text style={[styles.passengerName, { color: isDark ? colors.darkText : colors.text }]}>
+                                {reservation.passengerName}
                               </Text>
+                              <View style={[styles.statusBadge, { backgroundColor: getStatusColor(reservation.status) + '20' }]}>
+                                <Text style={[styles.statusText, { color: getStatusColor(reservation.status) }]}>
+                                  {getStatusText(reservation.status)}
+                                </Text>
+                              </View>
                             </View>
+
+                            <View style={styles.passengerDetails}>
+                              <View style={styles.detailRow}>
+                                <IconSymbol
+                                  ios_icon_name="person.2.fill"
+                                  android_material_icon_name="people"
+                                  size={14}
+                                  color={colors.textSecondary}
+                                />
+                                <Text style={[styles.passengersCount, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+                                  {reservation.numberOfPassengers} passager(s)
+                                </Text>
+                              </View>
+
+                              {passengerPhone && (
+                                <View style={styles.detailRow}>
+                                  <IconSymbol
+                                    ios_icon_name="phone.fill"
+                                    android_material_icon_name="phone"
+                                    size={14}
+                                    color={colors.textSecondary}
+                                  />
+                                  <Text style={[styles.passengersCount, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+                                    {maskedPhone}
+                                  </Text>
+                                </View>
+                              )}
+                            </View>
+
+                            {/* Contact Buttons - Only show for accepted reservations */}
+                            {reservation.status === 'accepted' && passengerPhone && (
+                              <View style={styles.contactSection}>
+                                <ContactButtons
+                                  phoneNumber={passengerPhone}
+                                  userName={reservation.passengerName}
+                                  compact={true}
+                                />
+                              </View>
+                            )}
+
+                            {reservation.status === 'pending' && !isCancelled && (
+                              <View style={styles.actionButtons}>
+                                <TouchableOpacity
+                                  style={[styles.actionButton, { backgroundColor: colors.primary }]}
+                                  onPress={() => handleAcceptReservation(reservation.id, reservation.passengerName)}
+                                  activeOpacity={0.7}
+                                >
+                                  <Text style={styles.actionButtonText}>Accepter</Text>
+                                </TouchableOpacity>
+
+                                <TouchableOpacity
+                                  style={[styles.actionButton, { backgroundColor: colors.accent }]}
+                                  onPress={() => handleRefuseReservation(reservation.id, reservation.passengerName)}
+                                  activeOpacity={0.7}
+                                >
+                                  <Text style={styles.actionButtonText}>Refuser</Text>
+                                </TouchableOpacity>
+                              </View>
+                            )}
                           </View>
-
-                          <Text style={[styles.passengersCount, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-                            {reservation.numberOfPassengers} passager(s)
-                          </Text>
-
-                          {reservation.status === 'pending' && !isCancelled && (
-                            <View style={styles.actionButtons}>
-                              <TouchableOpacity
-                                style={[styles.actionButton, { backgroundColor: colors.primary }]}
-                                onPress={() => handleAcceptReservation(reservation.id, reservation.passengerName)}
-                                activeOpacity={0.7}
-                              >
-                                <Text style={styles.actionButtonText}>Accepter</Text>
-                              </TouchableOpacity>
-
-                              <TouchableOpacity
-                                style={[styles.actionButton, { backgroundColor: colors.accent }]}
-                                onPress={() => handleRefuseReservation(reservation.id, reservation.passengerName)}
-                                activeOpacity={0.7}
-                              >
-                                <Text style={styles.actionButtonText}>Refuser</Text>
-                              </TouchableOpacity>
-                            </View>
-                          )}
-                        </View>
-                      ))}
+                        );
+                      })}
                     </View>
                   )}
                 </View>
@@ -660,7 +730,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 4,
+    marginBottom: 8,
   },
   passengerName: {
     fontSize: 15,
@@ -675,9 +745,20 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
   },
+  passengerDetails: {
+    gap: 6,
+    marginBottom: 8,
+  },
   passengersCount: {
     fontSize: 13,
+  },
+  contactSection: {
+    marginTop: 8,
     marginBottom: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    alignItems: 'flex-start',
   },
   actionButtons: {
     flexDirection: 'row',

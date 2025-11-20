@@ -24,6 +24,7 @@ import SecurityReminderModal from '@/components/SecurityReminderModal';
 import VerifiedDriverBadge from '@/components/VerifiedDriverBadge';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { supabase } from '@/app/integrations/supabase/client';
+import { maskPhoneNumber } from '@/utils/phoneUtils';
 
 interface RideResult {
   id: string;
@@ -389,6 +390,7 @@ export default function SearchResultsScreen() {
               const { date, time } = formatDateTime(ride.departure_datetime);
               const totalPrice = ride.price_per_seat * passengers;
               const memberSince = getMemberSince(ride.created_at);
+              const maskedDriverPhone = maskPhoneNumber(ride.driver_phone);
 
               return (
                 <View
@@ -454,6 +456,18 @@ export default function SearchResultsScreen() {
                       />
                       <Text style={[styles.detailText, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
                         {date} à {time}
+                      </Text>
+                    </View>
+
+                    <View style={styles.detailRow}>
+                      <IconSymbol
+                        ios_icon_name="phone.fill"
+                        android_material_icon_name="phone"
+                        size={16}
+                        color={colors.textSecondary}
+                      />
+                      <Text style={[styles.detailText, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+                        Téléphone: {maskedDriverPhone}
                       </Text>
                     </View>
 

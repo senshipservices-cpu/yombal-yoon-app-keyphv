@@ -19,6 +19,8 @@ import { supabase } from '@/app/integrations/supabase/client';
 import type { Tables } from '@/app/integrations/supabase/types';
 import EmptyState from '@/components/EmptyState';
 import ErrorState from '@/components/ErrorState';
+import ContactButtons from '@/components/ContactButtons';
+import { maskPhoneNumber } from '@/utils/phoneUtils';
 
 interface BookingWithRide extends Tables<'carpool_bookings'> {
   ride?: Tables<'carpool_rides'>;
@@ -285,6 +287,7 @@ export default function MyReservationsScreen() {
 
               const statusIcon = getStatusIcon(booking.status || 'pending');
               const { date, time } = formatDateTime(ride.departure_datetime);
+              const maskedDriverPhone = maskPhoneNumber(ride.driver_phone);
 
               return (
                 <View
@@ -348,6 +351,18 @@ export default function MyReservationsScreen() {
 
                     <View style={styles.detailRow}>
                       <IconSymbol
+                        ios_icon_name="phone.fill"
+                        android_material_icon_name="phone"
+                        size={16}
+                        color={colors.textSecondary}
+                      />
+                      <Text style={[styles.detailText, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+                        Téléphone: {maskedDriverPhone}
+                      </Text>
+                    </View>
+
+                    <View style={styles.detailRow}>
+                      <IconSymbol
                         ios_icon_name="person.2.fill"
                         android_material_icon_name="people"
                         size={16}
@@ -369,19 +384,20 @@ export default function MyReservationsScreen() {
                         {ride.price_per_seat * booking.number_of_passengers} FCFA
                       </Text>
                     </View>
-
-                    <View style={styles.detailRow}>
-                      <IconSymbol
-                        ios_icon_name="phone.fill"
-                        android_material_icon_name="phone"
-                        size={16}
-                        color={colors.textSecondary}
-                      />
-                      <Text style={[styles.detailText, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-                        Votre téléphone: {booking.passenger_phone}
-                      </Text>
-                    </View>
                   </View>
+
+                  {/* Contact Buttons - Only show for accepted reservations */}
+                  {booking.status === 'accepted' && (
+                    <View style={styles.contactSection}>
+                      <Text style={[styles.contactTitle, { color: isDark ? colors.darkText : colors.text }]}>
+                        Contacter le conducteur
+                      </Text>
+                      <ContactButtons
+                        phoneNumber={ride.driver_phone}
+                        userName={ride.driver_name}
+                      />
+                    </View>
+                  )}
 
                   {/* Cancel Button */}
                   {booking.status === 'pending' && (
@@ -498,6 +514,18 @@ const styles = StyleSheet.create({
   errorText: {
     fontSize: 14,
     fontWeight: '600',
+  },
+  contactSection: {
+    marginTop: 8,
+    marginBottom: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  contactTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    marginBottom: 12,
   },
   cancelButton: {
     borderRadius: 12,
