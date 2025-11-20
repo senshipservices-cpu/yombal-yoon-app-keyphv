@@ -265,6 +265,9 @@ export default function ProfileScreen() {
           <Text style={[styles.sectionTitle, { color: isDark ? colors.darkText : colors.text }]}>
             Mes rôles
           </Text>
+          <Text style={[styles.sectionDescription, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+            Activez les rôles qui correspondent à votre utilisation de l&apos;application
+          </Text>
 
           <View style={styles.roleItem}>
             <View style={styles.roleInfo}>
@@ -468,6 +471,11 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: '700',
+    marginBottom: 16,
+  },
+  sectionDescription: {
+    fontSize: 14,
+    lineHeight: 20,
     marginBottom: 16,
   },
   inputGroup: {
