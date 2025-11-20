@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform, Image } from "react-native";
 import { useTheme } from "@react-navigation/native";
 import { useRouter } from "expo-router";
@@ -32,14 +32,27 @@ export default function HomeScreen() {
   const { unreadCount, registerForPushNotifications } = useNotifications();
   const [tipOfTheDay, setTipOfTheDay] = useState("");
   const [userMainRole, setUserMainRole] = useState<UserMainRole>(null);
+  const hasRegisteredNotifications = useRef(false);
 
-  const registerNotifications = useCallback(() => {
-    const roles = [];
-    if (profile.roles.driver) roles.push('driver');
-    if (profile.roles.passenger) roles.push('passenger');
-    if (profile.roles.delivery) roles.push('delivery');
-    
-    registerForPushNotifications('current_user', roles);
+  const registerNotifications = useCallback(async () => {
+    // Only register once per app session
+    if (hasRegisteredNotifications.current) {
+      console.log('Notifications already registered for this session');
+      return;
+    }
+
+    try {
+      const roles = [];
+      if (profile.roles.driver) roles.push('driver');
+      if (profile.roles.passenger) roles.push('passenger');
+      if (profile.roles.delivery) roles.push('delivery');
+      
+      await registerForPushNotifications('current_user', roles);
+      hasRegisteredNotifications.current = true;
+      console.log('Push notifications registered successfully');
+    } catch (error) {
+      console.error('Failed to register push notifications:', error);
+    }
   }, [profile.roles, registerForPushNotifications]);
 
   useEffect(() => {

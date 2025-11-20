@@ -98,34 +98,69 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   };
 
   const setupNotificationListeners = () => {
-    notificationListener.current = Notifications.addNotificationReceivedListener(notification => {
-      console.log('Notification received:', notification);
-      
-      const newNotification: NotificationData = {
-        id: notification.request.identifier,
-        userId: 'current_user',
-        type: notification.request.content.data?.type || 'reservation_created',
-        title: notification.request.content.title || '',
-        body: notification.request.content.body || '',
-        data: notification.request.content.data,
-        createdAt: new Date().toISOString(),
-        read: false,
-      };
+    try {
+      notificationListener.current = Notifications.addNotificationReceivedListener(notification => {
+        console.log('Notification received:', notification);
+        
+        const newNotification: NotificationData = {
+          id: notification.request.identifier,
+          userId: 'current_user',
+          type: notification.request.content.data?.type || 'reservation_created',
+          title: notification.request.content.title || '',
+          body: notification.request.content.body || '',
+          data: notification.request.content.data,
+          createdAt: new Date().toISOString(),
+          read: false,
+        };
 
-      setNotifications(prev => {
-        const updated = [newNotification, ...prev];
-        AsyncStorage.setItem(NOTIFICATIONS_STORAGE_KEY, JSON.stringify(updated));
-        return updated;
+        setNotifications(prev => {
+          const updated = [newNotification, ...prev];
+          AsyncStorage.setItem(NOTIFICATIONS_STORAGE_KEY, JSON.stringify(updated));
+          return updated;
+        });
       });
-    });
 
-    responseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
-      console.log('Notification response:', response);
-    });
+      responseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
+        console.log('Notification response:', response);
+      });
+    } catch (error) {
+      console.error('Error setting up notification listeners:', error);
+    }
   };
 
   const registerForPushNotifications = async (userId: string = 'current_user', roles: string[] = []) => {
     try {
+      // Check if we're on a physical device or emulator
+      if (Platform.OS === 'android') {
+        // First, set up notification channels before requesting permissions
+        try {
+          await Notifications.setNotificationChannelAsync('default', {
+            name: 'Notifications Yombal Yoon',
+            importance: Notifications.AndroidImportance.MAX,
+            vibrationPattern: [0, 250, 250, 250],
+            lightColor: '#008000',
+          });
+
+          await Notifications.setNotificationChannelAsync('covoiturage', {
+            name: 'Covoiturage',
+            importance: Notifications.AndroidImportance.MAX,
+            vibrationPattern: [0, 250, 250, 250],
+            lightColor: '#FF8C00',
+          });
+
+          await Notifications.setNotificationChannelAsync('colis', {
+            name: 'Livraison de Colis',
+            importance: Notifications.AndroidImportance.MAX,
+            vibrationPattern: [0, 250, 250, 250],
+            lightColor: '#FF0000',
+          });
+
+          console.log('Android notification channels created successfully');
+        } catch (channelError) {
+          console.log('Error creating notification channels (may be expected on emulator):', channelError);
+        }
+      }
+
       const { status: existingStatus } = await Notifications.getPermissionsAsync();
       let finalStatus = existingStatus;
 
@@ -141,30 +176,9 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       }
 
       setHasPermission(true);
+      console.log('Push notification permissions granted');
 
-      if (Platform.OS === 'android') {
-        await Notifications.setNotificationChannelAsync('default', {
-          name: 'Notifications Yombal Yoon',
-          importance: Notifications.AndroidImportance.MAX,
-          vibrationPattern: [0, 250, 250, 250],
-          lightColor: '#008000',
-        });
-
-        await Notifications.setNotificationChannelAsync('covoiturage', {
-          name: 'Covoiturage',
-          importance: Notifications.AndroidImportance.MAX,
-          vibrationPattern: [0, 250, 250, 250],
-          lightColor: '#FF8C00',
-        });
-
-        await Notifications.setNotificationChannelAsync('colis', {
-          name: 'Livraison de Colis',
-          importance: Notifications.AndroidImportance.MAX,
-          vibrationPattern: [0, 250, 250, 250],
-          lightColor: '#FF0000',
-        });
-      }
-
+      // Generate a mock token for demo purposes
       const token = `mock_token_${Platform.OS}_${userId}_${Date.now()}`;
       setDeviceToken(token);
 
@@ -188,15 +202,21 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       
       await AsyncStorage.setItem(DEVICE_TOKENS_STORAGE_KEY, JSON.stringify(tokens));
 
-      console.log('Device token registered:', token, 'Roles:', roles);
+      console.log('Device token registered successfully:', token, 'Roles:', roles);
     } catch (error) {
       console.error('Error registering for push notifications:', error);
       setHasPermission(false);
+      // Don't throw the error, just log it to prevent app crashes
     }
   };
 
   const sendLocalNotification = async (title: string, body: string, data?: any) => {
     try {
+      if (!hasPermission) {
+        console.log('Cannot send notification: permission not granted');
+        return;
+      }
+
       const channelId = data?.type?.includes('parcel') || data?.type?.includes('colis') 
         ? 'colis' 
         : data?.type?.includes('reservation') || data?.type?.includes('ride')
