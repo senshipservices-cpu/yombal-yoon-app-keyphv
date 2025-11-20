@@ -8,8 +8,12 @@ import { IconSymbol } from "@/components/IconSymbol";
 import { useColis, Location, PRICING_CONFIG } from "@/contexts/ColisContext";
 import { useDelivery } from "@/contexts/DeliveryContext";
 import { useProfile } from "@/contexts/ProfileContext";
+import { useOTP } from "@/contexts/OTPContext";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
-import { calculateDistance, calculateDeliveryPrice } from "@/utils/distance";
+import PhoneVerificationModal from "@/components/PhoneVerificationModal";
+import SecurityReminderModal from "@/components/SecurityReminderModal";
+import VerifiedDriverBadge from "@/components/VerifiedDriverBadge";
+import { maskPhoneNumber } from "@/utils/phoneUtils";
 import { demoMode, demoParcels } from "@/config/demoMode";
 
 export default function ColisScreen() {
@@ -28,6 +32,7 @@ export default function ColisScreen() {
   } = useColis();
   const { assignParcelToNearbyDeliveryPersons } = useDelivery();
   const { profile } = useProfile();
+  const { isPhoneVerified, loadVerificationStatus } = useOTP();
 
   const [senderName, setSenderName] = useState('');
   const [senderPhone, setSenderPhone] = useState('');
@@ -40,6 +45,13 @@ export default function ColisScreen() {
   const [description, setDescription] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [showVerificationModal, setShowVerificationModal] = useState(false);
+  const [showSecurityReminder, setShowSecurityReminder] = useState(false);
+
+  // Load verification status on mount
+  useEffect(() => {
+    loadVerificationStatus();
+  }, [loadVerificationStatus]);
 
   const canSubmit = 
     senderName.trim() !== '' &&
@@ -51,12 +63,24 @@ export default function ColisScreen() {
     description.trim() !== '' &&
     !isSubmitting;
 
-  const handleSubmit = async () => {
+  const handleSubmitClick = () => {
     if (!canSubmit) {
       Alert.alert('Erreur', 'Veuillez remplir tous les champs obligatoires');
       return;
     }
 
+    // Check if phone is verified
+    if (!isPhoneVerified) {
+      setShowVerificationModal(true);
+      return;
+    }
+
+    // Show security reminder before final submission
+    setShowSecurityReminder(true);
+  };
+
+  const handleConfirmSubmit = async () => {
+    setShowSecurityReminder(false);
     setIsSubmitting(true);
 
     try {
@@ -204,6 +228,13 @@ export default function ColisScreen() {
             <Text style={[styles.title, { color: isDark ? colors.darkText : colors.text }]}>
               Envoyer un colis
             </Text>
+            
+            {/* Verified Badge */}
+            {isPhoneVerified && (
+              <View style={styles.verifiedBadgeContainer}>
+                <VerifiedDriverBadge isVerified={true} compact={true} />
+              </View>
+            )}
             
             {/* Quick Actions */}
             <View style={styles.quickActions}>
@@ -465,6 +496,21 @@ export default function ColisScreen() {
               />
             </View>
 
+            {/* Verification Warning */}
+            {!isPhoneVerified && (
+              <View style={[styles.warningCard, { backgroundColor: colors.warning + '20' }]}>
+                <IconSymbol
+                  ios_icon_name="exclamationmark.triangle.fill"
+                  android_material_icon_name="warning"
+                  size={24}
+                  color={colors.warning}
+                />
+                <Text style={[styles.warningText, { color: colors.warning }]}>
+                  Veuillez vérifier votre numéro pour envoyer un colis via Yombal Yoon.
+                </Text>
+              </View>
+            )}
+
             {/* Success Message - Positioned just above the button */}
             {showSuccess && (
               <View style={[styles.successCard, { backgroundColor: colors.primary + '20' }]}>
@@ -483,7 +529,7 @@ export default function ColisScreen() {
                 styles.submitButton,
                 { backgroundColor: canSubmit ? colors.accent : colors.border }
               ]}
-              onPress={handleSubmit}
+              onPress={handleSubmitClick}
               disabled={!canSubmit}
             >
               <Text style={styles.submitButtonText}>
@@ -558,6 +604,25 @@ export default function ColisScreen() {
           )}
         </View>
       </ScrollView>
+
+      {/* Phone Verification Modal */}
+      <PhoneVerificationModal
+        visible={showVerificationModal}
+        onClose={() => setShowVerificationModal(false)}
+        onSuccess={() => {
+          setShowVerificationModal(false);
+          // After verification, show security reminder
+          setShowSecurityReminder(true);
+        }}
+      />
+
+      {/* Security Reminder Modal */}
+      <SecurityReminderModal
+        visible={showSecurityReminder}
+        onConfirm={handleConfirmSubmit}
+        onCancel={() => setShowSecurityReminder(false)}
+        type="parcel"
+      />
     </View>
   );
 }
@@ -622,6 +687,9 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     textAlign: 'center',
   },
+  verifiedBadgeContainer: {
+    marginBottom: 12,
+  },
   quickActions: {
     flexDirection: 'row',
     gap: 12,
@@ -639,6 +707,22 @@ const styles = StyleSheet.create({
   quickActionText: {
     fontSize: 14,
     fontWeight: '600',
+  },
+  warningCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 2,
+    borderColor: colors.warning,
+  },
+  warningText: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '600',
+    lineHeight: 20,
   },
   successCard: {
     borderRadius: 16,

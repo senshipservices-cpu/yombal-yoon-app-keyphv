@@ -7,6 +7,9 @@ import { colors } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
 import { useColis } from '@/contexts/ColisContext';
 import { useProfile } from '@/contexts/ProfileContext';
+import { useOTP } from '@/contexts/OTPContext';
+import VerifiedDriverBadge from '@/components/VerifiedDriverBadge';
+import { maskPhoneNumber } from '@/utils/phoneUtils';
 import { demoMode } from '@/config/demoMode';
 
 export default function MyParcelsScreen() {
@@ -15,7 +18,13 @@ export default function MyParcelsScreen() {
   const router = useRouter();
   const { parcelRequests, isLoading, refreshParcels } = useColis();
   const { profile } = useProfile();
+  const { isPhoneVerified, loadVerificationStatus } = useOTP();
   const [refreshing, setRefreshing] = React.useState(false);
+
+  // Load verification status on mount
+  useEffect(() => {
+    loadVerificationStatus();
+  }, [loadVerificationStatus]);
 
   // Filter parcels by current user's phone (in production, use proper user ID)
   // In demo mode, show all parcels
@@ -90,6 +99,13 @@ export default function MyParcelsScreen() {
             Mes Colis
           </Text>
         </View>
+
+        {/* Verified Badge */}
+        {isPhoneVerified && (
+          <View style={styles.verifiedSection}>
+            <VerifiedDriverBadge isVerified={true} compact={false} />
+          </View>
+        )}
 
         {/* Content */}
         <View style={styles.content}>
@@ -191,6 +207,9 @@ export default function MyParcelsScreen() {
                       <Text style={[styles.recipientText, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
                         {parcel.recipientName}
                       </Text>
+                      <Text style={[styles.recipientPhone, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+                        ({maskPhoneNumber(parcel.recipientPhone)})
+                      </Text>
                     </View>
                     {parcel.pricing && (
                       <Text style={[styles.parcelPrice, { color: colors.accent }]}>
@@ -243,6 +262,10 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 24,
     fontWeight: '800',
+  },
+  verifiedSection: {
+    paddingHorizontal: 20,
+    paddingBottom: 16,
   },
   content: {
     padding: 20,
@@ -351,9 +374,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+    flex: 1,
   },
   recipientText: {
     fontSize: 14,
+    fontWeight: '600',
+  },
+  recipientPhone: {
+    fontSize: 12,
   },
   parcelPrice: {
     fontSize: 16,

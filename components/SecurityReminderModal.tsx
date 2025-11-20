@@ -16,15 +16,45 @@ interface SecurityReminderModalProps {
   visible: boolean;
   onConfirm: () => void;
   onCancel: () => void;
+  type?: 'carpooling' | 'parcel';
 }
 
 export default function SecurityReminderModal({
   visible,
   onConfirm,
   onCancel,
+  type = 'carpooling',
 }: SecurityReminderModalProps) {
   const theme = useTheme();
   const isDark = theme.dark;
+
+  const getContent = () => {
+    if (type === 'parcel') {
+      return {
+        title: 'Sécurité Yombal Yoon',
+        items: [
+          'Assurez-vous que l\'adresse de départ et d\'arrivée est correcte.',
+          'Remettez votre colis uniquement à un agent ou livreur identifié.',
+          'En cas de doute ou de problème, contactez immédiatement l\'équipe Yombal Yoon.',
+        ],
+        warning: 'Vérifiez toujours l\'identité du livreur avant de remettre votre colis.',
+        confirmText: 'Je comprends et je confirme l\'envoi',
+      };
+    }
+
+    return {
+      title: 'Sécurité Yombal Yoon',
+      items: [
+        'Votre numéro et celui du conducteur sont protégés.',
+        'Ne partagez vos informations qu\'avec un conducteur confirmé.',
+        'En cas de problème, contactez l\'équipe Yombal Yoon.',
+      ],
+      warning: 'Vérifiez toujours l\'identité du conducteur avant de monter dans le véhicule.',
+      confirmText: 'Je comprends et je confirme',
+    };
+  };
+
+  const content = getContent();
 
   return (
     <Modal
@@ -45,45 +75,23 @@ export default function SecurityReminderModal({
           </View>
 
           <Text style={[styles.title, { color: isDark ? colors.darkText : colors.text }]}>
-            Sécurité Yombal Yoon
+            {content.title}
           </Text>
 
           <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-            <View style={styles.infoItem}>
-              <IconSymbol
-                ios_icon_name="checkmark.circle.fill"
-                android_material_icon_name="check-circle"
-                size={24}
-                color={colors.primary}
-              />
-              <Text style={[styles.infoText, { color: isDark ? colors.darkText : colors.text }]}>
-                Votre numéro et celui du conducteur sont protégés.
-              </Text>
-            </View>
-
-            <View style={styles.infoItem}>
-              <IconSymbol
-                ios_icon_name="checkmark.circle.fill"
-                android_material_icon_name="check-circle"
-                size={24}
-                color={colors.primary}
-              />
-              <Text style={[styles.infoText, { color: isDark ? colors.darkText : colors.text }]}>
-                Ne partagez vos informations qu&apos;avec un conducteur confirmé.
-              </Text>
-            </View>
-
-            <View style={styles.infoItem}>
-              <IconSymbol
-                ios_icon_name="checkmark.circle.fill"
-                android_material_icon_name="check-circle"
-                size={24}
-                color={colors.primary}
-              />
-              <Text style={[styles.infoText, { color: isDark ? colors.darkText : colors.text }]}>
-                En cas de problème, contactez l&apos;équipe Yombal Yoon.
-              </Text>
-            </View>
+            {content.items.map((item, index) => (
+              <View key={index} style={styles.infoItem}>
+                <IconSymbol
+                  ios_icon_name="checkmark.circle.fill"
+                  android_material_icon_name="check-circle"
+                  size={24}
+                  color={colors.primary}
+                />
+                <Text style={[styles.infoText, { color: isDark ? colors.darkText : colors.text }]}>
+                  {item}
+                </Text>
+              </View>
+            ))}
 
             <View style={[styles.warningBox, { backgroundColor: colors.warning + '20' }]}>
               <IconSymbol
@@ -93,7 +101,7 @@ export default function SecurityReminderModal({
                 color={colors.warning}
               />
               <Text style={[styles.warningText, { color: colors.warning }]}>
-                Vérifiez toujours l&apos;identité du conducteur avant de monter dans le véhicule.
+                {content.warning}
               </Text>
             </View>
           </ScrollView>
@@ -114,7 +122,7 @@ export default function SecurityReminderModal({
               onPress={onConfirm}
               activeOpacity={0.7}
             >
-              <Text style={styles.confirmButtonText}>Je comprends et je confirme</Text>
+              <Text style={styles.confirmButtonText}>{content.confirmText}</Text>
             </TouchableOpacity>
           </View>
         </View>

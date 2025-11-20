@@ -10,6 +10,7 @@ interface VerifiedDriverBadgeProps {
   memberSince?: string;
   ridesPublished?: number;
   compact?: boolean;
+  type?: 'driver' | 'sender';
 }
 
 export default function VerifiedDriverBadge({
@@ -17,6 +18,7 @@ export default function VerifiedDriverBadge({
   memberSince,
   ridesPublished,
   compact = false,
+  type = 'driver',
 }: VerifiedDriverBadgeProps) {
   const theme = useTheme();
   const isDark = theme.dark;
@@ -24,6 +26,13 @@ export default function VerifiedDriverBadge({
   if (!isVerified) {
     return null;
   }
+
+  const getLabel = () => {
+    if (type === 'sender') {
+      return compact ? 'Expéditeur vérifié' : 'Expéditeur vérifié ✅';
+    }
+    return compact ? 'Vérifié' : 'Conducteur vérifié';
+  };
 
   if (compact) {
     return (
@@ -34,7 +43,7 @@ export default function VerifiedDriverBadge({
           size={16}
           color={colors.primary}
         />
-        <Text style={[styles.compactText, { color: colors.primary }]}>Vérifié</Text>
+        <Text style={[styles.compactText, { color: colors.primary }]}>{getLabel()}</Text>
       </View>
     );
   }
@@ -48,7 +57,7 @@ export default function VerifiedDriverBadge({
           size={24}
           color={colors.primary}
         />
-        <Text style={[styles.verifiedText, { color: colors.primary }]}>Conducteur vérifié</Text>
+        <Text style={[styles.verifiedText, { color: colors.primary }]}>{getLabel()}</Text>
       </View>
 
       {memberSince && (
