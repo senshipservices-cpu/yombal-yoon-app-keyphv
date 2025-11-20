@@ -62,7 +62,7 @@ export default function HomeScreen() {
     {
       id: 'colis',
       title: 'Envoi de Colis',
-      subtitle: 'Thiak Thiak',
+      subtitle: 'Livraison rapide',
       icon: { ios: 'shippingbox.fill', android: 'local-shipping' },
       color: colors.accent,
       route: '/colis',
