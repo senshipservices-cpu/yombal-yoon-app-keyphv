@@ -205,6 +205,19 @@ export function ColisProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const loadFromAsyncStorage = useCallback(async () => {
+    try {
+      const storedParcels = await AsyncStorage.getItem(PARCELS_STORAGE_KEY);
+
+      if (storedParcels) {
+        setParcelRequests(JSON.parse(storedParcels));
+        console.log('Parcel requests loaded from AsyncStorage');
+      }
+    } catch (error) {
+      console.error('Error loading from AsyncStorage:', error);
+    }
+  }, []);
+
   const loadFromSupabase = useCallback(async () => {
     try {
       const { data, error } = await supabase
@@ -228,20 +241,7 @@ export function ColisProvider({ children }: { children: ReactNode }) {
       console.error('Error loading from Supabase:', error);
       await loadFromAsyncStorage();
     }
-  }, []);
-
-  const loadFromAsyncStorage = useCallback(async () => {
-    try {
-      const storedParcels = await AsyncStorage.getItem(PARCELS_STORAGE_KEY);
-
-      if (storedParcels) {
-        setParcelRequests(JSON.parse(storedParcels));
-        console.log('Parcel requests loaded from AsyncStorage');
-      }
-    } catch (error) {
-      console.error('Error loading from AsyncStorage:', error);
-    }
-  }, []);
+  }, [loadFromAsyncStorage]);
 
   const loadData = useCallback(async () => {
     try {
