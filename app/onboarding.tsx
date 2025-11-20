@@ -14,7 +14,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { colors } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 interface Slide {
   title: string;
@@ -106,15 +106,28 @@ export default function OnboardingScreen() {
     }
   };
 
+  const handleSkip = async () => {
+    try {
+      console.log('Skip button pressed - navigating to home');
+      await AsyncStorage.setItem('onboardingDone', 'true');
+      // Navigate to home immediately without saving role
+      router.replace('/(tabs)/(home)');
+    } catch (error) {
+      console.error('Error skipping onboarding:', error);
+    }
+  };
+
   const handleFinish = async () => {
     try {
+      console.log('Finish button pressed - completing onboarding');
       await AsyncStorage.setItem('onboardingDone', 'true');
       if (selectedRole) {
         await AsyncStorage.setItem('userMainRole', selectedRole);
         console.log('User main role saved:', selectedRole);
       }
       console.log('Onboarding completed, navigating to home');
-      router.replace('/(tabs)/(home)/');
+      // Use replace to prevent going back to onboarding
+      router.replace('/(tabs)/(home)');
     } catch (error) {
       console.error('Error saving onboarding status:', error);
     }
@@ -166,7 +179,12 @@ export default function OnboardingScreen() {
 
         {/* Role Selection Slide */}
         <View key="role-selection-slide" style={[styles.slide, { width: SCREEN_WIDTH }]}>
-          <View style={styles.slideContent}>
+          <ScrollView 
+            style={styles.roleSlideScrollView}
+            contentContainerStyle={styles.roleSlideContent}
+            showsVerticalScrollIndicator={false}
+            bounces={true}
+          >
             <View style={[styles.iconContainer, { backgroundColor: colors.primary + '20' }]}>
               <IconSymbol
                 ios_icon_name="person.circle.fill"
@@ -217,7 +235,10 @@ export default function OnboardingScreen() {
                 </TouchableOpacity>
               ))}
             </View>
-          </View>
+            
+            {/* Extra padding at bottom to ensure all content is visible */}
+            <View style={{ height: 40 }} />
+          </ScrollView>
         </View>
       </ScrollView>
 
@@ -245,7 +266,7 @@ export default function OnboardingScreen() {
             <View style={styles.navigationButtons}>
               <TouchableOpacity
                 style={styles.skipButton}
-                onPress={handleFinish}
+                onPress={handleSkip}
                 activeOpacity={0.7}
               >
                 <Text style={styles.skipButtonText}>Passer</Text>
@@ -331,6 +352,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 40,
     maxWidth: 500,
   },
+  roleSlideScrollView: {
+    flex: 1,
+    width: SCREEN_WIDTH,
+  },
+  roleSlideContent: {
+    alignItems: 'center',
+    paddingHorizontal: 40,
+    paddingTop: 20,
+    paddingBottom: 20,
+    minHeight: SCREEN_HEIGHT * 0.6,
+  },
   iconContainer: {
     width: 160,
     height: 160,
@@ -400,6 +432,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: Platform.OS === 'android' ? 40 : 50,
     paddingTop: 20,
+    backgroundColor: colors.background,
   },
   pagination: {
     flexDirection: 'row',
