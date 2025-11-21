@@ -74,8 +74,8 @@ export default function ProfileScreen() {
             await resetProfile();
             setFullName('');
             setPhone('');
-            setIsDriver(false);
-            setIsPassenger(false);
+            setIsDriver(true);  // Reset to default (activated)
+            setIsPassenger(true);  // Reset to default (activated)
             setIsDelivery(false);
             setIsSender(false);
             Alert.alert("Succès", "Votre profil a été réinitialisé");
@@ -185,93 +185,123 @@ export default function ProfileScreen() {
           />
         </TouchableOpacity>
 
-        {/* Roles Section - MOVED TO TOP */}
+        {/* Roles Section - CATEGORIZED */}
         <View style={[styles.formCard, { backgroundColor: isDark ? colors.darkCard : colors.card }]}>
           <Text style={[styles.sectionTitle, { color: isDark ? colors.darkText : colors.text }]}>
             Mes rôles
           </Text>
           <Text style={[styles.sectionDescription, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-            Activez les rôles qui correspondent à votre utilisation de l&apos;application
+            Gérez vos rôles pour le covoiturage et l&apos;envoi de colis
           </Text>
 
-          <View style={styles.roleItem}>
-            <View style={styles.roleInfo}>
+          {/* Category 1: Covoiturage */}
+          <View style={styles.categoryContainer}>
+            <View style={[styles.categoryHeader, { backgroundColor: isDark ? colors.darkBackground : colors.background }]}>
               <IconSymbol
                 ios_icon_name="car.fill"
                 android_material_icon_name="directions-car"
-                size={24}
+                size={20}
                 color={colors.primary}
               />
-              <Text style={[styles.roleLabel, { color: isDark ? colors.darkText : colors.text }]}>
-                Conducteur
+              <Text style={[styles.categoryTitle, { color: isDark ? colors.darkText : colors.text }]}>
+                Covoiturage
               </Text>
             </View>
-            <Switch
-              value={isDriver}
-              onValueChange={setIsDriver}
-              trackColor={{ false: colors.border, true: colors.primary + '80' }}
-              thumbColor={isDriver ? colors.primary : colors.textSecondary}
-            />
-          </View>
 
-          <View style={styles.roleItem}>
-            <View style={styles.roleInfo}>
-              <IconSymbol
-                ios_icon_name="person.2.fill"
-                android_material_icon_name="people"
-                size={24}
-                color={colors.accent}
+            <View style={styles.roleItem}>
+              <View style={styles.roleInfo}>
+                <IconSymbol
+                  ios_icon_name="car.fill"
+                  android_material_icon_name="directions-car"
+                  size={24}
+                  color={colors.primary}
+                />
+                <Text style={[styles.roleLabel, { color: isDark ? colors.darkText : colors.text }]}>
+                  Conducteur
+                </Text>
+              </View>
+              <Switch
+                value={isDriver}
+                onValueChange={setIsDriver}
+                trackColor={{ false: colors.border, true: colors.primary + '80' }}
+                thumbColor={isDriver ? colors.primary : colors.textSecondary}
               />
-              <Text style={[styles.roleLabel, { color: isDark ? colors.darkText : colors.text }]}>
-                Passager
-              </Text>
             </View>
-            <Switch
-              value={isPassenger}
-              onValueChange={setIsPassenger}
-              trackColor={{ false: colors.border, true: colors.accent + '80' }}
-              thumbColor={isPassenger ? colors.accent : colors.textSecondary}
-            />
+
+            <View style={[styles.roleItem, styles.roleItemLast]}>
+              <View style={styles.roleInfo}>
+                <IconSymbol
+                  ios_icon_name="person.2.fill"
+                  android_material_icon_name="people"
+                  size={24}
+                  color={colors.accent}
+                />
+                <Text style={[styles.roleLabel, { color: isDark ? colors.darkText : colors.text }]}>
+                  Passager
+                </Text>
+              </View>
+              <Switch
+                value={isPassenger}
+                onValueChange={setIsPassenger}
+                trackColor={{ false: colors.border, true: colors.accent + '80' }}
+                thumbColor={isPassenger ? colors.accent : colors.textSecondary}
+              />
+            </View>
           </View>
 
-          <View style={styles.roleItem}>
-            <View style={styles.roleInfo}>
+          {/* Category 2: Envoi de Colis (Thiak Thiak) */}
+          <View style={[styles.categoryContainer, styles.categoryContainerLast]}>
+            <View style={[styles.categoryHeader, { backgroundColor: isDark ? colors.darkBackground : colors.background }]}>
               <IconSymbol
                 ios_icon_name="shippingbox.fill"
                 android_material_icon_name="local-shipping"
-                size={24}
+                size={20}
                 color={colors.secondary}
               />
-              <Text style={[styles.roleLabel, { color: isDark ? colors.darkText : colors.text }]}>
-                Livreur Colis
+              <Text style={[styles.categoryTitle, { color: isDark ? colors.darkText : colors.text }]}>
+                Envoi de Colis (Thiak Thiak)
               </Text>
             </View>
-            <Switch
-              value={isDelivery}
-              onValueChange={setIsDelivery}
-              trackColor={{ false: colors.border, true: colors.secondary + '80' }}
-              thumbColor={isDelivery ? colors.secondary : colors.textSecondary}
-            />
-          </View>
 
-          <View style={styles.roleItem}>
-            <View style={styles.roleInfo}>
-              <IconSymbol
-                ios_icon_name="paperplane.fill"
-                android_material_icon_name="send"
-                size={24}
-                color="#FF8C00"
+            <View style={styles.roleItem}>
+              <View style={styles.roleInfo}>
+                <IconSymbol
+                  ios_icon_name="paperplane.fill"
+                  android_material_icon_name="send"
+                  size={24}
+                  color="#FF8C00"
+                />
+                <Text style={[styles.roleLabel, { color: isDark ? colors.darkText : colors.text }]}>
+                  Expéditeur
+                </Text>
+              </View>
+              <Switch
+                value={isSender}
+                onValueChange={setIsSender}
+                trackColor={{ false: colors.border, true: '#FF8C00' + '80' }}
+                thumbColor={isSender ? '#FF8C00' : colors.textSecondary}
               />
-              <Text style={[styles.roleLabel, { color: isDark ? colors.darkText : colors.text }]}>
-                Envoyeur de Colis
-              </Text>
             </View>
-            <Switch
-              value={isSender}
-              onValueChange={setIsSender}
-              trackColor={{ false: colors.border, true: '#FF8C00' + '80' }}
-              thumbColor={isSender ? '#FF8C00' : colors.textSecondary}
-            />
+
+            <View style={[styles.roleItem, styles.roleItemLast]}>
+              <View style={styles.roleInfo}>
+                <IconSymbol
+                  ios_icon_name="shippingbox.fill"
+                  android_material_icon_name="local-shipping"
+                  size={24}
+                  color={colors.secondary}
+                />
+                <Text style={[styles.roleLabel, { color: isDark ? colors.darkText : colors.text }]}>
+                  Livreur
+                </Text>
+              </View>
+              <Switch
+                value={isDelivery}
+                onValueChange={setIsDelivery}
+                trackColor={{ false: colors.border, true: colors.secondary + '80' }}
+                thumbColor={isDelivery ? colors.secondary : colors.textSecondary}
+              />
+            </View>
           </View>
         </View>
 
@@ -534,7 +564,30 @@ const styles = StyleSheet.create({
   sectionDescription: {
     fontSize: 14,
     lineHeight: 20,
-    marginBottom: 16,
+    marginBottom: 20,
+  },
+  categoryContainer: {
+    marginBottom: 20,
+    borderRadius: 12,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: colors.border + '30',
+  },
+  categoryContainerLast: {
+    marginBottom: 0,
+  },
+  categoryHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border + '30',
+  },
+  categoryTitle: {
+    fontSize: 16,
+    fontWeight: '700',
   },
   inputGroup: {
     marginBottom: 16,
@@ -554,9 +607,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border + '30',
+    borderBottomColor: colors.border + '20',
+  },
+  roleItemLast: {
+    borderBottomWidth: 0,
   },
   roleInfo: {
     flexDirection: 'row',

@@ -52,8 +52,8 @@ const defaultProfile: ProfileData = {
   fullName: '',
   phone: '',
   roles: {
-    driver: false,
-    passenger: false,
+    driver: true,  // Automatically activated for new users
+    passenger: true,  // Automatically activated for new users
     delivery: false,
     sender: false,
   },
@@ -140,10 +140,19 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
         if (!Object.hasOwn(parsedProfile.roles, 'sender')) {
           parsedProfile.roles.sender = false;
         }
+        // Ensure driver and passenger roles are activated by default for existing users
+        if (!Object.hasOwn(parsedProfile.roles, 'driver')) {
+          parsedProfile.roles.driver = true;
+        }
+        if (!Object.hasOwn(parsedProfile.roles, 'passenger')) {
+          parsedProfile.roles.passenger = true;
+        }
         setProfile(parsedProfile);
         console.log('Profile loaded from storage');
       } else {
-        console.log('No stored profile found, using default');
+        // New user - save default profile with driver and passenger activated
+        await AsyncStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(defaultProfile));
+        console.log('New user profile created with default carpooling roles activated');
       }
     } catch (error) {
       console.error('Error loading profile:', error);
