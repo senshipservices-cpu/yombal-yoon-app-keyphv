@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from "react";
-import { View, Text, StyleSheet, ScrollView, Platform, TouchableOpacity, TextInput, Switch, Alert, Linking } from "react-native";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Alert, Linking } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { IconSymbol } from "@/components/IconSymbol";
 import { useTheme } from "@react-navigation/native";
@@ -17,20 +17,15 @@ export default function ProfileScreen() {
   const theme = useTheme();
   const isDark = theme.dark;
   const router = useRouter();
-  const { profile, updateProfile, resetProfile, isLoading } = useProfile();
+  const { profile, updateProfile, isLoading } = useProfile();
   const { registerForPushNotifications } = useNotifications();
 
-  const [fullName, setFullName] = useState(profile.fullName);
-  const [phone, setPhone] = useState(profile.phone);
   const [isDriver, setIsDriver] = useState(profile.roles.driver);
   const [isPassenger, setIsPassenger] = useState(profile.roles.passenger);
   const [isDelivery, setIsDelivery] = useState(profile.roles.delivery);
   const [isSender, setIsSender] = useState(profile.roles.sender);
 
   useEffect(() => {
-    // Update local state when profile changes
-    setFullName(profile.fullName);
-    setPhone(profile.phone);
     setIsDriver(profile.roles.driver);
     setIsPassenger(profile.roles.passenger);
     setIsDelivery(profile.roles.delivery);
@@ -39,10 +34,8 @@ export default function ProfileScreen() {
 
   // Immediate role update function
   const handleRoleToggle = async (role: 'driver' | 'passenger' | 'delivery' | 'sender', value: boolean) => {
-    // Haptic feedback
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
-    // Update local state immediately
     switch (role) {
       case 'driver':
         setIsDriver(value);
@@ -58,7 +51,6 @@ export default function ProfileScreen() {
         break;
     }
 
-    // Update profile in storage immediately
     const updatedRoles = {
       ...profile.roles,
       [role]: value,
@@ -68,7 +60,6 @@ export default function ProfileScreen() {
       roles: updatedRoles,
     });
 
-    // Register for push notifications with updated roles
     const activeRoles: string[] = [];
     if (role === 'driver' ? value : isDriver) activeRoles.push('driver');
     if (role === 'passenger' ? value : isPassenger) activeRoles.push('passenger');
@@ -76,42 +67,18 @@ export default function ProfileScreen() {
     if (role === 'sender' ? value : isSender) activeRoles.push('sender');
 
     console.log('Registering push notifications with roles:', activeRoles);
-    await registerForPushNotifications(phone || 'current_user', activeRoles);
+    await registerForPushNotifications(profile.phone || 'current_user', activeRoles);
 
     console.log(`Role ${role} ${value ? 'activated' : 'deactivated'} immediately`);
   };
 
-  const handleSavePersonalInfo = async () => {
-    await updateProfile({
-      fullName,
-      phone,
-    });
-
-    Alert.alert("Succès", "Vos informations personnelles ont été mises à jour");
-  };
-
-  const handleReset = () => {
-    Alert.alert(
-      "Réinitialiser le profil",
-      "Êtes-vous sûr de vouloir réinitialiser votre profil ? Cette action est irréversible.",
-      [
-        { text: "Annuler", style: "cancel" },
-        {
-          text: "Réinitialiser",
-          style: "destructive",
-          onPress: async () => {
-            await resetProfile();
-            setFullName('');
-            setPhone('');
-            setIsDriver(true);  // Reset to default (activated)
-            setIsPassenger(true);  // Reset to default (activated)
-            setIsDelivery(false);
-            setIsSender(false);
-            Alert.alert("Succès", "Votre profil a été réinitialisé");
-          },
-        },
-      ]
-    );
+  const maskPhone = (phone: string) => {
+    if (!phone || phone.length < 10) return phone;
+    const cleaned = phone.replace(/\D/g, '');
+    if (cleaned.length >= 10) {
+      return `${cleaned.substring(0, 2)} *** ** ${cleaned.substring(cleaned.length - 2)}`;
+    }
+    return phone;
   };
 
   const handleCallSupport = async () => {
@@ -125,23 +92,23 @@ export default function ProfileScreen() {
       }
     } catch (error) {
       console.log("Error opening phone app:", error);
-      Alert.alert("Erreur", "Une erreur s'est produite lors de l'ouverture de l'application téléphone");
+      Alert.alert("Erreur", "Une erreur s'est produite");
     }
   };
 
   const handleWhatsAppSupport = async () => {
     try {
-      const message = encodeURIComponent("Bonjour Yombal Yoon, j'ai une question sur l'application.");
+      const message = encodeURIComponent("Bonjour Yombal Yoon, j'ai besoin d'aide.");
       const url = `https://wa.me/${SUPPORT_PHONE.replace(/\+/g, '')}?text=${message}`;
       const canOpen = await Linking.canOpenURL(url);
       if (canOpen) {
         await Linking.openURL(url);
       } else {
-        Alert.alert("Erreur", "Impossible d'ouvrir WhatsApp. Assurez-vous que l'application est installée.");
+        Alert.alert("Erreur", "Impossible d'ouvrir WhatsApp");
       }
     } catch (error) {
       console.log("Error opening WhatsApp:", error);
-      Alert.alert("Erreur", "Une erreur s'est produite lors de l'ouverture de WhatsApp");
+      Alert.alert("Erreur", "Une erreur s'est produite");
     }
   };
 
@@ -170,65 +137,49 @@ export default function ProfileScreen() {
         contentContainerStyle={styles.contentContainer}
         showsVerticalScrollIndicator={false}
       >
-        {/* Profile Header */}
-        <View style={[styles.profileHeader, { backgroundColor: isDark ? colors.darkCard : colors.card }]}>
-          <LinearGradient
-            colors={[colors.primary, colors.accent]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.avatarGradient}
+        {/* 1️⃣ HEADER – Informations utilisateur */}
+        <View style={[styles.headerCard, { backgroundColor: isDark ? colors.darkCard : colors.card }]}>
+          <View style={styles.headerContent}>
+            <LinearGradient
+              colors={[colors.primary, colors.accent]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.avatar}
+            >
+              <IconSymbol 
+                ios_icon_name="person.fill" 
+                android_material_icon_name="person" 
+                size={40} 
+                color="#FFFFFF" 
+              />
+            </LinearGradient>
+            <View style={styles.headerInfo}>
+              <Text style={[styles.userName, { color: isDark ? colors.darkText : colors.text }]}>
+                {profile.fullName || 'Utilisateur'}
+              </Text>
+              <Text style={[styles.userPhone, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+                {maskPhone(profile.phone) || 'Non renseigné'}
+              </Text>
+            </View>
+          </View>
+          <TouchableOpacity
+            style={[styles.editButton, { backgroundColor: colors.primary }]}
+            activeOpacity={0.8}
+            onPress={() => router.push('/wallet')}
           >
-            <IconSymbol 
-              ios_icon_name="person.fill" 
-              android_material_icon_name="person" 
-              size={48} 
-              color="#FFFFFF" 
-            />
-          </LinearGradient>
-          <Text style={[styles.headerTitle, { color: isDark ? colors.darkText : colors.text }]}>
-            Mon Profil
-          </Text>
+            <Text style={styles.editButtonText}>Modifier mon profil</Text>
+          </TouchableOpacity>
         </View>
 
-        {/* Wallet Button */}
-        <TouchableOpacity
-          style={[styles.walletButton, { backgroundColor: colors.primary }]}
-          activeOpacity={0.8}
-          onPress={() => router.push('/wallet')}
-        >
-          <IconSymbol
-            ios_icon_name="wallet.pass.fill"
-            android_material_icon_name="account-balance-wallet"
-            size={24}
-            color="#FFFFFF"
-          />
-          <Text style={styles.walletButtonText}>Mon Wallet</Text>
-          <IconSymbol
-            ios_icon_name="chevron.right"
-            android_material_icon_name="chevron-right"
-            size={24}
-            color="#FFFFFF"
-          />
-        </TouchableOpacity>
-
-        {/* Roles Section - CATEGORIZED WITH IMMEDIATE ACTIVATION */}
-        <View style={[styles.formCard, { backgroundColor: isDark ? colors.darkCard : colors.card }]}>
+        {/* 2️⃣ SECTION – ⭐ MES RÔLES */}
+        <View style={[styles.sectionCard, { backgroundColor: isDark ? colors.darkCard : colors.card }]}>
           <Text style={[styles.sectionTitle, { color: isDark ? colors.darkText : colors.text }]}>
-            Mes rôles
-          </Text>
-          <Text style={[styles.sectionDescription, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-            Activez ou désactivez vos rôles instantanément
+            ⭐ Mes rôles
           </Text>
 
-          {/* Category 1: Covoiturage */}
-          <View style={styles.categoryContainer}>
+          {/* A. Sous-bloc : Covoiturage */}
+          <View style={styles.roleCategory}>
             <View style={[styles.categoryHeader, { backgroundColor: isDark ? colors.darkBackground : colors.background }]}>
-              <IconSymbol
-                ios_icon_name="car.fill"
-                android_material_icon_name="directions-car"
-                size={20}
-                color={colors.primary}
-              />
               <Text style={[styles.categoryTitle, { color: isDark ? colors.darkText : colors.text }]}>
                 Covoiturage
               </Text>
@@ -242,16 +193,17 @@ export default function ProfileScreen() {
                   size={24}
                   color={colors.primary}
                 />
-                <Text style={[styles.roleLabel, { color: isDark ? colors.darkText : colors.text }]}>
-                  Conducteur
-                </Text>
+                <View style={styles.roleTextContainer}>
+                  <Text style={[styles.roleLabel, { color: isDark ? colors.darkText : colors.text }]}>
+                    Conducteur
+                  </Text>
+                  <View style={[styles.activeBadge, { backgroundColor: colors.primary + '20' }]}>
+                    <Text style={[styles.activeBadgeText, { color: colors.primary }]}>
+                      ✓ Actif
+                    </Text>
+                  </View>
+                </View>
               </View>
-              <Switch
-                value={isDriver}
-                onValueChange={(value) => handleRoleToggle('driver', value)}
-                trackColor={{ false: colors.border, true: colors.primary + '80' }}
-                thumbColor={isDriver ? colors.primary : colors.textSecondary}
-              />
             </View>
 
             <View style={[styles.roleItem, styles.roleItemLast]}>
@@ -260,32 +212,27 @@ export default function ProfileScreen() {
                   ios_icon_name="person.2.fill"
                   android_material_icon_name="people"
                   size={24}
-                  color={colors.accent}
+                  color={colors.primary}
                 />
-                <Text style={[styles.roleLabel, { color: isDark ? colors.darkText : colors.text }]}>
-                  Passager
-                </Text>
+                <View style={styles.roleTextContainer}>
+                  <Text style={[styles.roleLabel, { color: isDark ? colors.darkText : colors.text }]}>
+                    Passager
+                  </Text>
+                  <View style={[styles.activeBadge, { backgroundColor: colors.primary + '20' }]}>
+                    <Text style={[styles.activeBadgeText, { color: colors.primary }]}>
+                      ✓ Actif
+                    </Text>
+                  </View>
+                </View>
               </View>
-              <Switch
-                value={isPassenger}
-                onValueChange={(value) => handleRoleToggle('passenger', value)}
-                trackColor={{ false: colors.border, true: colors.accent + '80' }}
-                thumbColor={isPassenger ? colors.accent : colors.textSecondary}
-              />
             </View>
           </View>
 
-          {/* Category 2: Envoi de Colis (Thiak Thiak) */}
-          <View style={[styles.categoryContainer, styles.categoryContainerLast]}>
+          {/* B. Sous-bloc : Envoi de colis (Thiak Thiak) */}
+          <View style={[styles.roleCategory, styles.roleCategoryLast]}>
             <View style={[styles.categoryHeader, { backgroundColor: isDark ? colors.darkBackground : colors.background }]}>
-              <IconSymbol
-                ios_icon_name="shippingbox.fill"
-                android_material_icon_name="local-shipping"
-                size={20}
-                color={colors.secondary}
-              />
               <Text style={[styles.categoryTitle, { color: isDark ? colors.darkText : colors.text }]}>
-                Envoi de Colis (Thiak Thiak)
+                Envoi de colis (Thiak Thiak)
               </Text>
             </View>
 
@@ -297,9 +244,14 @@ export default function ProfileScreen() {
                   size={24}
                   color="#FF8C00"
                 />
-                <Text style={[styles.roleLabel, { color: isDark ? colors.darkText : colors.text }]}>
-                  Expéditeur
-                </Text>
+                <View style={styles.roleTextContainer}>
+                  <Text style={[styles.roleLabel, { color: isDark ? colors.darkText : colors.text }]}>
+                    Expéditeur
+                  </Text>
+                  <Text style={[styles.roleSubtext, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+                    Envoyer des colis
+                  </Text>
+                </View>
               </View>
               <Switch
                 value={isSender}
@@ -317,9 +269,14 @@ export default function ProfileScreen() {
                   size={24}
                   color={colors.secondary}
                 />
-                <Text style={[styles.roleLabel, { color: isDark ? colors.darkText : colors.text }]}>
-                  Livreur
-                </Text>
+                <View style={styles.roleTextContainer}>
+                  <Text style={[styles.roleLabel, { color: isDark ? colors.darkText : colors.text }]}>
+                    Livreur
+                  </Text>
+                  <Text style={[styles.roleSubtext, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+                    Livrer des colis
+                  </Text>
+                </View>
               </View>
               <Switch
                 value={isDelivery}
@@ -331,147 +288,356 @@ export default function ProfileScreen() {
           </View>
         </View>
 
-        {/* Profile Form */}
-        <View style={[styles.formCard, { backgroundColor: isDark ? colors.darkCard : colors.card }]}>
+        {/* 3️⃣ SECTION – 📦 MES ACTIVITÉS */}
+        <View style={[styles.sectionCard, { backgroundColor: isDark ? colors.darkCard : colors.card }]}>
           <Text style={[styles.sectionTitle, { color: isDark ? colors.darkText : colors.text }]}>
-            Informations personnelles
+            📦 Mes activités
           </Text>
 
-          <View style={styles.inputGroup}>
-            <Text style={[styles.label, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-              Nom complet
-            </Text>
-            <TextInput
-              style={[
-                styles.input,
-                {
-                  backgroundColor: isDark ? colors.darkBackground : colors.background,
-                  color: isDark ? colors.darkText : colors.text,
-                  borderColor: isDark ? colors.darkTextSecondary + '30' : colors.border,
-                },
-              ]}
-              value={fullName}
-              onChangeText={setFullName}
-              placeholder="Entrez votre nom complet"
-              placeholderTextColor={isDark ? colors.darkTextSecondary : colors.textSecondary}
-            />
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={[styles.label, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-              Téléphone
-            </Text>
-            <TextInput
-              style={[
-                styles.input,
-                {
-                  backgroundColor: isDark ? colors.darkBackground : colors.background,
-                  color: isDark ? colors.darkText : colors.text,
-                  borderColor: isDark ? colors.darkTextSecondary + '30' : colors.border,
-                },
-              ]}
-              value={phone}
-              onChangeText={setPhone}
-              placeholder="+221 XX XXX XX XX"
-              placeholderTextColor={isDark ? colors.darkTextSecondary : colors.textSecondary}
-              keyboardType="phone-pad"
-            />
-          </View>
-
-          {/* Save button for personal info only */}
           <TouchableOpacity
-            style={[styles.saveButton, { backgroundColor: colors.primary }]}
-            activeOpacity={0.8}
-            onPress={handleSavePersonalInfo}
+            style={styles.activityItem}
+            activeOpacity={0.7}
+            onPress={() => router.push('/covoiturage/my-rides')}
           >
-            <Text style={styles.saveButtonText}>Enregistrer les informations</Text>
+            <View style={styles.activityLeft}>
+              <IconSymbol
+                ios_icon_name="car.fill"
+                android_material_icon_name="directions-car"
+                size={24}
+                color={colors.primary}
+              />
+              <View style={styles.activityTextContainer}>
+                <Text style={[styles.activityTitle, { color: isDark ? colors.darkText : colors.text }]}>
+                  Mes trajets covoiturage
+                </Text>
+                <Text style={[styles.activitySubtext, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+                  Voir l&apos;historique
+                </Text>
+              </View>
+            </View>
+            <IconSymbol
+              ios_icon_name="chevron.right"
+              android_material_icon_name="chevron-right"
+              size={20}
+              color={isDark ? colors.darkTextSecondary : colors.textSecondary}
+            />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.activityItem}
+            activeOpacity={0.7}
+            onPress={() => router.push('/covoiturage/my-reservations')}
+          >
+            <View style={styles.activityLeft}>
+              <IconSymbol
+                ios_icon_name="ticket.fill"
+                android_material_icon_name="confirmation-number"
+                size={24}
+                color={colors.accent}
+              />
+              <View style={styles.activityTextContainer}>
+                <Text style={[styles.activityTitle, { color: isDark ? colors.darkText : colors.text }]}>
+                  Mes réservations covoiturage
+                </Text>
+                <Text style={[styles.activitySubtext, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+                  Voir l&apos;historique
+                </Text>
+              </View>
+            </View>
+            <IconSymbol
+              ios_icon_name="chevron.right"
+              android_material_icon_name="chevron-right"
+              size={20}
+              color={isDark ? colors.darkTextSecondary : colors.textSecondary}
+            />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.activityItem}
+            activeOpacity={0.7}
+            onPress={() => router.push('/colis/my-parcels')}
+          >
+            <View style={styles.activityLeft}>
+              <IconSymbol
+                ios_icon_name="shippingbox.fill"
+                android_material_icon_name="inventory"
+                size={24}
+                color="#FF8C00"
+              />
+              <View style={styles.activityTextContainer}>
+                <Text style={[styles.activityTitle, { color: isDark ? colors.darkText : colors.text }]}>
+                  Mes colis envoyés
+                </Text>
+                <Text style={[styles.activitySubtext, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+                  Voir l&apos;historique
+                </Text>
+              </View>
+            </View>
+            <IconSymbol
+              ios_icon_name="chevron.right"
+              android_material_icon_name="chevron-right"
+              size={20}
+              color={isDark ? colors.darkTextSecondary : colors.textSecondary}
+            />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.activityItem, styles.activityItemLast]}
+            activeOpacity={0.7}
+            onPress={() => router.push('/colis/driver-my-deliveries')}
+          >
+            <View style={styles.activityLeft}>
+              <IconSymbol
+                ios_icon_name="truck.box.fill"
+                android_material_icon_name="local-shipping"
+                size={24}
+                color={colors.secondary}
+              />
+              <View style={styles.activityTextContainer}>
+                <Text style={[styles.activityTitle, { color: isDark ? colors.darkText : colors.text }]}>
+                  Mes colis à livrer
+                </Text>
+                <Text style={[styles.activitySubtext, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+                  Voir l&apos;historique
+                </Text>
+              </View>
+            </View>
+            <IconSymbol
+              ios_icon_name="chevron.right"
+              android_material_icon_name="chevron-right"
+              size={20}
+              color={isDark ? colors.darkTextSecondary : colors.textSecondary}
+            />
           </TouchableOpacity>
         </View>
 
-        {/* Assistance Yombal Yoon Section */}
-        <View style={[styles.assistanceCard, { backgroundColor: isDark ? colors.darkCard : colors.card }]}>
-          <View style={styles.assistanceHeader}>
+        {/* 4️⃣ SECTION – 🔐 SÉCURITÉ & IDENTITÉ */}
+        <View style={[styles.sectionCard, { backgroundColor: isDark ? colors.darkCard : colors.card }]}>
+          <Text style={[styles.sectionTitle, { color: isDark ? colors.darkText : colors.text }]}>
+            🔐 Sécurité & identité
+          </Text>
+
+          <View style={styles.securityStatus}>
             <IconSymbol
-              ios_icon_name="headphones"
-              android_material_icon_name="headset-mic"
-              size={28}
+              ios_icon_name="checkmark.shield.fill"
+              android_material_icon_name="verified-user"
+              size={24}
               color={colors.primary}
             />
-            <Text style={[styles.sectionTitle, { color: isDark ? colors.darkText : colors.text, marginBottom: 0 }]}>
-              Assistance Yombal Yoon
+            <Text style={[styles.securityStatusText, { color: colors.primary }]}>
+              ✅ Numéro vérifié (OTP global)
             </Text>
           </View>
 
-          <Text style={[styles.assistanceDescription, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-            Notre équipe est disponible pour vous aider avec vos trajets et vos envois de colis.
-          </Text>
-
-          <View style={styles.assistanceButtons}>
-            <TouchableOpacity
-              style={[styles.assistanceButton, { backgroundColor: colors.primary }]}
-              activeOpacity={0.8}
-              onPress={handleCallSupport}
-            >
+          <TouchableOpacity
+            style={styles.securityItem}
+            activeOpacity={0.7}
+            onPress={() => Alert.alert("Gérer mon numéro / OTP", "Fonctionnalité à venir")}
+          >
+            <View style={styles.securityLeft}>
               <IconSymbol
                 ios_icon_name="phone.fill"
                 android_material_icon_name="phone"
-                size={22}
-                color="#FFFFFF"
+                size={20}
+                color={isDark ? colors.darkText : colors.text}
               />
-              <Text style={styles.assistanceButtonText}>Appeler Yombal Yoon</Text>
-            </TouchableOpacity>
+              <Text style={[styles.securityItemText, { color: isDark ? colors.darkText : colors.text }]}>
+                Gérer mon numéro / OTP
+              </Text>
+            </View>
+            <IconSymbol
+              ios_icon_name="chevron.right"
+              android_material_icon_name="chevron-right"
+              size={20}
+              color={isDark ? colors.darkTextSecondary : colors.textSecondary}
+            />
+          </TouchableOpacity>
 
-            <TouchableOpacity
-              style={[styles.assistanceButton, { backgroundColor: '#25D366' }]}
-              activeOpacity={0.8}
-              onPress={handleWhatsAppSupport}
-            >
+          <TouchableOpacity
+            style={[styles.securityItem, styles.securityItemLast]}
+            activeOpacity={0.7}
+            onPress={() => Alert.alert("Confidentialité & données", "Fonctionnalité à venir")}
+          >
+            <View style={styles.securityLeft}>
+              <IconSymbol
+                ios_icon_name="lock.shield.fill"
+                android_material_icon_name="security"
+                size={20}
+                color={isDark ? colors.darkText : colors.text}
+              />
+              <Text style={[styles.securityItemText, { color: isDark ? colors.darkText : colors.text }]}>
+                Confidentialité & données
+              </Text>
+            </View>
+            <IconSymbol
+              ios_icon_name="chevron.right"
+              android_material_icon_name="chevron-right"
+              size={20}
+              color={isDark ? colors.darkTextSecondary : colors.textSecondary}
+            />
+          </TouchableOpacity>
+        </View>
+
+        {/* 5️⃣ SECTION – 💬 ASSISTANCE YOMBAL YOON */}
+        <View style={[styles.sectionCard, { backgroundColor: isDark ? colors.darkCard : colors.card }]}>
+          <Text style={[styles.sectionTitle, { color: isDark ? colors.darkText : colors.text }]}>
+            💬 Assistance Yombal Yoon
+          </Text>
+
+          <TouchableOpacity
+            style={styles.assistanceItem}
+            activeOpacity={0.7}
+            onPress={handleWhatsAppSupport}
+          >
+            <View style={styles.assistanceLeft}>
               <IconSymbol
                 ios_icon_name="message.fill"
                 android_material_icon_name="chat"
-                size={22}
-                color="#FFFFFF"
+                size={24}
+                color="#25D366"
               />
-              <Text style={styles.assistanceButtonText}>WhatsApp Yombal Yoon</Text>
-            </TouchableOpacity>
+              <Text style={[styles.assistanceItemText, { color: isDark ? colors.darkText : colors.text }]}>
+                Contacter sur WhatsApp
+              </Text>
+            </View>
+            <IconSymbol
+              ios_icon_name="chevron.right"
+              android_material_icon_name="chevron-right"
+              size={20}
+              color={isDark ? colors.darkTextSecondary : colors.textSecondary}
+            />
+          </TouchableOpacity>
 
-            <TouchableOpacity
-              style={[styles.assistanceButton, { backgroundColor: colors.accent }]}
-              activeOpacity={0.8}
-              onPress={() => router.push('/feedback')}
-            >
+          <TouchableOpacity
+            style={styles.assistanceItem}
+            activeOpacity={0.7}
+            onPress={handleCallSupport}
+          >
+            <View style={styles.assistanceLeft}>
               <IconSymbol
-                ios_icon_name="bubble.left.and.bubble.right.fill"
-                android_material_icon_name="feedback"
-                size={22}
-                color="#FFFFFF"
+                ios_icon_name="phone.fill"
+                android_material_icon_name="phone"
+                size={24}
+                color={colors.primary}
               />
-              <Text style={styles.assistanceButtonText}>Donner mon avis</Text>
-            </TouchableOpacity>
-          </View>
+              <Text style={[styles.assistanceItemText, { color: isDark ? colors.darkText : colors.text }]}>
+                Appeler le support
+              </Text>
+            </View>
+            <IconSymbol
+              ios_icon_name="chevron.right"
+              android_material_icon_name="chevron-right"
+              size={20}
+              color={isDark ? colors.darkTextSecondary : colors.textSecondary}
+            />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.assistanceItem, styles.assistanceItemLast]}
+            activeOpacity={0.7}
+            onPress={() => router.push('/feedback')}
+          >
+            <View style={styles.assistanceLeft}>
+              <IconSymbol
+                ios_icon_name="exclamationmark.triangle.fill"
+                android_material_icon_name="report-problem"
+                size={24}
+                color={colors.accent}
+              />
+              <Text style={[styles.assistanceItemText, { color: isDark ? colors.darkText : colors.text }]}>
+                Signaler un problème
+              </Text>
+            </View>
+            <IconSymbol
+              ios_icon_name="chevron.right"
+              android_material_icon_name="chevron-right"
+              size={20}
+              color={isDark ? colors.darkTextSecondary : colors.textSecondary}
+            />
+          </TouchableOpacity>
         </View>
 
-        {/* Reset Button */}
-        <TouchableOpacity
-          style={[styles.resetButton, { borderColor: colors.accent }]}
-          activeOpacity={0.8}
-          onPress={handleReset}
-        >
-          <Text style={[styles.resetButtonText, { color: colors.accent }]}>
-            Réinitialiser mon profil
+        {/* 6️⃣ SECTION – ⚙️ PARAMÈTRES */}
+        <View style={[styles.sectionCard, { backgroundColor: isDark ? colors.darkCard : colors.card }]}>
+          <Text style={[styles.sectionTitle, { color: isDark ? colors.darkText : colors.text }]}>
+            ⚙️ Paramètres
           </Text>
-        </TouchableOpacity>
 
-        {/* App Info */}
-        <View style={[styles.infoCard, { backgroundColor: isDark ? colors.darkCard : colors.card }]}>
-          <Text style={[styles.infoTitle, { color: isDark ? colors.darkText : colors.text }]}>
-            Yombal Yoon
-          </Text>
-          <Text style={[styles.infoText, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-            Version 1.0.0
-          </Text>
-          <Text style={[styles.infoText, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-            © 2024 Yombal Yoon. Tous droits réservés.
+          <TouchableOpacity
+            style={styles.settingItem}
+            activeOpacity={0.7}
+            onPress={() => Alert.alert("Langue", "Français (FR)")}
+          >
+            <View style={styles.settingLeft}>
+              <IconSymbol
+                ios_icon_name="globe"
+                android_material_icon_name="language"
+                size={20}
+                color={isDark ? colors.darkText : colors.text}
+              />
+              <Text style={[styles.settingItemText, { color: isDark ? colors.darkText : colors.text }]}>
+                Langue
+              </Text>
+            </View>
+            <View style={styles.settingRight}>
+              <Text style={[styles.settingValue, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+                FR
+              </Text>
+              <IconSymbol
+                ios_icon_name="chevron.right"
+                android_material_icon_name="chevron-right"
+                size={20}
+                color={isDark ? colors.darkTextSecondary : colors.textSecondary}
+              />
+            </View>
+          </TouchableOpacity>
+
+          <View style={styles.settingItem}>
+            <View style={styles.settingLeft}>
+              <IconSymbol
+                ios_icon_name="moon.fill"
+                android_material_icon_name="dark-mode"
+                size={20}
+                color={isDark ? colors.darkText : colors.text}
+              />
+              <Text style={[styles.settingItemText, { color: isDark ? colors.darkText : colors.text }]}>
+                Mode : Clair / Sombre
+              </Text>
+            </View>
+            <Switch
+              value={isDark}
+              onValueChange={() => Alert.alert("Mode", "Fonctionnalité à venir")}
+              trackColor={{ false: colors.border, true: colors.primary + '80' }}
+              thumbColor={isDark ? colors.primary : colors.textSecondary}
+            />
+          </View>
+
+          <TouchableOpacity
+            style={[styles.settingItem, styles.settingItemLast]}
+            activeOpacity={0.7}
+            onPress={() => Alert.alert("Déconnexion", "Êtes-vous sûr de vouloir vous déconnecter ?", [
+              { text: "Annuler", style: "cancel" },
+              { text: "Déconnexion", style: "destructive", onPress: () => console.log("Logout") }
+            ])}
+          >
+            <View style={styles.settingLeft}>
+              <IconSymbol
+                ios_icon_name="rectangle.portrait.and.arrow.right"
+                android_material_icon_name="logout"
+                size={20}
+                color={colors.accent}
+              />
+              <Text style={[styles.logoutText, { color: colors.accent }]}>
+                Se déconnecter
+              </Text>
+            </View>
+          </TouchableOpacity>
+        </View>
+
+        {/* 7️⃣ FOOTER – Version */}
+        <View style={styles.footer}>
+          <Text style={[styles.footerText, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+            v1.0.0 – Yombal Yoon (Production)
           </Text>
         </View>
       </ScrollView>
@@ -498,82 +664,56 @@ const styles = StyleSheet.create({
   loadingText: {
     fontSize: 16,
   },
-  profileHeader: {
-    alignItems: 'center',
+
+  // 1️⃣ HEADER
+  headerCard: {
     borderRadius: 16,
-    padding: 32,
+    padding: 20,
     marginBottom: 16,
     boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.08)',
     elevation: 3,
   },
-  avatarGradient: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 16,
-    boxShadow: '0px 4px 12px rgba(0, 128, 0, 0.3)',
-    elevation: 5,
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: '700',
-  },
-  walletButton: {
+  headerContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    borderRadius: 16,
-    padding: 20,
     marginBottom: 16,
+  },
+  avatar: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 16,
     boxShadow: '0px 4px 12px rgba(0, 128, 0, 0.3)',
     elevation: 5,
   },
-  walletButtonText: {
+  headerInfo: {
     flex: 1,
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    marginLeft: 12,
   },
-  assistanceCard: {
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 16,
-    boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.08)',
+  userName: {
+    fontSize: 20,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  userPhone: {
+    fontSize: 14,
+  },
+  editButton: {
+    borderRadius: 12,
+    padding: 14,
+    alignItems: 'center',
+    boxShadow: '0px 3px 8px rgba(0, 128, 0, 0.2)',
     elevation: 3,
   },
-  assistanceHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginBottom: 12,
-  },
-  assistanceDescription: {
-    fontSize: 14,
-    lineHeight: 20,
-    marginBottom: 16,
-  },
-  assistanceButtons: {
-    gap: 12,
-  },
-  assistanceButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 12,
-    padding: 16,
-    gap: 10,
-    boxShadow: '0px 3px 8px rgba(0, 0, 0, 0.15)',
-    elevation: 4,
-  },
-  assistanceButtonText: {
+  editButtonText: {
     fontSize: 16,
     fontWeight: '700',
     color: '#FFFFFF',
   },
-  formCard: {
+
+  // SECTION CARD
+  sectionCard: {
     borderRadius: 16,
     padding: 20,
     marginBottom: 16,
@@ -585,25 +725,19 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginBottom: 16,
   },
-  sectionDescription: {
-    fontSize: 14,
-    lineHeight: 20,
-    marginBottom: 20,
-  },
-  categoryContainer: {
+
+  // 2️⃣ ROLES
+  roleCategory: {
     marginBottom: 20,
     borderRadius: 12,
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: colors.border + '30',
   },
-  categoryContainerLast: {
+  roleCategoryLast: {
     marginBottom: 0,
   },
   categoryHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderBottomWidth: 1,
@@ -612,20 +746,6 @@ const styles = StyleSheet.create({
   categoryTitle: {
     fontSize: 16,
     fontWeight: '700',
-  },
-  inputGroup: {
-    marginBottom: 16,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 8,
-  },
-  input: {
-    borderWidth: 1,
-    borderRadius: 12,
-    padding: 14,
-    fontSize: 16,
   },
   roleItem: {
     flexDirection: 'row',
@@ -643,50 +763,163 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+    flex: 1,
+  },
+  roleTextContainer: {
+    flex: 1,
   },
   roleLabel: {
     fontSize: 16,
     fontWeight: '600',
-  },
-  saveButton: {
-    borderRadius: 16,
-    padding: 18,
-    alignItems: 'center',
-    marginTop: 8,
-    boxShadow: '0px 4px 12px rgba(0, 128, 0, 0.3)',
-    elevation: 5,
-  },
-  saveButtonText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  resetButton: {
-    borderRadius: 16,
-    padding: 18,
-    alignItems: 'center',
-    marginBottom: 16,
-    borderWidth: 2,
-  },
-  resetButtonText: {
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  infoCard: {
-    borderRadius: 16,
-    padding: 20,
-    alignItems: 'center',
-    boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.08)',
-    elevation: 3,
-  },
-  infoTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    marginBottom: 8,
-  },
-  infoText: {
-    fontSize: 14,
     marginBottom: 4,
+  },
+  roleSubtext: {
+    fontSize: 13,
+  },
+  activeBadge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+    marginTop: 4,
+  },
+  activeBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+
+  // 3️⃣ ACTIVITIES
+  activityItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border + '20',
+  },
+  activityItemLast: {
+    borderBottomWidth: 0,
+  },
+  activityLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  activityTextContainer: {
+    flex: 1,
+  },
+  activityTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  activitySubtext: {
+    fontSize: 13,
+  },
+
+  // 4️⃣ SECURITY
+  securityStatus: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    padding: 14,
+    backgroundColor: colors.primary + '10',
+    borderRadius: 12,
+    marginBottom: 12,
+  },
+  securityStatusText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  securityItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border + '20',
+  },
+  securityItemLast: {
+    borderBottomWidth: 0,
+  },
+  securityLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  securityItemText: {
+    fontSize: 16,
+    fontWeight: '500',
+  },
+
+  // 5️⃣ ASSISTANCE
+  assistanceItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border + '20',
+  },
+  assistanceItemLast: {
+    borderBottomWidth: 0,
+  },
+  assistanceLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  assistanceItemText: {
+    fontSize: 16,
+    fontWeight: '500',
+  },
+
+  // 6️⃣ SETTINGS
+  settingItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border + '20',
+  },
+  settingItemLast: {
+    borderBottomWidth: 0,
+  },
+  settingLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  settingRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  settingItemText: {
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  settingValue: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  logoutText: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+
+  // 7️⃣ FOOTER
+  footer: {
+    alignItems: 'center',
+    paddingVertical: 20,
+  },
+  footerText: {
+    fontSize: 12,
     textAlign: 'center',
   },
 });
