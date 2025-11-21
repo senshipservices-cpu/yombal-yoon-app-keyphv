@@ -39,6 +39,13 @@ export default function ProfileScreen() {
     loadWallet();
   }, [profile.id]);
 
+  /**
+   * Robust wallet loading/creation logic
+   * 1. Try to SELECT existing wallet
+   * 2. If not found, INSERT new wallet
+   * 3. If INSERT fails (unique constraint), SELECT again
+   * 4. Only show error if all attempts fail
+   */
   const loadWallet = async () => {
     try {
       setIsLoadingWallet(true);
@@ -46,62 +53,88 @@ export default function ProfileScreen() {
 
       if (!profile.id) {
         console.log('No profile ID available yet');
-        setWalletError('Profil non disponible');
         setIsLoadingWallet(false);
         return;
       }
 
-      console.log('Loading wallet for user:', profile.id);
+      console.log('🔄 Loading wallet for user:', profile.id);
 
-      // Simplified query: select only wallet data, no join with profiles
-      const { data: existingWallet, error: fetchError } = await supabase
+      // 1. Try to SELECT existing wallet
+      let { data: existingWallet, error: fetchError } = await supabase
         .from('wallets')
         .select('*')
         .eq('user_id', profile.id)
         .maybeSingle();
 
-      if (fetchError) {
-        console.error('Error fetching wallet:', fetchError);
-        setWalletError('Erreur de chargement');
-        setIsLoadingWallet(false);
-        return;
-      }
-
+      // 2. If wallet exists, use it
       if (existingWallet) {
-        console.log('Wallet found:', existingWallet);
+        console.log('✅ Wallet found:', existingWallet);
         setWallet(existingWallet);
         setIsLoadingWallet(false);
         return;
       }
 
-      // Wallet should have been created automatically by ProfileContext
-      // But if it doesn't exist, create it now
-      console.log('Creating new wallet for user:', profile.id);
-      const { data: newWallet, error: createError } = await supabase
-        .from('wallets')
-        .insert({
-          user_id: profile.id,
-          solde: 0,
-          solde_bloque: 0,
-          total_gagne: 0,
-          total_commissions: 0,
-        })
-        .select()
-        .single();
+      // 3. If wallet doesn't exist, create it
+      if (!existingWallet) {
+        console.log('📝 Wallet not found, creating automatically...');
+        
+        const { data: newWallet, error: createError } = await supabase
+          .from('wallets')
+          .insert({
+            user_id: profile.id,
+            solde: 0,
+            solde_bloque: 0,
+            total_gagne: 0,
+            total_commissions: 0,
+          })
+          .select()
+          .single();
 
-      if (createError) {
-        console.error('Error creating wallet:', createError);
-        setWalletError('Erreur de création');
-        setIsLoadingWallet(false);
-        return;
+        // 4. If INSERT succeeds, use the new wallet
+        if (newWallet && !createError) {
+          console.log('✅ Wallet created successfully:', newWallet);
+          setWallet(newWallet);
+          setIsLoadingWallet(false);
+          return;
+        }
+
+        // 5. If INSERT fails (possibly due to unique constraint or race condition),
+        //    try to SELECT again to get the existing wallet
+        if (createError) {
+          console.log('⚠️ Wallet creation failed, attempting to fetch existing wallet...');
+          console.log('Error details:', createError);
+          
+          const { data: retryWallet, error: retryError } = await supabase
+            .from('wallets')
+            .select('*')
+            .eq('user_id', profile.id)
+            .maybeSingle();
+
+          if (retryWallet) {
+            console.log('✅ Wallet found on retry:', retryWallet);
+            setWallet(retryWallet);
+            setIsLoadingWallet(false);
+            return;
+          }
+
+          // 6. If still no wallet, show error
+          console.error('❌ Failed to create or fetch wallet after retry');
+          setWalletError('Impossible de charger votre wallet pour le moment. Appuyez sur Réessayer ou reconnectez-vous.');
+          setIsLoadingWallet(false);
+          return;
+        }
       }
 
-      console.log('Wallet created:', newWallet);
-      setWallet(newWallet);
+      // Fallback: if we somehow get here without a wallet
+      if (fetchError && fetchError.code !== 'PGRST116') {
+        console.error('❌ Error fetching wallet:', fetchError);
+        setWalletError('Impossible de charger votre wallet pour le moment. Appuyez sur Réessayer ou reconnectez-vous.');
+      }
+
       setIsLoadingWallet(false);
     } catch (error) {
-      console.error('Error in loadWallet:', error);
-      setWalletError('Erreur inattendue');
+      console.error('❌ Unexpected error in loadWallet:', error);
+      setWalletError('Impossible de charger votre wallet pour le moment. Appuyez sur Réessayer ou reconnectez-vous.');
       setIsLoadingWallet(false);
     }
   };
@@ -604,13 +637,8 @@ export default function ProfileScreen() {
                   color={colors.error}
                 />
                 <Text style={[styles.walletErrorText, { color: isDark ? colors.darkText : colors.text }]}>
-                  Impossible de charger votre wallet. Veuillez réessayer.
+                  {walletError || 'Impossible de charger votre wallet pour le moment. Appuyez sur Réessayer ou reconnectez-vous.'}
                 </Text>
-                {walletError && (
-                  <Text style={[styles.walletErrorDetail, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-                    Détail: {walletError}
-                  </Text>
-                )}
                 <TouchableOpacity
                   style={[styles.walletRetryButton, { backgroundColor: colors.primary }]}
                   onPress={loadWallet}
@@ -1049,18 +1077,6 @@ const styles = StyleSheet.create({
   walletLoadingText: {
     fontSize: 14,
   },
-  walletInactiveCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-    padding: 20,
-    borderRadius: 12,
-  },
-  walletInactiveText: {
-    flex: 1,
-    fontSize: 14,
-    lineHeight: 20,
-  },
   walletCard: {
     borderRadius: 16,
     padding: 20,
@@ -1158,11 +1174,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: 'center',
     lineHeight: 20,
-  },
-  walletErrorDetail: {
-    fontSize: 12,
-    textAlign: 'center',
-    fontStyle: 'italic',
   },
   walletRetryButton: {
     paddingHorizontal: 20,
