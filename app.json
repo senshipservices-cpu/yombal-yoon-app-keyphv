@@ -1,20 +1,22 @@
+
 {
   "expo": {
     "name": "Yombal Yoon",
-    "slug": "Yombal Yoon",
+    "slug": "yombal-yoon",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/natively-dark.png",
+    "icon": "./assets/images/final_quest_240x240.png",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/images/natively-dark.png",
+      "image": "./assets/images/final_quest_240x240.png",
       "resizeMode": "contain",
       "backgroundColor": "#FFFFFF"
     },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.yombalyoon.app",
+      "buildNumber": "1",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSAppTransportSecurity": {
@@ -29,26 +31,38 @@
               "NSIncludesSubdomains": true
             }
           }
-        }
+        },
+        "NSLocationWhenInUseUsageDescription": "Yombal Yoon utilise votre position pour afficher les trajets de covoiturage et les livraisons à proximité.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Yombal Yoon utilise votre position pour suivre les livraisons en temps réel.",
+        "NSCameraUsageDescription": "Yombal Yoon a besoin d'accéder à votre caméra pour prendre des photos de vos colis.",
+        "NSPhotoLibraryUsageDescription": "Yombal Yoon a besoin d'accéder à vos photos pour sélectionner des images de vos colis.",
+        "NSMicrophoneUsageDescription": "Yombal Yoon a besoin d'accéder à votre microphone pour les appels.",
+        "NSContactsUsageDescription": "Yombal Yoon a besoin d'accéder à vos contacts pour faciliter le partage de trajets."
       }
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/natively-dark.png",
+        "foregroundImage": "./assets/images/final_quest_240x240.png",
         "backgroundColor": "#FFFFFF"
       },
       "edgeToEdgeEnabled": true,
       "package": "com.yombalyoon.app",
+      "versionCode": 1,
       "googleServicesFile": "./google-services.json",
       "permissions": [
         "INTERNET",
         "ACCESS_NETWORK_STATE",
         "ACCESS_FINE_LOCATION",
-        "ACCESS_COARSE_LOCATION"
+        "ACCESS_COARSE_LOCATION",
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "VIBRATE",
+        "CALL_PHONE"
       ]
     },
     "web": {
-      "favicon": "./assets/images/natively-dark.png",
+      "favicon": "./assets/images/final_quest_240x240.png",
       "bundler": "metro"
     },
     "plugins": [
@@ -56,9 +70,16 @@
       "expo-router",
       "expo-web-browser",
       [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Yombal Yoon utilise votre position pour suivre les livraisons en temps réel.",
+          "locationWhenInUsePermission": "Yombal Yoon utilise votre position pour afficher les trajets de covoiturage et les livraisons à proximité."
+        }
+      ],
+      [
         "expo-notifications",
         {
-          "icon": "./assets/images/natively-dark.png",
+          "icon": "./assets/images/final_quest_240x240.png",
           "color": "#008000",
           "sounds": [],
           "mode": "production"
@@ -71,8 +92,14 @@
     },
     "extra": {
       "router": {},
-      "GOOGLE_MAPS_API_KEY": "AIzaSyCyIEHUEYap3t8z_lqy2tCNhHFBhYHTSHQ"
-    }
-  },
-  "scheme": "Yombal Yoon"
+      "GOOGLE_MAPS_API_KEY": "AIzaSyCyIEHUEYap3t8z_lqy2tCNhHFBhYHTSHQ",
+      "eas": {
+        "projectId": "drxtaxepofuoelplgrei"
+      }
+    },
+    "owner": "yombalyoon",
+    "privacy": "public",
+    "description": "Covoiturage, envoi de colis et livraisons inter-régions au Sénégal. Yombal Yoon connecte les voyageurs, expéditeurs et livreurs pour des déplacements et livraisons sécurisés à travers tout le Sénégal.",
+    "githubUrl": "https://github.com/yombalyoon/yombal-yoon-app"
+  }
 }
