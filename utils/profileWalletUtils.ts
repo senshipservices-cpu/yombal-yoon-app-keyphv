@@ -9,6 +9,7 @@ import { supabase } from '@/app/integrations/supabase/client';
  * 
  * @param userId - The user ID (text format, not UUID)
  * @param userData - Optional user data to use when creating profile
+ * @param retryCount - Number of retry attempts (default: 2)
  * @returns Object containing profile and wallet data, or null if user not provided
  */
 export async function ensureProfileAndWallet(
@@ -17,9 +18,10 @@ export async function ensureProfileAndWallet(
     phone?: string;
     name?: string;
     roles?: any;
-  }
-) {
-  console.log('🔄 ensureProfileAndWallet called for user:', userId);
+  },
+  retryCount: number = 2
+): Promise<{ profile: any; wallet: any } | null> {
+  console.log('🔄 ensureProfileAndWallet called for user:', userId, 'retry count:', retryCount);
 
   if (!userId) {
     console.log('⚠️ No user ID provided, skipping profile/wallet creation');
@@ -36,6 +38,14 @@ export async function ensureProfileAndWallet(
 
     if (profileError && profileError.code !== 'PGRST116') {
       console.error('❌ Error fetching profile:', profileError);
+      
+      // Retry if we have attempts left
+      if (retryCount > 0) {
+        console.log(`🔄 Retrying profile fetch... (${retryCount} attempts left)`);
+        await new Promise(resolve => setTimeout(resolve, 500)); // Wait 500ms before retry
+        return ensureProfileAndWallet(userId, userData, retryCount - 1);
+      }
+      
       throw profileError;
     }
 
@@ -73,8 +83,12 @@ export async function ensureProfileAndWallet(
           .maybeSingle();
         
         if (retryProfile) {
-          console.log('✅ Profile found on retry');
+          console.log('✅ Profile found on retry after creation error');
           profile = retryProfile;
+        } else if (retryCount > 0) {
+          console.log(`🔄 Retrying profile creation... (${retryCount} attempts left)`);
+          await new Promise(resolve => setTimeout(resolve, 500));
+          return ensureProfileAndWallet(userId, userData, retryCount - 1);
         } else {
           throw createProfileError;
         }
@@ -95,6 +109,14 @@ export async function ensureProfileAndWallet(
 
     if (walletError && walletError.code !== 'PGRST116') {
       console.error('❌ Error fetching wallet:', walletError);
+      
+      // Retry if we have attempts left
+      if (retryCount > 0) {
+        console.log(`🔄 Retrying wallet fetch... (${retryCount} attempts left)`);
+        await new Promise(resolve => setTimeout(resolve, 500));
+        return ensureProfileAndWallet(userId, userData, retryCount - 1);
+      }
+      
       throw walletError;
     }
 
@@ -127,8 +149,12 @@ export async function ensureProfileAndWallet(
           .maybeSingle();
         
         if (retryWallet) {
-          console.log('✅ Wallet found on retry');
+          console.log('✅ Wallet found on retry after creation error');
           wallet = retryWallet;
+        } else if (retryCount > 0) {
+          console.log(`🔄 Retrying wallet creation... (${retryCount} attempts left)`);
+          await new Promise(resolve => setTimeout(resolve, 500));
+          return ensureProfileAndWallet(userId, userData, retryCount - 1);
         } else {
           throw createWalletError;
         }
@@ -144,6 +170,14 @@ export async function ensureProfileAndWallet(
     return { profile, wallet };
   } catch (error) {
     console.error('❌ Error in ensureProfileAndWallet:', error);
+    
+    // Final retry if we have attempts left
+    if (retryCount > 0) {
+      console.log(`🔄 Final retry... (${retryCount} attempts left)`);
+      await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1s before final retry
+      return ensureProfileAndWallet(userId, userData, retryCount - 1);
+    }
+    
     throw error;
   }
 }
@@ -153,14 +187,19 @@ export async function ensureProfileAndWallet(
  * 
  * This function ensures profile and wallet exist, then loads the wallet data.
  * It handles errors gracefully and provides clear error messages.
+ * Uses retry logic (2 attempts) before showing error.
  * 
  * @param userId - The user ID (text format, not UUID)
+ * @param retryCount - Number of retry attempts (default: 2)
  * @returns Wallet data or throws an error
  * @throws 'USER_NOT_AUTH' if user is not authenticated
- * @throws 'WALLET_LOAD_ERROR' if wallet cannot be loaded
+ * @throws 'WALLET_LOAD_ERROR' if wallet cannot be loaded after retries
  */
-export async function loadWalletForProfil(userId: string | null) {
-  console.log('🔄 loadWalletForProfil called for user:', userId);
+export async function loadWalletForProfil(
+  userId: string | null,
+  retryCount: number = 2
+): Promise<any> {
+  console.log('🔄 loadWalletForProfil called for user:', userId, 'retry count:', retryCount);
 
   if (!userId) {
     console.error('❌ User not authenticated');
@@ -168,10 +207,46 @@ export async function loadWalletForProfil(userId: string | null) {
   }
 
   try {
-    // 1) S'assurer que profil + wallet existent
-    await ensureProfileAndWallet(userId);
+    // 1) S'assurer que profil + wallet existent (with retry logic)
+    const result = await ensureProfileAndWallet(userId, undefined, retryCount);
+    
+    if (!result || !result.wallet) {
+      throw new Error('WALLET_LOAD_ERROR');
+    }
 
-    // 2) Charger le wallet
+    // 2) Return the wallet directly from ensureProfileAndWallet
+    console.log('✅ Wallet loaded successfully from ensureProfileAndWallet');
+    return result.wallet;
+  } catch (error: any) {
+    console.error('❌ Error in loadWalletForProfil:', error);
+    
+    // Retry if we have attempts left
+    if (retryCount > 0 && error.message !== 'USER_NOT_AUTH') {
+      console.log(`🔄 Retrying loadWalletForProfil... (${retryCount} attempts left)`);
+      await new Promise(resolve => setTimeout(resolve, 500));
+      return loadWalletForProfil(userId, retryCount - 1);
+    }
+    
+    throw error;
+  }
+}
+
+/**
+ * Refresh wallet data with retry logic
+ * 
+ * @param userId - The user ID
+ * @param retryCount - Number of retry attempts (default: 2)
+ * @returns Updated wallet data
+ */
+export async function refreshWallet(
+  userId: string | null,
+  retryCount: number = 2
+): Promise<any> {
+  if (!userId) {
+    throw new Error('USER_NOT_AUTH');
+  }
+
+  try {
     const { data: wallet, error } = await supabase
       .from('wallets')
       .select('*')
@@ -179,39 +254,29 @@ export async function loadWalletForProfil(userId: string | null) {
       .single();
 
     if (error || !wallet) {
-      console.error('❌ Error loading wallet:', error);
+      console.error('❌ Error refreshing wallet:', error);
+      
+      // Retry if we have attempts left
+      if (retryCount > 0) {
+        console.log(`🔄 Retrying wallet refresh... (${retryCount} attempts left)`);
+        await new Promise(resolve => setTimeout(resolve, 500));
+        return refreshWallet(userId, retryCount - 1);
+      }
+      
       throw new Error('WALLET_LOAD_ERROR');
     }
 
-    console.log('✅ Wallet loaded successfully');
     return wallet;
   } catch (error) {
-    console.error('❌ Error in loadWalletForProfil:', error);
+    console.error('❌ Error in refreshWallet:', error);
+    
+    // Final retry
+    if (retryCount > 0) {
+      console.log(`🔄 Final retry for wallet refresh... (${retryCount} attempts left)`);
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      return refreshWallet(userId, retryCount - 1);
+    }
+    
     throw error;
   }
-}
-
-/**
- * Refresh wallet data
- * 
- * @param userId - The user ID
- * @returns Updated wallet data
- */
-export async function refreshWallet(userId: string | null) {
-  if (!userId) {
-    throw new Error('USER_NOT_AUTH');
-  }
-
-  const { data: wallet, error } = await supabase
-    .from('wallets')
-    .select('*')
-    .eq('user_id', userId)
-    .single();
-
-  if (error || !wallet) {
-    console.error('❌ Error refreshing wallet:', error);
-    throw new Error('WALLET_LOAD_ERROR');
-  }
-
-  return wallet;
 }

@@ -29,6 +29,7 @@ export default function ProfileScreen() {
   const [wallet, setWallet] = useState<any>(null);
   const [isLoadingWallet, setIsLoadingWallet] = useState(true);
   const [walletError, setWalletError] = useState<string | null>(null);
+  const [walletRetryCount, setWalletRetryCount] = useState(0);
 
   useEffect(() => {
     setIsSender(profile.roles.sender);
@@ -36,26 +37,39 @@ export default function ProfileScreen() {
   }, [profile]);
 
   useEffect(() => {
+    // Only load wallet if profile.id is available
     if (profile.id) {
       loadWallet();
+    } else {
+      console.log('⏳ Waiting for profile.id to be available...');
+      setIsLoadingWallet(true);
     }
   }, [profile.id]);
 
   /**
-   * BLOC 2 - Load wallet using the new utility function
+   * BLOC 2 - Load wallet using the new utility function with retry logic
    * Handles errors gracefully and provides retry functionality
+   * Implements iOS timing fix: waits for profile to load before attempting wallet load
    */
   const loadWallet = async () => {
     try {
       setIsLoadingWallet(true);
       setWalletError(null);
 
-      console.log('🔄 Loading wallet for profile page...');
+      // Check if profile.id is available (iOS timing fix)
+      if (!profile.id) {
+        console.log('⏳ Profile ID not yet available, showing loader...');
+        // Keep loading state, will retry when profile.id becomes available
+        return;
+      }
 
-      // Use the new loadWalletForProfil utility function
-      const walletData = await loadWalletForProfil(profile.id || null);
+      console.log('🔄 Loading wallet for profile page with user ID:', profile.id);
+
+      // Use the new loadWalletForProfil utility function with retry logic (2 attempts)
+      const walletData = await loadWalletForProfil(profile.id, 2);
       
       setWallet(walletData);
+      setWalletRetryCount(0); // Reset retry count on success
       console.log('✅ Wallet loaded successfully');
     } catch (error: any) {
       console.error('❌ Error loading wallet:', error);
@@ -68,6 +82,8 @@ export default function ProfileScreen() {
       } else {
         setWalletError('Une erreur inattendue s\'est produite. Appuyez sur Réessayer.');
       }
+      
+      setWalletRetryCount(prev => prev + 1);
     } finally {
       setIsLoadingWallet(false);
     }
@@ -75,9 +91,11 @@ export default function ProfileScreen() {
 
   /**
    * Retry loading wallet
+   * Implements retry logic as specified in requirements
    */
   const handleRetryWallet = async () => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    console.log(`🔄 Manual retry attempt #${walletRetryCount + 1}`);
     await loadWallet();
   };
 
@@ -161,7 +179,8 @@ export default function ProfileScreen() {
 
   const hasProviderRole = profile.roles.driver || profile.roles.delivery;
 
-  if (isLoading) {
+  // iOS timing fix: Show loader if profile is still loading
+  if (isLoading || !profile.id) {
     return (
       <SafeAreaView 
         style={[styles.safeArea, { backgroundColor: isDark ? colors.darkBackground : colors.background }]} 
@@ -171,6 +190,9 @@ export default function ProfileScreen() {
           <ActivityIndicator size="large" color={colors.primary} />
           <Text style={[styles.loadingText, { color: isDark ? colors.darkText : colors.text }]}>
             Chargement du profil...
+          </Text>
+          <Text style={[styles.loadingSubtext, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+            Veuillez patienter
           </Text>
         </View>
       </SafeAreaView>
@@ -464,7 +486,7 @@ export default function ProfileScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* 💰 SECTION – MON WALLET YOMBAL YOON (BLOC 2 Implementation) */}
+        {/* 💰 SECTION – MON WALLET YOMBAL YOON (BLOC 2 Implementation with retry logic) */}
         {hasProviderRole && (
           <View style={[styles.sectionCard, { backgroundColor: isDark ? colors.darkCard : colors.card }]}>
             <Text style={[styles.sectionTitle, { color: isDark ? colors.darkText : colors.text }]}>
@@ -476,6 +498,9 @@ export default function ProfileScreen() {
                 <ActivityIndicator size="small" color={colors.primary} />
                 <Text style={[styles.walletLoadingText, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
                   Chargement du wallet...
+                </Text>
+                <Text style={[styles.walletLoadingSubtext, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+                  Création automatique si nécessaire
                 </Text>
               </View>
             ) : walletError ? (
@@ -489,11 +514,22 @@ export default function ProfileScreen() {
                 <Text style={[styles.walletErrorText, { color: isDark ? colors.darkText : colors.text }]}>
                   {walletError}
                 </Text>
+                {walletRetryCount > 0 && (
+                  <Text style={[styles.walletRetryInfo, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+                    Tentative #{walletRetryCount}
+                  </Text>
+                )}
                 <TouchableOpacity
                   style={[styles.walletRetryButton, { backgroundColor: colors.primary }]}
                   onPress={handleRetryWallet}
                   activeOpacity={0.8}
                 >
+                  <IconSymbol
+                    ios_icon_name="arrow.clockwise"
+                    android_material_icon_name="refresh"
+                    size={18}
+                    color="#FFFFFF"
+                  />
                   <Text style={styles.walletRetryButtonText}>Réessayer</Text>
                 </TouchableOpacity>
               </View>
@@ -858,6 +894,10 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
+  loadingSubtext: {
+    fontSize: 14,
+    textAlign: 'center',
+  },
 
   // 1️⃣ HEADER
   headerCard: {
@@ -1014,14 +1054,19 @@ const styles = StyleSheet.create({
 
   // 💰 WALLET SECTION
   walletLoadingContainer: {
-    flexDirection: 'row',
+    flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 12,
+    gap: 8,
     paddingVertical: 24,
   },
   walletLoadingText: {
     fontSize: 14,
+    fontWeight: '600',
+  },
+  walletLoadingSubtext: {
+    fontSize: 12,
+    textAlign: 'center',
   },
   walletCard: {
     borderRadius: 16,
@@ -1121,7 +1166,14 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 20,
   },
+  walletRetryInfo: {
+    fontSize: 12,
+    fontStyle: 'italic',
+  },
   walletRetryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 8,
