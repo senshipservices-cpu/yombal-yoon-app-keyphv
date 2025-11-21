@@ -195,96 +195,11 @@ export default function DriverRouteToDeliveryScreen() {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     }
 
-    Alert.alert(
-      'Confirmer la livraison',
-      'Avez-vous bien livré le colis au destinataire ?',
-      [
-        {
-          text: 'Annuler',
-          style: 'cancel',
-        },
-        {
-          text: 'Confirmer',
-          onPress: async () => {
-            setIsDelivering(true);
-            try {
-              // Update parcel status to 'delivered'
-              await updateParcelStatus(parcelId, 'delivered');
-
-              // Update in Supabase
-              if (isSupabaseConfigured() && !demoMode) {
-                const { error: parcelError } = await supabase
-                  .from('parcels')
-                  .update({
-                    status: 'delivered',
-                    delivered_at: new Date().toISOString(),
-                  })
-                  .eq('id', parcelId);
-
-                if (parcelError) {
-                  console.error('Error updating parcel in Supabase:', parcelError);
-                }
-
-                // Update driver status back to available
-                const { error: driverError } = await supabase
-                  .from('drivers')
-                  .update({
-                    status: 'available',
-                  })
-                  .eq('id', deliveryPersonId);
-
-                if (driverError) {
-                  console.error('Error updating driver status in Supabase:', driverError);
-                }
-              }
-
-              // Update driver status in context
-              await updateDeliveryPersonStatus(deliveryPersonId, 'available');
-
-              // Send notifications to sender and recipient
-              try {
-                await sendLocalNotification(
-                  '✅ Colis livré',
-                  'Votre colis a été livré avec succès.',
-                  {
-                    type: 'parcel_delivered',
-                    parcelId: parcelId,
-                  }
-                );
-                console.log('✅ Delivery notification sent');
-              } catch (notifError) {
-                console.error('Error sending notification:', notifError);
-              }
-
-              Alert.alert(
-                '🎉 Livraison terminée. Merci !',
-                'Le colis a été livré avec succès. Vous êtes maintenant disponible pour de nouvelles livraisons.',
-                [
-                  {
-                    text: 'Voir mes livraisons',
-                    onPress: () => {
-                      router.replace('/colis/driver-pending-requests');
-                    },
-                  },
-                  {
-                    text: 'Retour à l\'accueil',
-                    onPress: () => {
-                      router.replace('/');
-                    },
-                    style: 'cancel',
-                  },
-                ]
-              );
-            } catch (error) {
-              console.error('Error updating parcel status:', error);
-              Alert.alert('Erreur', 'Une erreur est survenue. Veuillez réessayer.');
-            } finally {
-              setIsDelivering(false);
-            }
-          },
-        },
-      ]
-    );
+    // Navigate to payment completion screen
+    router.push({
+      pathname: '/colis/delivery-complete-payment',
+      params: { parcelId },
+    });
   };
 
   if (!parcel) {

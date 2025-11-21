@@ -25,11 +25,11 @@ export default function WalletScreen() {
   };
 
   const handleWithdrawal = () => {
-    Alert.alert(
-      "Bientôt disponible",
-      "La fonctionnalité de retrait sera bientôt disponible. Vous pourrez retirer vos fonds via Wave ou Orange Money.",
-      [{ text: "OK" }]
-    );
+    router.push('/wallet/withdrawal');
+  };
+
+  const handleRecharge = () => {
+    router.push('/wallet/recharge');
   };
 
   return (
@@ -78,20 +78,36 @@ export default function WalletScreen() {
           </View>
         </LinearGradient>
 
-        {/* Withdrawal Button */}
-        <TouchableOpacity
-          style={[styles.withdrawalButton, { backgroundColor: colors.accent }]}
-          activeOpacity={0.8}
-          onPress={handleWithdrawal}
-        >
-          <IconSymbol
-            ios_icon_name="arrow.down.circle.fill"
-            android_material_icon_name="get-app"
-            size={24}
-            color="#FFFFFF"
-          />
-          <Text style={styles.withdrawalButtonText}>Demander un retrait</Text>
-        </TouchableOpacity>
+        {/* Action Buttons */}
+        <View style={styles.actionButtons}>
+          <TouchableOpacity
+            style={[styles.actionButton, { backgroundColor: colors.accent }]}
+            activeOpacity={0.8}
+            onPress={handleWithdrawal}
+          >
+            <IconSymbol
+              ios_icon_name="arrow.down.circle.fill"
+              android_material_icon_name="get-app"
+              size={24}
+              color="#FFFFFF"
+            />
+            <Text style={styles.actionButtonText}>Retrait</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.actionButton, { backgroundColor: colors.primary }]}
+            activeOpacity={0.8}
+            onPress={handleRecharge}
+          >
+            <IconSymbol
+              ios_icon_name="arrow.up.circle.fill"
+              android_material_icon_name="publish"
+              size={24}
+              color="#FFFFFF"
+            />
+            <Text style={styles.actionButtonText}>Recharge</Text>
+          </TouchableOpacity>
+        </View>
 
         {/* Module Stats */}
         <View style={[styles.statsCard, { backgroundColor: isDark ? colors.darkCard : colors.card }]}>
@@ -306,18 +322,23 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#FFFFFF',
   },
-  withdrawalButton: {
+  actionButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 24,
+  },
+  actionButton: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 16,
     padding: 18,
-    marginBottom: 24,
-    gap: 12,
-    boxShadow: '0px 4px 12px rgba(255, 0, 0, 0.3)',
+    gap: 8,
+    boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.2)',
     elevation: 5,
   },
-  withdrawalButtonText: {
+  actionButtonText: {
     fontSize: 16,
     fontWeight: '700',
     color: '#FFFFFF',
