@@ -1,7 +1,8 @@
 
 import { supabase } from '@/app/integrations/supabase/client';
+import { IS_TEST_MODE } from '@/config/testMode';
 
-// Commission rate (12%)
+// Commission rate (12%) - Only used in production mode
 export const COMMISSION_RATE = 0.12;
 
 // Debt threshold (-10000 FCFA)
@@ -11,7 +12,9 @@ export const DEBT_THRESHOLD = -10000;
  * Calculate commission and provider amounts from total price
  */
 export function calculateAmounts(prixTotal: number) {
-  const commissionYombal = Math.round(prixTotal * COMMISSION_RATE);
+  // In test mode, commission is 0
+  const commissionRate = IS_TEST_MODE ? 0 : COMMISSION_RATE;
+  const commissionYombal = Math.round(prixTotal * commissionRate);
   const prixPrestataire = prixTotal - commissionYombal;
   
   return {
@@ -110,6 +113,12 @@ export async function checkDebtStatus(userId: string): Promise<{
  */
 export async function blockCommission(userId: string, commissionAmount: number) {
   try {
+    // In test mode, skip commission blocking
+    if (IS_TEST_MODE) {
+      console.log('TEST MODE: Skipping commission blocking');
+      return { success: true, error: null };
+    }
+
     const { wallet, error: walletError } = await getOrCreateWallet(userId);
 
     if (walletError || !wallet) {
@@ -211,6 +220,12 @@ export async function debitCommission(
   unblockAmount: number = 0
 ) {
   try {
+    // In test mode, skip commission deduction
+    if (IS_TEST_MODE) {
+      console.log('TEST MODE: Skipping commission deduction');
+      return { success: true, error: null };
+    }
+
     const { wallet, error: walletError } = await getOrCreateWallet(userId);
 
     if (walletError || !wallet) {

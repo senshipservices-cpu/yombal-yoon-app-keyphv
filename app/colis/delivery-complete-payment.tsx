@@ -18,12 +18,10 @@ import { IconSymbol } from '@/components/IconSymbol';
 import { supabase } from '@/app/integrations/supabase/client';
 import { useProfile } from '@/contexts/ProfileContext';
 import { formatCurrency, creditDriverWallet, debitCommission } from '@/utils/walletUtils';
+import { IS_TEST_MODE, getCommissionRate, getCommissionDisplayText } from '@/config/testMode';
 import * as Haptics from 'expo-haptics';
 
 type PaymentMethod = 'wave' | 'orange_money' | 'especes';
-
-// Commission rate for delivery (15%)
-const DELIVERY_COMMISSION_RATE = 0.15;
 
 export default function DeliveryCompletePaymentScreen() {
   const theme = useTheme();
@@ -69,7 +67,8 @@ export default function DeliveryCompletePaymentScreen() {
 
       // Calculate commission and provider amounts
       const prixTotal = data.price_fcfa || 0;
-      const commissionYombal = Math.round(prixTotal * DELIVERY_COMMISSION_RATE);
+      const commissionRate = getCommissionRate('colis');
+      const commissionYombal = Math.round(prixTotal * commissionRate);
       const prixPrestataire = prixTotal - commissionYombal;
 
       setParcelData({
@@ -288,9 +287,9 @@ export default function DeliveryCompletePaymentScreen() {
 
             <View style={styles.amountRow}>
               <Text style={[styles.amountLabel, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-                Commission Yombal Yoon (15%)
+                {getCommissionDisplayText('colis')}
               </Text>
-              <Text style={[styles.amountValue, { color: colors.accent }]}>
+              <Text style={[styles.amountValue, { color: IS_TEST_MODE ? colors.success : colors.accent }]}>
                 -{formatCurrency(parcelData.commission_yombal)}
               </Text>
             </View>
@@ -379,15 +378,17 @@ export default function DeliveryCompletePaymentScreen() {
           </View>
 
           {/* Info Card */}
-          <View style={[styles.infoCard, { backgroundColor: colors.accent + '20' }]}>
+          <View style={[styles.infoCard, { backgroundColor: IS_TEST_MODE ? colors.success + '20' : colors.accent + '20' }]}>
             <IconSymbol
               ios_icon_name="info.circle.fill"
               android_material_icon_name="info"
               size={24}
-              color={colors.accent}
+              color={IS_TEST_MODE ? colors.success : colors.accent}
             />
             <Text style={[styles.infoText, { color: isDark ? colors.darkText : colors.text }]}>
-              Après confirmation, votre wallet sera crédité du montant net et la commission sera automatiquement prélevée.
+              {IS_TEST_MODE 
+                ? '🎉 Mode test activé : Vous recevrez 100% du montant sans commission !' 
+                : 'Après confirmation, votre wallet sera crédité du montant net et la commission sera automatiquement prélevée.'}
             </Text>
           </View>
         </View>
