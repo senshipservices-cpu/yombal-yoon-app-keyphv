@@ -255,6 +255,21 @@ export default function ColisScreen() {
                   Mes colis
                 </Text>
               </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[styles.quickActionButton, { backgroundColor: isDark ? colors.darkBackground : colors.background }]}
+                onPress={() => router.push('/colis/driver-my-deliveries')}
+              >
+                <IconSymbol
+                  ios_icon_name="shippingbox.fill"
+                  android_material_icon_name="local-shipping"
+                  size={20}
+                  color={colors.accent}
+                />
+                <Text style={[styles.quickActionText, { color: isDark ? colors.darkText : colors.text }]}>
+                  Mes livraisons
+                </Text>
+              </TouchableOpacity>
             </View>
           </View>
 
@@ -685,7 +700,9 @@ const styles = StyleSheet.create({
   },
   quickActions: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 12,
+    justifyContent: 'center',
   },
   quickActionButton: {
     flexDirection: 'row',

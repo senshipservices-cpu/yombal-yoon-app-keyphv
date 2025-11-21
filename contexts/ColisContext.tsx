@@ -435,6 +435,7 @@ export function ColisProvider({ children }: { children: ReactNode }) {
       const parcelRow = {
         sender_name: requestData.senderName,
         sender_phone: requestData.senderPhone,
+        sender_id: requestData.senderPhone, // Use phone as sender_id for now (until auth is implemented)
         recipient_name: requestData.recipientName,
         recipient_phone: requestData.recipientPhone,
         pickup_address: requestData.departureAddress,
