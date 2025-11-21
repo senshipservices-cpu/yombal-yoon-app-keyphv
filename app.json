@@ -14,10 +14,10 @@
       "backgroundColor": "#FFFFFF"
     },
     "updates": {
-      "enabled": false,
-      "fallbackToCacheTimeout": 0,
-      "checkAutomatically": "never",
-      "url": ""
+      "enabled": true,
+      "fallbackToCacheTimeout": 30000,
+      "checkAutomatically": "ON_LOAD",
+      "url": "https://u.expo.dev/drxtaxepofuoelplgrei"
     },
     "ios": {
       "supportsTablet": true,
@@ -106,7 +106,10 @@
     "owner": "yombalyoon",
     "privacy": "public",
     "description": "Covoiturage, envoi de colis et livraisons inter-régions au Sénégal. Yombal Yoon connecte les voyageurs, expéditeurs et livreurs pour des déplacements et livraisons sécurisés à travers tout le Sénégal.",
-    "githubUrl": "https://github.com/yombalyoon/yombal-yoon-app"
+    "githubUrl": "https://github.com/yombalyoon/yombal-yoon-app",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    }
   },
   "scheme": "Yombal Yoon"
 }
