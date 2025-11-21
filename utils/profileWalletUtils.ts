@@ -43,7 +43,7 @@ export async function ensureProfileAndWallet(
       // Retry if we have attempts left
       if (retryCount > 0) {
         console.log(`🔄 Retrying profile fetch... (${retryCount} attempts left)`);
-        await new Promise(resolve => setTimeout(resolve, 500)); // Wait 500ms before retry
+        await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1s before retry
         return ensureProfileAndWallet(userId, userData, retryCount - 1);
       }
       
@@ -71,7 +71,7 @@ export async function ensureProfileAndWallet(
           updated_at: new Date().toISOString(),
         })
         .select()
-        .single();
+        .maybeSingle();
 
       if (createProfileError) {
         console.error('❌ Error creating profile:', createProfileError);
@@ -88,7 +88,7 @@ export async function ensureProfileAndWallet(
           profile = retryProfile;
         } else if (retryCount > 0) {
           console.log(`🔄 Retrying profile creation... (${retryCount} attempts left)`);
-          await new Promise(resolve => setTimeout(resolve, 500));
+          await new Promise(resolve => setTimeout(resolve, 1000));
           return ensureProfileAndWallet(userId, userData, retryCount - 1);
         } else {
           throw createProfileError;
@@ -115,7 +115,7 @@ export async function ensureProfileAndWallet(
       // Retry if we have attempts left
       if (retryCount > 0) {
         console.log(`🔄 Retrying wallet fetch... (${retryCount} attempts left)`);
-        await new Promise(resolve => setTimeout(resolve, 500));
+        await new Promise(resolve => setTimeout(resolve, 1000));
         return ensureProfileAndWallet(userId, userData, retryCount - 1);
       }
       
@@ -145,7 +145,7 @@ export async function ensureProfileAndWallet(
           updated_at: new Date().toISOString(),
         })
         .select()
-        .single();
+        .maybeSingle();
 
       if (createWalletError) {
         console.error('❌ Error creating wallet:', createWalletError);
@@ -162,7 +162,7 @@ export async function ensureProfileAndWallet(
           wallet = retryWallet;
         } else if (retryCount > 0) {
           console.log(`🔄 Retrying wallet creation... (${retryCount} attempts left)`);
-          await new Promise(resolve => setTimeout(resolve, 500));
+          await new Promise(resolve => setTimeout(resolve, 1000));
           return ensureProfileAndWallet(userId, userData, retryCount - 1);
         } else {
           throw createWalletError;
@@ -183,7 +183,7 @@ export async function ensureProfileAndWallet(
     // Final retry if we have attempts left
     if (retryCount > 0) {
       console.log(`🔄 Final retry... (${retryCount} attempts left)`);
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1s before final retry
+      await new Promise(resolve => setTimeout(resolve, 1500)); // Wait 1.5s before final retry
       return ensureProfileAndWallet(userId, userData, retryCount - 1);
     }
     
@@ -237,7 +237,12 @@ export async function loadWalletForProfil(
   try {
     // First, ensure profile and wallet exist
     console.log('🔄 Ensuring profile and wallet exist before loading...');
-    await ensureProfileAndWallet(userId, undefined, 1); // Use 1 retry for faster response
+    const result = await ensureProfileAndWallet(userId, undefined, 1); // Use 1 retry for faster response
+
+    if (!result || !result.wallet) {
+      console.error('❌ Failed to ensure wallet exists');
+      throw new Error('WALLET_LOAD_ERROR');
+    }
 
     // 2. Requête Supabase : SELECT * FROM wallets WHERE user_id = auth.user.id
     console.log('🔍 Step 2: Querying wallet for user_id:', userId);
@@ -247,13 +252,13 @@ export async function loadWalletForProfil(
       .eq('user_id', userId)
       .maybeSingle();
 
-    if (walletError && walletError.code !== 'PGRST116') {
+    if (walletError) {
       console.error('❌ Error fetching wallet:', walletError);
       
       // Retry if we have attempts left
       if (retryCount > 0) {
         console.log(`🔄 Retrying wallet fetch... (${retryCount} attempts left)`);
-        await new Promise(resolve => setTimeout(resolve, 500));
+        await new Promise(resolve => setTimeout(resolve, 1000));
         return loadWalletForProfil(userId, retryCount - 1);
       }
       
@@ -283,7 +288,7 @@ export async function loadWalletForProfil(
           updated_at: new Date().toISOString(),
         })
         .select()
-        .single();
+        .maybeSingle();
 
       if (createWalletError) {
         console.error('❌ Error creating wallet:', createWalletError);
@@ -307,7 +312,7 @@ export async function loadWalletForProfil(
           return retryWallet;
         } else if (retryCount > 0) {
           console.log(`🔄 Retrying wallet creation... (${retryCount} attempts left)`);
-          await new Promise(resolve => setTimeout(resolve, 500));
+          await new Promise(resolve => setTimeout(resolve, 1000));
           return loadWalletForProfil(userId, retryCount - 1);
         } else {
           throw new Error('WALLET_LOAD_ERROR');
@@ -316,10 +321,10 @@ export async function loadWalletForProfil(
         console.log('✅ Wallet created successfully');
         // 4. Recharger la section Wallet (return wallet data)
         console.log('✅ Step 4: Wallet section reloaded with data:', {
-          solde: newWallet.solde,
-          solde_bloque: newWallet.solde_bloque,
-          total_gagne: newWallet.total_gagne,
-          total_commissions: newWallet.total_commissions
+          solde: newWallet?.solde || 0,
+          solde_bloque: newWallet?.solde_bloque || 0,
+          total_gagne: newWallet?.total_gagne || 0,
+          total_commissions: newWallet?.total_commissions || 0
         });
         return newWallet;
       }
@@ -336,11 +341,17 @@ export async function loadWalletForProfil(
     }
   } catch (error: any) {
     console.error('❌ Error in loadWalletForProfil:', error);
+    console.error('❌ Error details:', {
+      message: error.message,
+      code: error.code,
+      details: error.details,
+      hint: error.hint
+    });
     
     // Retry if we have attempts left
     if (retryCount > 0 && error.message !== 'USER_NOT_AUTH') {
       console.log(`🔄 Retrying loadWalletForProfil... (${retryCount} attempts left)`);
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await new Promise(resolve => setTimeout(resolve, 1500));
       return loadWalletForProfil(userId, retryCount - 1);
     }
     
@@ -368,19 +379,26 @@ export async function refreshWallet(
       .from('wallets')
       .select('*')
       .eq('user_id', userId)
-      .single();
+      .maybeSingle();
 
-    if (error || !wallet) {
+    if (error) {
       console.error('❌ Error refreshing wallet:', error);
       
       // Retry if we have attempts left
       if (retryCount > 0) {
         console.log(`🔄 Retrying wallet refresh... (${retryCount} attempts left)`);
-        await new Promise(resolve => setTimeout(resolve, 500));
+        await new Promise(resolve => setTimeout(resolve, 1000));
         return refreshWallet(userId, retryCount - 1);
       }
       
       throw new Error('WALLET_LOAD_ERROR');
+    }
+
+    if (!wallet) {
+      console.log('⚠️ No wallet found during refresh, creating one...');
+      // Create wallet if it doesn't exist
+      const result = await ensureProfileAndWallet(userId);
+      return result?.wallet || null;
     }
 
     return wallet;
@@ -390,7 +408,7 @@ export async function refreshWallet(
     // Final retry
     if (retryCount > 0) {
       console.log(`🔄 Final retry for wallet refresh... (${retryCount} attempts left)`);
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise(resolve => setTimeout(resolve, 1500));
       return refreshWallet(userId, retryCount - 1);
     }
     

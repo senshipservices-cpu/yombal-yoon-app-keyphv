@@ -65,8 +65,8 @@ export default function ProfileScreen() {
 
       console.log('🔄 Loading wallet for profile page with user ID:', profile.id);
 
-      // Use the new loadWalletForProfil utility function with retry logic (2 attempts)
-      const walletData = await loadWalletForProfil(profile.id, 2);
+      // Use the new loadWalletForProfil utility function with retry logic (1 attempt only to avoid "Tentative #3")
+      const walletData = await loadWalletForProfil(profile.id, 1);
       
       setWallet(walletData);
       setWalletRetryCount(0); // Reset retry count on success
@@ -74,13 +74,17 @@ export default function ProfileScreen() {
     } catch (error: any) {
       console.error('❌ Error loading wallet:', error);
       
-      // Handle specific error types
+      // Handle specific error types with more detailed messages
       if (error.message === 'USER_NOT_AUTH') {
         setWalletError('Vous devez être connecté pour accéder à votre wallet. Veuillez vous reconnecter.');
       } else if (error.message === 'WALLET_LOAD_ERROR') {
-        setWalletError('Impossible de charger votre wallet pour le moment. Appuyez sur Réessayer ou reconnectez-vous.');
+        setWalletError('Impossible de charger votre wallet pour le moment. Vérifiez votre connexion internet et appuyez sur Réessayer.');
+      } else if (error.code === 'PGRST116') {
+        setWalletError('Votre wallet n\'existe pas encore. Appuyez sur Réessayer pour le créer automatiquement.');
+      } else if (error.message?.includes('network') || error.message?.includes('fetch')) {
+        setWalletError('Problème de connexion réseau. Vérifiez votre connexion internet et réessayez.');
       } else {
-        setWalletError('Une erreur inattendue s\'est produite. Appuyez sur Réessayer.');
+        setWalletError(`Erreur technique: ${error.message || 'Erreur inconnue'}. Appuyez sur Réessayer.`);
       }
       
       setWalletRetryCount(prev => prev + 1);
@@ -96,6 +100,7 @@ export default function ProfileScreen() {
   const handleRetryWallet = async () => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     console.log(`🔄 Manual retry attempt #${walletRetryCount + 1}`);
+    setWalletRetryCount(0); // Reset counter for manual retry
     await loadWallet();
   };
 
@@ -486,7 +491,7 @@ export default function ProfileScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* 💰 SECTION – MON WALLET YOMBAL YOON (BLOC 2 Implementation with retry logic) */}
+        {/* 💰 SECTION – MON WALLET YOMBAL YOON (BLOC 2 Implementation with improved error handling) */}
         {hasProviderRole && (
           <View style={[styles.sectionCard, { backgroundColor: isDark ? colors.darkCard : colors.card }]}>
             <Text style={[styles.sectionTitle, { color: isDark ? colors.darkText : colors.text }]}>
@@ -514,11 +519,6 @@ export default function ProfileScreen() {
                 <Text style={[styles.walletErrorText, { color: isDark ? colors.darkText : colors.text }]}>
                   {walletError}
                 </Text>
-                {walletRetryCount > 0 && (
-                  <Text style={[styles.walletRetryInfo, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-                    Tentative #{walletRetryCount}
-                  </Text>
-                )}
                 <TouchableOpacity
                   style={[styles.walletRetryButton, { backgroundColor: colors.primary }]}
                   onPress={handleRetryWallet}
@@ -1165,10 +1165,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: 'center',
     lineHeight: 20,
-  },
-  walletRetryInfo: {
-    fontSize: 12,
-    fontStyle: 'italic',
   },
   walletRetryButton: {
     flexDirection: 'row',
