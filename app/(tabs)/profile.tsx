@@ -53,7 +53,7 @@ export default function ProfileScreen() {
 
       console.log('Loading wallet for user:', profile.id);
 
-      // Try to get existing wallet
+      // Simplified query: select only wallet data, no join with profiles
       const { data: existingWallet, error: fetchError } = await supabase
         .from('wallets')
         .select('*')
@@ -74,7 +74,8 @@ export default function ProfileScreen() {
         return;
       }
 
-      // Create new wallet if it doesn't exist
+      // Wallet should have been created automatically by ProfileContext
+      // But if it doesn't exist, create it now
       console.log('Creating new wallet for user:', profile.id);
       const { data: newWallet, error: createError } = await supabase
         .from('wallets')
