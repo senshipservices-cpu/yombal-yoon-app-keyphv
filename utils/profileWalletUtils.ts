@@ -30,6 +30,7 @@ export async function ensureProfileAndWallet(
 
   try {
     // 1) Vérifier / créer PROFIL
+    console.log('📋 Step 1: Checking if profile exists for user_id:', userId);
     let { data: profile, error: profileError } = await supabase
       .from('user_profiles')
       .select('*')
@@ -101,6 +102,7 @@ export async function ensureProfileAndWallet(
     }
 
     // 2) Vérifier / créer WALLET
+    console.log('💰 Step 2: Checking if wallet exists for user_id:', userId);
     let { data: wallet, error: walletError } = await supabase
       .from('wallets')
       .select('*')
@@ -123,6 +125,13 @@ export async function ensureProfileAndWallet(
     // Si le wallet n'existe pas, le créer
     if (!wallet) {
       console.log('💰 Wallet not found, creating automatically...');
+      console.log('   → INSERT INTO wallets {');
+      console.log('        user_id:', userId);
+      console.log('        solde: 0,');
+      console.log('        solde_bloque: 0,');
+      console.log('        total_gagne: 0,');
+      console.log('        total_commissions: 0');
+      console.log('     }');
       
       const { data: newWallet, error: createWalletError } = await supabase
         .from('wallets')
@@ -226,9 +235,13 @@ export async function loadWalletForProfil(
   }
 
   try {
+    // First, ensure profile and wallet exist
+    console.log('🔄 Ensuring profile and wallet exist before loading...');
+    await ensureProfileAndWallet(userId, undefined, 1); // Use 1 retry for faster response
+
     // 2. Requête Supabase : SELECT * FROM wallets WHERE user_id = auth.user.id
     console.log('🔍 Step 2: Querying wallet for user_id:', userId);
-    let { data: wallet, error: walletError } = await supabase
+    const { data: wallet, error: walletError } = await supabase
       .from('wallets')
       .select('*')
       .eq('user_id', userId)
@@ -249,7 +262,7 @@ export async function loadWalletForProfil(
 
     // 3. Si aucun wallet retourné : INSERT INTO wallets
     if (!wallet) {
-      console.log('💰 Step 3: No wallet found, creating with default values...');
+      console.log('💰 Step 3: No wallet found after ensure, creating with default values...');
       console.log('   → INSERT INTO wallets {');
       console.log('        user_id:', userId);
       console.log('        solde: 0,');
@@ -284,7 +297,14 @@ export async function loadWalletForProfil(
         
         if (retryWallet) {
           console.log('✅ Wallet found on retry after creation error');
-          wallet = retryWallet;
+          // 4. Recharger la section Wallet (return wallet data)
+          console.log('✅ Step 4: Wallet section reloaded with data:', {
+            solde: retryWallet.solde,
+            solde_bloque: retryWallet.solde_bloque,
+            total_gagne: retryWallet.total_gagne,
+            total_commissions: retryWallet.total_commissions
+          });
+          return retryWallet;
         } else if (retryCount > 0) {
           console.log(`🔄 Retrying wallet creation... (${retryCount} attempts left)`);
           await new Promise(resolve => setTimeout(resolve, 500));
@@ -294,21 +314,26 @@ export async function loadWalletForProfil(
         }
       } else {
         console.log('✅ Wallet created successfully');
-        wallet = newWallet;
+        // 4. Recharger la section Wallet (return wallet data)
+        console.log('✅ Step 4: Wallet section reloaded with data:', {
+          solde: newWallet.solde,
+          solde_bloque: newWallet.solde_bloque,
+          total_gagne: newWallet.total_gagne,
+          total_commissions: newWallet.total_commissions
+        });
+        return newWallet;
       }
     } else {
       console.log('✅ Wallet already exists, no creation needed');
+      // 4. Recharger la section Wallet (return wallet data)
+      console.log('✅ Step 4: Wallet section reloaded with data:', {
+        solde: wallet.solde,
+        solde_bloque: wallet.solde_bloque,
+        total_gagne: wallet.total_gagne,
+        total_commissions: wallet.total_commissions
+      });
+      return wallet;
     }
-
-    // 4. Recharger la section Wallet (return wallet data)
-    console.log('✅ Step 4: Wallet section reloaded with data:', {
-      solde: wallet.solde,
-      solde_bloque: wallet.solde_bloque,
-      total_gagne: wallet.total_gagne,
-      total_commissions: wallet.total_commissions
-    });
-    
-    return wallet;
   } catch (error: any) {
     console.error('❌ Error in loadWalletForProfil:', error);
     
