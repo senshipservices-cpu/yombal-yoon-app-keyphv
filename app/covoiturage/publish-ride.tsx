@@ -24,7 +24,9 @@ import { useProfile } from '@/contexts/ProfileContext';
 import { useOTP } from '@/contexts/OTPContext';
 import CityAutocomplete from '@/components/CityAutocomplete';
 import PhoneVerificationModal from '@/components/PhoneVerificationModal';
+import DebtBlockModal from '@/components/DebtBlockModal';
 import { supabase } from '@/config/supabase';
+import { checkDebtStatus } from '@/utils/walletUtils';
 
 const FAVORITE_ROUTE_KEY = '@yombal_yoon_favorite_route';
 
@@ -73,6 +75,8 @@ export default function PublishRideScreen() {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [successAnimation] = useState(new Animated.Value(0));
   const [showVerificationModal, setShowVerificationModal] = useState(false);
+  const [showDebtModal, setShowDebtModal] = useState(false);
+  const [debtAmount, setDebtAmount] = useState(0);
 
   const calculateDistanceAndDuration = useCallback(async () => {
     if (!departureLat || !departureLng || !arrivalLat || !arrivalLng) {
@@ -439,6 +443,29 @@ export default function PublishRideScreen() {
     if (!isPhoneVerified) {
       setShowVerificationModal(true);
       return;
+    }
+
+    // Check debt status before publishing
+    try {
+      const USER_ID_KEY = '@yombal_yoon_user_id';
+      let userId = await AsyncStorage.getItem(USER_ID_KEY);
+      
+      if (!userId) {
+        userId = `user_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+        await AsyncStorage.setItem(USER_ID_KEY, userId);
+      }
+
+      const debtStatus = await checkDebtStatus(userId);
+      
+      if (debtStatus.isBlocked) {
+        console.log('User is blocked due to debt:', debtStatus.debtAmount);
+        setDebtAmount(debtStatus.debtAmount);
+        setShowDebtModal(true);
+        return;
+      }
+    } catch (error) {
+      console.error('Error checking debt status:', error);
+      // Continue with ride creation even if debt check fails
     }
 
     setValidationErrors([]);
@@ -836,6 +863,12 @@ export default function PublishRideScreen() {
             [{ text: 'OK' }]
           );
         }}
+      />
+
+      <DebtBlockModal
+        visible={showDebtModal}
+        debtAmount={debtAmount}
+        onClose={() => setShowDebtModal(false)}
       />
 
       <View style={[styles.header, { backgroundColor: '#FF8C00' }]}>

@@ -444,41 +444,67 @@ export default function MyRidesScreen() {
                     </View>
                   </View>
 
-                  {/* Cancel Ride Button */}
+                  {/* Action Buttons */}
                   {!isCancelled && (
-                    <TouchableOpacity
-                      style={[
-                        styles.cancelRideButton, 
-                        { 
-                          backgroundColor: colors.accent + '20', 
-                          borderColor: colors.accent,
-                          opacity: isCancelling ? 0.5 : 1,
-                          cursor: Platform.OS === 'web' ? 'pointer' : undefined,
-                        }
-                      ]}
-                      onPress={() => {
-                        console.log('Cancel button pressed for ride:', ride.id);
-                        handleCancelRide(ride.id, ride);
-                      }}
-                      activeOpacity={0.7}
-                      disabled={isCancelling}
-                    >
-                      {isCancelling ? (
-                        <ActivityIndicator size="small" color={colors.accent} />
-                      ) : (
-                        <React.Fragment>
-                          <IconSymbol
-                            ios_icon_name="xmark.circle"
-                            android_material_icon_name="cancel"
-                            size={16}
-                            color={colors.accent}
-                          />
-                          <Text style={[styles.cancelRideButtonText, { color: colors.accent }]}>
-                            Annuler le trajet
-                          </Text>
-                        </React.Fragment>
-                      )}
-                    </TouchableOpacity>
+                    <View style={styles.actionButtonsContainer}>
+                      <TouchableOpacity
+                        style={[
+                          styles.endTripButton, 
+                          { 
+                            backgroundColor: colors.primary,
+                          }
+                        ]}
+                        onPress={() => {
+                          console.log('End trip button pressed for ride:', ride.id);
+                          router.push(`/covoiturage/end-trip-payment?rideId=${ride.id}`);
+                        }}
+                        activeOpacity={0.7}
+                      >
+                        <IconSymbol
+                          ios_icon_name="checkmark.circle.fill"
+                          android_material_icon_name="check-circle"
+                          size={16}
+                          color="#FFFFFF"
+                        />
+                        <Text style={[styles.endTripButtonText, { color: '#FFFFFF' }]}>
+                          Terminer le trajet
+                        </Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={[
+                          styles.cancelRideButton, 
+                          { 
+                            backgroundColor: colors.accent + '20', 
+                            borderColor: colors.accent,
+                            opacity: isCancelling ? 0.5 : 1,
+                            cursor: Platform.OS === 'web' ? 'pointer' : undefined,
+                          }
+                        ]}
+                        onPress={() => {
+                          console.log('Cancel button pressed for ride:', ride.id);
+                          handleCancelRide(ride.id, ride);
+                        }}
+                        activeOpacity={0.7}
+                        disabled={isCancelling}
+                      >
+                        {isCancelling ? (
+                          <ActivityIndicator size="small" color={colors.accent} />
+                        ) : (
+                          <React.Fragment>
+                            <IconSymbol
+                              ios_icon_name="xmark.circle"
+                              android_material_icon_name="cancel"
+                              size={16}
+                              color={colors.accent}
+                            />
+                            <Text style={[styles.cancelRideButtonText, { color: colors.accent }]}>
+                              Annuler le trajet
+                            </Text>
+                          </React.Fragment>
+                        )}
+                      </TouchableOpacity>
+                    </View>
                   )}
 
                   {/* Reservations */}
@@ -695,6 +721,23 @@ const styles = StyleSheet.create({
   detailText: {
     fontSize: 14,
   },
+  actionButtonsContainer: {
+    gap: 8,
+    marginBottom: 12,
+  },
+  endTripButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+  },
+  endTripButtonText: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
   cancelRideButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -704,7 +747,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderRadius: 8,
     borderWidth: 1,
-    marginBottom: 12,
   },
   cancelRideButtonText: {
     fontSize: 14,

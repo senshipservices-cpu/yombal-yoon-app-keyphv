@@ -3,6 +3,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '@/app/integrations/supabase/client';
 import type { Tables, TablesInsert } from '@/app/integrations/supabase/types';
+import { calculateAmounts, blockCommission, getOrCreateWallet } from '@/utils/walletUtils';
 
 export interface Ride {
   id: string;
@@ -180,8 +181,33 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
     await loadData();
   };
 
+  const getUserId = async (): Promise<string> => {
+    const USER_ID_KEY = '@yombal_yoon_user_id';
+    let userId = await AsyncStorage.getItem(USER_ID_KEY);
+    
+    if (!userId) {
+      userId = `user_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+      await AsyncStorage.setItem(USER_ID_KEY, userId);
+    }
+
+    return userId;
+  };
+
   const addRide = async (rideData: Omit<Ride, 'id' | 'createdAt' | 'status'>) => {
     try {
+      // Calculate total price and commission
+      const totalSeats = rideData.totalSeats;
+      const pricePerSeat = rideData.pricePerPassenger;
+      const prixTotal = totalSeats * pricePerSeat;
+      
+      const { commissionYombal, prixPrestataire } = calculateAmounts(prixTotal);
+
+      console.log('Calculated amounts:', {
+        prixTotal,
+        commissionYombal,
+        prixPrestataire,
+      });
+
       // Combine date and time into departure_datetime
       const departureDatetime = new Date(`${rideData.date}T${rideData.time}`).toISOString();
 
@@ -204,6 +230,11 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
         arrival_lng: rideData.arrivalLng || null,
         distance_km: rideData.distanceKm || null,
         duration_minutes: rideData.durationMinutes || null,
+        // Add commission fields
+        prix_total: prixTotal,
+        commission_yombal: commissionYombal,
+        prix_prestataire: prixPrestataire,
+        statut_paiement: 'en_attente',
       };
 
       // Insert into Supabase
@@ -216,6 +247,18 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
       if (error) {
         console.error('Supabase error:', error);
         throw new Error('Erreur lors de la publication du trajet.');
+      }
+
+      console.log('Ride created in Supabase:', data);
+
+      // Block commission in wallet (optional)
+      try {
+        const userId = await getUserId();
+        await blockCommission(userId, commissionYombal);
+        console.log('Commission blocked in wallet');
+      } catch (walletError) {
+        console.error('Error blocking commission (non-critical):', walletError);
+        // Don't fail the ride creation if wallet blocking fails
       }
 
       // Convert Supabase data to local format
