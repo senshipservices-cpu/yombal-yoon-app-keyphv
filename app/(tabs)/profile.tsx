@@ -9,6 +9,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useProfile } from "@/contexts/ProfileContext";
 import { useRouter } from "expo-router";
 import { useNotifications } from "@/contexts/NotificationContext";
+import * as Haptics from 'expo-haptics';
 
 const SUPPORT_PHONE = "+221765676486";
 
@@ -36,29 +37,57 @@ export default function ProfileScreen() {
     setIsSender(profile.roles.sender);
   }, [profile]);
 
-  const handleSave = async () => {
+  // Immediate role update function
+  const handleRoleToggle = async (role: 'driver' | 'passenger' | 'delivery' | 'sender', value: boolean) => {
+    // Haptic feedback
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+    // Update local state immediately
+    switch (role) {
+      case 'driver':
+        setIsDriver(value);
+        break;
+      case 'passenger':
+        setIsPassenger(value);
+        break;
+      case 'delivery':
+        setIsDelivery(value);
+        break;
+      case 'sender':
+        setIsSender(value);
+        break;
+    }
+
+    // Update profile in storage immediately
+    const updatedRoles = {
+      ...profile.roles,
+      [role]: value,
+    };
+
     await updateProfile({
-      fullName,
-      phone,
-      roles: {
-        driver: isDriver,
-        passenger: isPassenger,
-        delivery: isDelivery,
-        sender: isSender,
-      },
+      roles: updatedRoles,
     });
 
     // Register for push notifications with updated roles
     const activeRoles: string[] = [];
-    if (isDriver) activeRoles.push('driver');
-    if (isPassenger) activeRoles.push('passenger');
-    if (isDelivery) activeRoles.push('delivery');
-    if (isSender) activeRoles.push('sender');
+    if (role === 'driver' ? value : isDriver) activeRoles.push('driver');
+    if (role === 'passenger' ? value : isPassenger) activeRoles.push('passenger');
+    if (role === 'delivery' ? value : isDelivery) activeRoles.push('delivery');
+    if (role === 'sender' ? value : isSender) activeRoles.push('sender');
 
     console.log('Registering push notifications with roles:', activeRoles);
     await registerForPushNotifications(phone || 'current_user', activeRoles);
 
-    Alert.alert("Succès", "Votre profil a été mis à jour");
+    console.log(`Role ${role} ${value ? 'activated' : 'deactivated'} immediately`);
+  };
+
+  const handleSavePersonalInfo = async () => {
+    await updateProfile({
+      fullName,
+      phone,
+    });
+
+    Alert.alert("Succès", "Vos informations personnelles ont été mises à jour");
   };
 
   const handleReset = () => {
@@ -185,13 +214,13 @@ export default function ProfileScreen() {
           />
         </TouchableOpacity>
 
-        {/* Roles Section - CATEGORIZED */}
+        {/* Roles Section - CATEGORIZED WITH IMMEDIATE ACTIVATION */}
         <View style={[styles.formCard, { backgroundColor: isDark ? colors.darkCard : colors.card }]}>
           <Text style={[styles.sectionTitle, { color: isDark ? colors.darkText : colors.text }]}>
             Mes rôles
           </Text>
           <Text style={[styles.sectionDescription, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-            Gérez vos rôles pour le covoiturage et l&apos;envoi de colis
+            Activez ou désactivez vos rôles instantanément
           </Text>
 
           {/* Category 1: Covoiturage */}
@@ -222,7 +251,7 @@ export default function ProfileScreen() {
               </View>
               <Switch
                 value={isDriver}
-                onValueChange={setIsDriver}
+                onValueChange={(value) => handleRoleToggle('driver', value)}
                 trackColor={{ false: colors.border, true: colors.primary + '80' }}
                 thumbColor={isDriver ? colors.primary : colors.textSecondary}
               />
@@ -242,7 +271,7 @@ export default function ProfileScreen() {
               </View>
               <Switch
                 value={isPassenger}
-                onValueChange={setIsPassenger}
+                onValueChange={(value) => handleRoleToggle('passenger', value)}
                 trackColor={{ false: colors.border, true: colors.accent + '80' }}
                 thumbColor={isPassenger ? colors.accent : colors.textSecondary}
               />
@@ -277,7 +306,7 @@ export default function ProfileScreen() {
               </View>
               <Switch
                 value={isSender}
-                onValueChange={setIsSender}
+                onValueChange={(value) => handleRoleToggle('sender', value)}
                 trackColor={{ false: colors.border, true: '#FF8C00' + '80' }}
                 thumbColor={isSender ? '#FF8C00' : colors.textSecondary}
               />
@@ -297,7 +326,7 @@ export default function ProfileScreen() {
               </View>
               <Switch
                 value={isDelivery}
-                onValueChange={setIsDelivery}
+                onValueChange={(value) => handleRoleToggle('delivery', value)}
                 trackColor={{ false: colors.border, true: colors.secondary + '80' }}
                 thumbColor={isDelivery ? colors.secondary : colors.textSecondary}
               />
@@ -351,6 +380,15 @@ export default function ProfileScreen() {
               keyboardType="phone-pad"
             />
           </View>
+
+          {/* Save button for personal info only */}
+          <TouchableOpacity
+            style={[styles.saveButton, { backgroundColor: colors.primary }]}
+            activeOpacity={0.8}
+            onPress={handleSavePersonalInfo}
+          >
+            <Text style={styles.saveButtonText}>Enregistrer les informations</Text>
+          </TouchableOpacity>
         </View>
 
         {/* Assistance Yombal Yoon Section */}
@@ -416,15 +454,7 @@ export default function ProfileScreen() {
           </View>
         </View>
 
-        {/* Action Buttons */}
-        <TouchableOpacity
-          style={[styles.saveButton, { backgroundColor: colors.primary }]}
-          activeOpacity={0.8}
-          onPress={handleSave}
-        >
-          <Text style={styles.saveButtonText}>Enregistrer les modifications</Text>
-        </TouchableOpacity>
-
+        {/* Reset Button */}
         <TouchableOpacity
           style={[styles.resetButton, { borderColor: colors.accent }]}
           activeOpacity={0.8}
@@ -628,7 +658,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 18,
     alignItems: 'center',
-    marginBottom: 12,
+    marginTop: 8,
     boxShadow: '0px 4px 12px rgba(0, 128, 0, 0.3)',
     elevation: 5,
   },
