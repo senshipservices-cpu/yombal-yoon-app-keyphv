@@ -185,11 +185,24 @@ export async function ensureProfileAndWallet(
 /**
  * BLOC 2 - Load wallet for Profile page
  * 
+ * À coller dans l'action d'ouverture de l'écran "Profil" :
+ * 1. Récupérer l'utilisateur connecté (auth)
+ * 2. Requête Supabase : SELECT * FROM wallets WHERE user_id = auth.user.id
+ * 3. Si aucun wallet retourné :
+ *    → INSERT INTO wallets {
+ *         user_id: auth.user.id,
+ *         solde: 0,
+ *         solde_bloque: 0,
+ *         total_gagne: 0,
+ *         total_commissions: 0
+ *      }
+ * 4. Recharger la section Wallet
+ * 
  * This function ensures profile and wallet exist, then loads the wallet data.
  * It handles errors gracefully and provides clear error messages.
  * Uses retry logic (2 attempts) before showing error.
  * 
- * @param userId - The user ID (text format, not UUID)
+ * @param userId - The user ID (text format, not UUID) - corresponds to auth.user.id
  * @param retryCount - Number of retry attempts (default: 2)
  * @returns Wallet data or throws an error
  * @throws 'USER_NOT_AUTH' if user is not authenticated
@@ -200,23 +213,102 @@ export async function loadWalletForProfil(
   retryCount: number = 2
 ): Promise<any> {
   console.log('🔄 loadWalletForProfil called for user:', userId, 'retry count:', retryCount);
+  console.log('📋 Implementation of user requirements:');
+  console.log('   1. ✅ Récupérer l\'utilisateur connecté (userId provided)');
+  console.log('   2. 🔄 Requête Supabase: SELECT * FROM wallets WHERE user_id = userId');
+  console.log('   3. 🔄 Si aucun wallet: INSERT INTO wallets with default values');
+  console.log('   4. 🔄 Recharger la section Wallet');
 
+  // 1. Récupérer l'utilisateur connecté (auth)
   if (!userId) {
-    console.error('❌ User not authenticated');
+    console.error('❌ User not authenticated (no userId provided)');
     throw new Error('USER_NOT_AUTH');
   }
 
   try {
-    // 1) S'assurer que profil + wallet existent (with retry logic)
-    const result = await ensureProfileAndWallet(userId, undefined, retryCount);
-    
-    if (!result || !result.wallet) {
+    // 2. Requête Supabase : SELECT * FROM wallets WHERE user_id = auth.user.id
+    console.log('🔍 Step 2: Querying wallet for user_id:', userId);
+    let { data: wallet, error: walletError } = await supabase
+      .from('wallets')
+      .select('*')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (walletError && walletError.code !== 'PGRST116') {
+      console.error('❌ Error fetching wallet:', walletError);
+      
+      // Retry if we have attempts left
+      if (retryCount > 0) {
+        console.log(`🔄 Retrying wallet fetch... (${retryCount} attempts left)`);
+        await new Promise(resolve => setTimeout(resolve, 500));
+        return loadWalletForProfil(userId, retryCount - 1);
+      }
+      
       throw new Error('WALLET_LOAD_ERROR');
     }
 
-    // 2) Return the wallet directly from ensureProfileAndWallet
-    console.log('✅ Wallet loaded successfully from ensureProfileAndWallet');
-    return result.wallet;
+    // 3. Si aucun wallet retourné : INSERT INTO wallets
+    if (!wallet) {
+      console.log('💰 Step 3: No wallet found, creating with default values...');
+      console.log('   → INSERT INTO wallets {');
+      console.log('        user_id:', userId);
+      console.log('        solde: 0,');
+      console.log('        solde_bloque: 0,');
+      console.log('        total_gagne: 0,');
+      console.log('        total_commissions: 0');
+      console.log('     }');
+      
+      const { data: newWallet, error: createWalletError } = await supabase
+        .from('wallets')
+        .insert({
+          user_id: userId,
+          solde: 0,
+          solde_bloque: 0,
+          total_gagne: 0,
+          total_commissions: 0,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .select()
+        .single();
+
+      if (createWalletError) {
+        console.error('❌ Error creating wallet:', createWalletError);
+        
+        // Retry fetching in case of race condition
+        const { data: retryWallet } = await supabase
+          .from('wallets')
+          .select('*')
+          .eq('user_id', userId)
+          .maybeSingle();
+        
+        if (retryWallet) {
+          console.log('✅ Wallet found on retry after creation error');
+          wallet = retryWallet;
+        } else if (retryCount > 0) {
+          console.log(`🔄 Retrying wallet creation... (${retryCount} attempts left)`);
+          await new Promise(resolve => setTimeout(resolve, 500));
+          return loadWalletForProfil(userId, retryCount - 1);
+        } else {
+          throw new Error('WALLET_LOAD_ERROR');
+        }
+      } else {
+        console.log('✅ Wallet created successfully');
+        wallet = newWallet;
+      }
+    } else {
+      console.log('✅ Wallet already exists, no creation needed');
+    }
+
+    // 4. Recharger la section Wallet (return wallet data)
+    console.log('✅ Step 4: Wallet section reloaded with data:', {
+      solde: wallet.solde,
+      solde_bloque: wallet.solde_bloque,
+      total_gagne: wallet.total_gagne,
+      total_commissions: wallet.total_commissions
+    });
+    
+    return wallet;
   } catch (error: any) {
     console.error('❌ Error in loadWalletForProfil:', error);
     
