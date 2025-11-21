@@ -9,6 +9,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useProfile } from "@/contexts/ProfileContext";
 import { useRouter } from "expo-router";
 import { useNotifications } from "@/contexts/NotificationContext";
+import PhoneVerificationModal from "@/components/PhoneVerificationModal";
 import * as Haptics from 'expo-haptics';
 
 const SUPPORT_PHONE = "+221765676486";
@@ -17,43 +18,32 @@ export default function ProfileScreen() {
   const theme = useTheme();
   const isDark = theme.dark;
   const router = useRouter();
-  const { profile, updateProfile, isLoading } = useProfile();
+  const { profile, updateProfile, isLoading, refreshProfile } = useProfile();
   const { registerForPushNotifications } = useNotifications();
 
-  const [isDriver, setIsDriver] = useState(profile.roles.driver);
-  const [isPassenger, setIsPassenger] = useState(profile.roles.passenger);
-  const [isDelivery, setIsDelivery] = useState(profile.roles.delivery);
   const [isSender, setIsSender] = useState(profile.roles.sender);
+  const [isDelivery, setIsDelivery] = useState(profile.roles.delivery);
+  const [showPhoneVerification, setShowPhoneVerification] = useState(false);
 
   useEffect(() => {
-    setIsDriver(profile.roles.driver);
-    setIsPassenger(profile.roles.passenger);
-    setIsDelivery(profile.roles.delivery);
     setIsSender(profile.roles.sender);
+    setIsDelivery(profile.roles.delivery);
   }, [profile]);
 
-  // Immediate role update function
-  const handleRoleToggle = async (role: 'driver' | 'passenger' | 'delivery' | 'sender', value: boolean) => {
+  const handleRoleToggle = async (role: 'sender' | 'delivery', value: boolean) => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
-    switch (role) {
-      case 'driver':
-        setIsDriver(value);
-        break;
-      case 'passenger':
-        setIsPassenger(value);
-        break;
-      case 'delivery':
-        setIsDelivery(value);
-        break;
-      case 'sender':
-        setIsSender(value);
-        break;
+    if (role === 'sender') {
+      setIsSender(value);
+    } else {
+      setIsDelivery(value);
     }
 
     const updatedRoles = {
       ...profile.roles,
       [role]: value,
+      driver: true,
+      passenger: true,
     };
 
     await updateProfile({
@@ -61,10 +51,10 @@ export default function ProfileScreen() {
     });
 
     const activeRoles: string[] = [];
-    if (role === 'driver' ? value : isDriver) activeRoles.push('driver');
-    if (role === 'passenger' ? value : isPassenger) activeRoles.push('passenger');
-    if (role === 'delivery' ? value : isDelivery) activeRoles.push('delivery');
-    if (role === 'sender' ? value : isSender) activeRoles.push('sender');
+    if (updatedRoles.driver) activeRoles.push('driver');
+    if (updatedRoles.passenger) activeRoles.push('passenger');
+    if (updatedRoles.delivery) activeRoles.push('delivery');
+    if (updatedRoles.sender) activeRoles.push('sender');
 
     console.log('Registering push notifications with roles:', activeRoles);
     await registerForPushNotifications(profile.phone || 'current_user', activeRoles);
@@ -110,6 +100,12 @@ export default function ProfileScreen() {
       console.log("Error opening WhatsApp:", error);
       Alert.alert("Erreur", "Une erreur s'est produite");
     }
+  };
+
+  const handlePhoneVerificationSuccess = async () => {
+    await updateProfile({ isPhoneVerified: true });
+    await refreshProfile();
+    Alert.alert("Succès", "Votre numéro a été vérifié avec succès !");
   };
 
   if (isLoading) {
@@ -422,20 +418,20 @@ export default function ProfileScreen() {
 
           <View style={styles.securityStatus}>
             <IconSymbol
-              ios_icon_name="checkmark.shield.fill"
-              android_material_icon_name="verified-user"
+              ios_icon_name={profile.isPhoneVerified ? "checkmark.shield.fill" : "exclamationmark.shield.fill"}
+              android_material_icon_name={profile.isPhoneVerified ? "verified-user" : "warning"}
               size={24}
-              color={colors.primary}
+              color={profile.isPhoneVerified ? colors.primary : colors.accent}
             />
-            <Text style={[styles.securityStatusText, { color: colors.primary }]}>
-              ✅ Numéro vérifié (OTP global)
+            <Text style={[styles.securityStatusText, { color: profile.isPhoneVerified ? colors.primary : colors.accent }]}>
+              {profile.isPhoneVerified ? "✅ Numéro vérifié (OTP global)" : "⚠️ Numéro non vérifié"}
             </Text>
           </View>
 
           <TouchableOpacity
             style={styles.securityItem}
             activeOpacity={0.7}
-            onPress={() => Alert.alert("Gérer mon numéro / OTP", "Fonctionnalité à venir")}
+            onPress={() => setShowPhoneVerification(true)}
           >
             <View style={styles.securityLeft}>
               <IconSymbol
@@ -644,6 +640,12 @@ export default function ProfileScreen() {
           </Text>
         </View>
       </ScrollView>
+
+      <PhoneVerificationModal
+        visible={showPhoneVerification}
+        onClose={() => setShowPhoneVerification(false)}
+        onSuccess={handlePhoneVerificationSuccess}
+      />
     </SafeAreaView>
   );
 }

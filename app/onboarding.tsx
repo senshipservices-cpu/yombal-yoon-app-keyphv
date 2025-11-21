@@ -13,6 +13,7 @@ import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { colors } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
+import { useProfile } from '@/contexts/ProfileContext';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -78,8 +79,9 @@ export default function OnboardingScreen() {
   const [selectedRole, setSelectedRole] = useState<UserMainRole>(null);
   const scrollViewRef = useRef<ScrollView>(null);
   const router = useRouter();
+  const { updateProfile } = useProfile();
 
-  const totalSlides = slides.length + 1; // 3 slides + 1 role selection slide
+  const totalSlides = slides.length + 1;
 
   const handleScroll = (event: any) => {
     const slideIndex = Math.round(event.nativeEvent.contentOffset.x / SCREEN_WIDTH);
@@ -110,7 +112,16 @@ export default function OnboardingScreen() {
     try {
       console.log('Skip button pressed - navigating to home');
       await AsyncStorage.setItem('onboardingDone', 'true');
-      // Navigate to home immediately without saving role
+      
+      await updateProfile({
+        roles: {
+          driver: true,
+          passenger: true,
+          sender: false,
+          delivery: false,
+        },
+      });
+      
       router.replace('/(tabs)/(home)');
     } catch (error) {
       console.error('Error skipping onboarding:', error);
@@ -121,12 +132,23 @@ export default function OnboardingScreen() {
     try {
       console.log('Finish button pressed - completing onboarding');
       await AsyncStorage.setItem('onboardingDone', 'true');
+      
       if (selectedRole) {
         await AsyncStorage.setItem('userMainRole', selectedRole);
         console.log('User main role saved:', selectedRole);
       }
+
+      const roles = {
+        driver: true,
+        passenger: true,
+        sender: selectedRole === 'Envoyeur de colis',
+        delivery: selectedRole === 'Livreur',
+      };
+
+      await updateProfile({ roles });
+      console.log('Roles synced to Supabase:', roles);
+      
       console.log('Onboarding completed, navigating to home');
-      // Use replace to prevent going back to onboarding
       router.replace('/(tabs)/(home)');
     } catch (error) {
       console.error('Error saving onboarding status:', error);
@@ -236,7 +258,6 @@ export default function OnboardingScreen() {
               ))}
             </View>
             
-            {/* Extra padding at bottom to ensure all content is visible */}
             <View style={{ height: 40 }} />
           </ScrollView>
         </View>
