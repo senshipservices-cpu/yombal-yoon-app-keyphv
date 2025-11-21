@@ -204,7 +204,7 @@ export default function ProfileScreen() {
           <TouchableOpacity
             style={[styles.editButton, { backgroundColor: colors.primary }]}
             activeOpacity={0.8}
-            onPress={() => router.push('/wallet')}
+            onPress={() => router.push('/edit-profile')}
           >
             <Text style={styles.editButtonText}>Modifier mon profil</Text>
           </TouchableOpacity>
