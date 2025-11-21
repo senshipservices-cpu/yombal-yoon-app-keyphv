@@ -2,6 +2,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { supabase } from '@/app/integrations/supabase/client';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { ensureProfileAndWallet } from '@/utils/profileWalletUtils';
 
 export interface ProfileData {
   id: string;
@@ -158,7 +159,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
 
   /**
    * Initialize user: Create profile and wallet automatically if they don't exist
-   * This is the main function that implements the automatic creation logic
+   * This is called on app start (BLOC 1 implementation)
    */
   const initializeUser = async () => {
     try {
@@ -167,115 +168,34 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
 
       console.log('🔄 Initializing user:', currentUserId);
 
-      // 1. Check if profile exists
-      const { data: existingProfile, error: profileFetchError } = await supabase
-        .from('user_profiles')
-        .select('*')
-        .eq('id', currentUserId)
-        .maybeSingle();
+      // Load from local storage first to get any existing data
+      const localProfile = await getLocalProfile();
 
-      if (profileFetchError && profileFetchError.code !== 'PGRST116') {
-        console.error('❌ Error fetching profile:', profileFetchError);
+      // Use the new ensureProfileAndWallet utility function
+      const result = await ensureProfileAndWallet(currentUserId, {
+        phone: localProfile.phone || '',
+        name: localProfile.fullName || 'Utilisateur',
+        roles: localProfile.roles,
+      });
+
+      if (result && result.profile) {
+        const profileData: ProfileData = {
+          id: result.profile.id,
+          fullName: result.profile.full_name || '',
+          phone: result.profile.phone_number || '',
+          avatarUrl: result.profile.avatar_url || undefined,
+          isPhoneVerified: result.profile.is_phone_verified || false,
+          roles: result.profile.roles || defaultProfile.roles,
+        };
+
+        setProfile(profileData);
+        await AsyncStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(profileData));
+        
+        console.log('✅ User initialization complete');
+      } else {
+        // Fallback to local storage if ensureProfileAndWallet fails
         await loadFromLocalStorage();
-        setIsLoading(false);
-        return;
       }
-
-      let profileData: ProfileData;
-
-      // 2. If profile doesn't exist, create it automatically
-      if (!existingProfile) {
-        console.log('📝 Profile not found, creating automatically...');
-        
-        // Load from local storage to get any existing data
-        const localProfile = await getLocalProfile();
-        
-        const { data: newProfile, error: createProfileError } = await supabase
-          .from('user_profiles')
-          .insert({
-            id: currentUserId,
-            phone_number: localProfile.phone || null,
-            full_name: localProfile.fullName || 'Utilisateur',
-            is_phone_verified: localProfile.isPhoneVerified || false,
-            roles: localProfile.roles || {
-              driver: true,
-              passenger: true,
-              delivery: false,
-              sender: false,
-            },
-          })
-          .select()
-          .single();
-
-        if (createProfileError) {
-          console.error('❌ Error creating profile:', createProfileError);
-          await loadFromLocalStorage();
-          setIsLoading(false);
-          return;
-        }
-
-        console.log('✅ Profile created successfully:', newProfile);
-        profileData = {
-          id: newProfile.id,
-          fullName: newProfile.full_name || '',
-          phone: newProfile.phone_number || '',
-          avatarUrl: newProfile.avatar_url || undefined,
-          isPhoneVerified: newProfile.is_phone_verified || false,
-          roles: newProfile.roles || defaultProfile.roles,
-        };
-      } else {
-        console.log('✅ Profile found:', existingProfile);
-        profileData = {
-          id: existingProfile.id,
-          fullName: existingProfile.full_name || '',
-          phone: existingProfile.phone_number || '',
-          avatarUrl: existingProfile.avatar_url || undefined,
-          isPhoneVerified: existingProfile.is_phone_verified || false,
-          roles: existingProfile.roles || defaultProfile.roles,
-        };
-      }
-
-      // 3. Check if wallet exists
-      const { data: existingWallet, error: walletFetchError } = await supabase
-        .from('wallets')
-        .select('*')
-        .eq('user_id', currentUserId)
-        .maybeSingle();
-
-      if (walletFetchError && walletFetchError.code !== 'PGRST116') {
-        console.error('❌ Error fetching wallet:', walletFetchError);
-      }
-
-      // 4. If wallet doesn't exist, create it automatically
-      if (!existingWallet) {
-        console.log('💰 Wallet not found, creating automatically...');
-        
-        const { data: newWallet, error: createWalletError } = await supabase
-          .from('wallets')
-          .insert({
-            user_id: currentUserId,
-            solde: 0,
-            solde_bloque: 0,
-            total_gagne: 0,
-            total_commissions: 0,
-          })
-          .select()
-          .single();
-
-        if (createWalletError) {
-          console.error('❌ Error creating wallet:', createWalletError);
-        } else {
-          console.log('✅ Wallet created successfully:', newWallet);
-        }
-      } else {
-        console.log('✅ Wallet found:', existingWallet);
-      }
-
-      // 5. Set profile state and save to local storage
-      setProfile(profileData);
-      await AsyncStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(profileData));
-      
-      console.log('✅ User initialization complete');
     } catch (error) {
       console.error('❌ Error initializing user:', error);
       await loadFromLocalStorage();
