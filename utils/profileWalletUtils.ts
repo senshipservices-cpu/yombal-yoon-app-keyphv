@@ -50,48 +50,96 @@ export async function ensureProfileAndWallet(
       throw profileError;
     }
 
-    // Si le profil n'existe pas, le créer
+    // Si le profil n'existe pas, vérifier d'abord si un profil existe avec ce numéro de téléphone
+    if (!profile && userData?.phone) {
+      console.log('📞 Checking if profile exists with phone number:', userData.phone);
+      
+      const { data: existingProfileByPhone } = await supabase
+        .from('user_profiles')
+        .select('*')
+        .eq('phone_number', userData.phone)
+        .maybeSingle();
+
+      if (existingProfileByPhone) {
+        console.log('⚠️ Profile already exists with this phone number, using existing profile');
+        profile = existingProfileByPhone;
+        
+        // Update the userId in AsyncStorage to match the existing profile
+        // This prevents duplicate profiles with the same phone number
+        console.log('🔄 Updating local userId to match existing profile:', existingProfileByPhone.id);
+      }
+    }
+
+    // Si le profil n'existe toujours pas, le créer
     if (!profile) {
       console.log('📝 Profile not found, creating automatically...');
       
+      // Only include phone_number if it's not empty
+      const profileData: any = {
+        id: userId,
+        full_name: userData?.name || 'Utilisateur',
+        is_phone_verified: false,
+        roles: userData?.roles || {
+          driver: true,
+          passenger: true,
+          delivery: false,
+          sender: false,
+        },
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+
+      // Only add phone_number if it's provided and not empty
+      if (userData?.phone && userData.phone.trim() !== '') {
+        profileData.phone_number = userData.phone;
+      }
+
       const { data: newProfile, error: createProfileError } = await supabase
         .from('user_profiles')
-        .insert({
-          id: userId,
-          phone_number: userData?.phone || '',
-          full_name: userData?.name || 'Utilisateur',
-          is_phone_verified: false,
-          roles: userData?.roles || {
-            driver: true,
-            passenger: true,
-            delivery: false,
-            sender: false,
-          },
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        })
+        .insert(profileData)
         .select()
         .maybeSingle();
 
       if (createProfileError) {
         console.error('❌ Error creating profile:', createProfileError);
         
-        // Retry fetching in case of race condition
-        const { data: retryProfile } = await supabase
-          .from('user_profiles')
-          .select('*')
-          .eq('id', userId)
-          .maybeSingle();
+        // Check if it's a duplicate phone number error
+        if (createProfileError.code === '23505' && createProfileError.message?.includes('phone_number')) {
+          console.log('⚠️ Duplicate phone number detected, fetching existing profile...');
+          
+          // Try to fetch the existing profile by phone number
+          if (userData?.phone) {
+            const { data: existingProfile } = await supabase
+              .from('user_profiles')
+              .select('*')
+              .eq('phone_number', userData.phone)
+              .maybeSingle();
+            
+            if (existingProfile) {
+              console.log('✅ Found existing profile with phone number, using it');
+              profile = existingProfile;
+            }
+          }
+        }
         
-        if (retryProfile) {
-          console.log('✅ Profile found on retry after creation error');
-          profile = retryProfile;
-        } else if (retryCount > 0) {
-          console.log(`🔄 Retrying profile creation... (${retryCount} attempts left)`);
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          return ensureProfileAndWallet(userId, userData, retryCount - 1);
-        } else {
-          throw createProfileError;
+        // If we still don't have a profile, retry fetching by ID
+        if (!profile) {
+          const { data: retryProfile } = await supabase
+            .from('user_profiles')
+            .select('*')
+            .eq('id', userId)
+            .maybeSingle();
+          
+          if (retryProfile) {
+            console.log('✅ Profile found on retry after creation error');
+            profile = retryProfile;
+          } else if (retryCount > 0) {
+            console.log(`🔄 Retrying profile creation... (${retryCount} attempts left)`);
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            return ensureProfileAndWallet(userId, userData, retryCount - 1);
+          } else {
+            throw createProfileError;
+          }
         }
       } else {
         console.log('✅ Profile created successfully');
@@ -102,11 +150,11 @@ export async function ensureProfileAndWallet(
     }
 
     // 2) Vérifier / créer WALLET
-    console.log('💰 Step 2: Checking if wallet exists for user_id:', userId);
+    console.log('💰 Step 2: Checking if wallet exists for user_id:', profile.id);
     let { data: wallet, error: walletError } = await supabase
       .from('wallets')
       .select('*')
-      .eq('user_id', userId)
+      .eq('user_id', profile.id)
       .maybeSingle();
 
     if (walletError && walletError.code !== 'PGRST116') {
@@ -126,7 +174,7 @@ export async function ensureProfileAndWallet(
     if (!wallet) {
       console.log('💰 Wallet not found, creating automatically...');
       console.log('   → INSERT INTO wallets {');
-      console.log('        user_id:', userId);
+      console.log('        user_id:', profile.id);
       console.log('        solde: 0,');
       console.log('        solde_bloque: 0,');
       console.log('        total_gagne: 0,');
@@ -136,7 +184,7 @@ export async function ensureProfileAndWallet(
       const { data: newWallet, error: createWalletError } = await supabase
         .from('wallets')
         .insert({
-          user_id: userId,
+          user_id: profile.id,
           solde: 0,
           solde_bloque: 0,
           total_gagne: 0,
@@ -154,7 +202,7 @@ export async function ensureProfileAndWallet(
         const { data: retryWallet } = await supabase
           .from('wallets')
           .select('*')
-          .eq('user_id', userId)
+          .eq('user_id', profile.id)
           .maybeSingle();
         
         if (retryWallet) {
@@ -244,12 +292,15 @@ export async function loadWalletForProfil(
       throw new Error('WALLET_LOAD_ERROR');
     }
 
-    // 2. Requête Supabase : SELECT * FROM wallets WHERE user_id = auth.user.id
-    console.log('🔍 Step 2: Querying wallet for user_id:', userId);
+    // Use the profile ID from the result (in case it was different due to phone number match)
+    const profileId = result.profile.id;
+
+    // 2. Requête Supabase : SELECT * FROM wallets WHERE user_id = profile.id
+    console.log('🔍 Step 2: Querying wallet for user_id:', profileId);
     const { data: wallet, error: walletError } = await supabase
       .from('wallets')
       .select('*')
-      .eq('user_id', userId)
+      .eq('user_id', profileId)
       .maybeSingle();
 
     if (walletError) {
@@ -269,7 +320,7 @@ export async function loadWalletForProfil(
     if (!wallet) {
       console.log('💰 Step 3: No wallet found after ensure, creating with default values...');
       console.log('   → INSERT INTO wallets {');
-      console.log('        user_id:', userId);
+      console.log('        user_id:', profileId);
       console.log('        solde: 0,');
       console.log('        solde_bloque: 0,');
       console.log('        total_gagne: 0,');
@@ -279,7 +330,7 @@ export async function loadWalletForProfil(
       const { data: newWallet, error: createWalletError } = await supabase
         .from('wallets')
         .insert({
-          user_id: userId,
+          user_id: profileId,
           solde: 0,
           solde_bloque: 0,
           total_gagne: 0,
@@ -297,7 +348,7 @@ export async function loadWalletForProfil(
         const { data: retryWallet } = await supabase
           .from('wallets')
           .select('*')
-          .eq('user_id', userId)
+          .eq('user_id', profileId)
           .maybeSingle();
         
         if (retryWallet) {
