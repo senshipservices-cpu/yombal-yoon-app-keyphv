@@ -11,11 +11,10 @@ import { useRouter } from "expo-router";
 import { useNotifications } from "@/contexts/NotificationContext";
 import PhoneVerificationModal from "@/components/PhoneVerificationModal";
 import * as Haptics from 'expo-haptics';
-import { getOrCreateWallet, formatCurrency } from "@/utils/walletUtils";
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { supabase } from "@/app/integrations/supabase/client";
+import { formatCurrency } from "@/utils/walletUtils";
 
 const SUPPORT_PHONE = "+221765676486";
-const USER_ID_KEY = '@yombal_yoon_user_id';
 
 export default function ProfileScreen() {
   const theme = useTheme();
@@ -29,6 +28,7 @@ export default function ProfileScreen() {
   const [showPhoneVerification, setShowPhoneVerification] = useState(false);
   const [wallet, setWallet] = useState<any>(null);
   const [isLoadingWallet, setIsLoadingWallet] = useState(true);
+  const [walletError, setWalletError] = useState<string | null>(null);
 
   useEffect(() => {
     setIsSender(profile.roles.sender);
@@ -37,33 +37,70 @@ export default function ProfileScreen() {
 
   useEffect(() => {
     loadWallet();
-  }, []);
-
-  const getUserId = async (): Promise<string> => {
-    let userId = await AsyncStorage.getItem(USER_ID_KEY);
-    
-    if (!userId) {
-      userId = `user_${Date.now()}_${Math.random().toString(36).substring(7)}`;
-      await AsyncStorage.setItem(USER_ID_KEY, userId);
-    }
-
-    return userId;
-  };
+  }, [profile.id]);
 
   const loadWallet = async () => {
     try {
       setIsLoadingWallet(true);
-      const userId = await getUserId();
-      const { wallet: walletData, error } = await getOrCreateWallet(userId);
+      setWalletError(null);
 
-      if (error) {
-        console.error('Error loading wallet:', error);
-      } else {
-        setWallet(walletData);
+      if (!profile.id) {
+        console.log('No profile ID available yet');
+        setWalletError('Profil non disponible');
+        setIsLoadingWallet(false);
+        return;
       }
+
+      console.log('Loading wallet for user:', profile.id);
+
+      // Try to get existing wallet
+      const { data: existingWallet, error: fetchError } = await supabase
+        .from('wallets')
+        .select('*')
+        .eq('user_id', profile.id)
+        .maybeSingle();
+
+      if (fetchError) {
+        console.error('Error fetching wallet:', fetchError);
+        setWalletError('Erreur de chargement');
+        setIsLoadingWallet(false);
+        return;
+      }
+
+      if (existingWallet) {
+        console.log('Wallet found:', existingWallet);
+        setWallet(existingWallet);
+        setIsLoadingWallet(false);
+        return;
+      }
+
+      // Create new wallet if it doesn't exist
+      console.log('Creating new wallet for user:', profile.id);
+      const { data: newWallet, error: createError } = await supabase
+        .from('wallets')
+        .insert({
+          user_id: profile.id,
+          solde: 0,
+          solde_bloque: 0,
+          total_gagne: 0,
+          total_commissions: 0,
+        })
+        .select()
+        .single();
+
+      if (createError) {
+        console.error('Error creating wallet:', createError);
+        setWalletError('Erreur de création');
+        setIsLoadingWallet(false);
+        return;
+      }
+
+      console.log('Wallet created:', newWallet);
+      setWallet(newWallet);
+      setIsLoadingWallet(false);
     } catch (error) {
       console.error('Error in loadWallet:', error);
-    } finally {
+      setWalletError('Erreur inattendue');
       setIsLoadingWallet(false);
     }
   };
@@ -448,143 +485,138 @@ export default function ProfileScreen() {
         </View>
 
         {/* 💰 SECTION – MON WALLET YOMBAL YOON */}
-        <View style={[styles.sectionCard, { backgroundColor: isDark ? colors.darkCard : colors.card }]}>
-          <Text style={[styles.sectionTitle, { color: isDark ? colors.darkText : colors.text }]}>
-            💰 Mon Wallet Yombal Yoon
-          </Text>
+        {hasProviderRole && (
+          <View style={[styles.sectionCard, { backgroundColor: isDark ? colors.darkCard : colors.card }]}>
+            <Text style={[styles.sectionTitle, { color: isDark ? colors.darkText : colors.text }]}>
+              💰 Mon Wallet Yombal Yoon
+            </Text>
 
-          {isLoadingWallet ? (
-            <View style={styles.walletLoadingContainer}>
-              <ActivityIndicator size="small" color={colors.primary} />
-              <Text style={[styles.walletLoadingText, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-                Chargement du wallet...
-              </Text>
-            </View>
-          ) : !hasProviderRole ? (
-            <View style={[styles.walletInactiveCard, { backgroundColor: isDark ? colors.darkBackground : colors.background }]}>
-              <IconSymbol
-                ios_icon_name="exclamationmark.circle.fill"
-                android_material_icon_name="info"
-                size={32}
-                color={colors.accent}
-              />
-              <Text style={[styles.walletInactiveText, { color: isDark ? colors.darkText : colors.text }]}>
-                Activez un rôle Conducteur ou Livreur pour commencer à gagner de l&apos;argent avec Yombal Yoon.
-              </Text>
-            </View>
-          ) : wallet ? (
-            <React.Fragment>
-              <LinearGradient
-                colors={wallet.solde < 0 ? [colors.error, '#CC0000'] : [colors.primary, '#006600']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.walletCard}
-              >
-                <View style={styles.walletHeader}>
+            {isLoadingWallet ? (
+              <View style={styles.walletLoadingContainer}>
+                <ActivityIndicator size="small" color={colors.primary} />
+                <Text style={[styles.walletLoadingText, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+                  Chargement du wallet...
+                </Text>
+              </View>
+            ) : wallet ? (
+              <React.Fragment>
+                <LinearGradient
+                  colors={wallet.solde < 0 ? [colors.error, '#CC0000'] : [colors.primary, '#006600']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.walletCard}
+                >
+                  <View style={styles.walletHeader}>
+                    <IconSymbol
+                      ios_icon_name="wallet.pass.fill"
+                      android_material_icon_name="account-balance-wallet"
+                      size={28}
+                      color="#FFFFFF"
+                    />
+                    <Text style={styles.walletHeaderText}>Solde disponible</Text>
+                  </View>
+                  
+                  <Text style={styles.walletBalance}>
+                    {formatCurrency(wallet.solde)}
+                  </Text>
+
+                  {wallet.solde < 0 && (
+                    <View style={styles.walletWarning}>
+                      <IconSymbol
+                        ios_icon_name="exclamationmark.triangle.fill"
+                        android_material_icon_name="warning"
+                        size={16}
+                        color="#FFFFFF"
+                      />
+                      <Text style={styles.walletWarningText}>
+                        ⚠️ Vous devez {formatCurrency(Math.abs(wallet.solde))} à Yombal Yoon. Veuillez recharger votre wallet.
+                      </Text>
+                    </View>
+                  )}
+
+                  {wallet.solde_bloque > 0 && (
+                    <View style={styles.walletBlocked}>
+                      <Text style={styles.walletBlockedText}>
+                        Montant en attente : {formatCurrency(wallet.solde_bloque)} (retraits ou courses en cours)
+                      </Text>
+                    </View>
+                  )}
+                </LinearGradient>
+
+                <TouchableOpacity
+                  style={[styles.walletMainButton, { backgroundColor: colors.primary }]}
+                  activeOpacity={0.8}
+                  onPress={() => router.push('/wallet')}
+                >
                   <IconSymbol
                     ios_icon_name="wallet.pass.fill"
                     android_material_icon_name="account-balance-wallet"
-                    size={28}
+                    size={20}
                     color="#FFFFFF"
                   />
-                  <Text style={styles.walletHeaderText}>Solde disponible</Text>
-                </View>
-                
-                <Text style={styles.walletBalance}>
-                  {formatCurrency(wallet.solde)}
-                </Text>
-
-                {wallet.solde < 0 && (
-                  <View style={styles.walletWarning}>
-                    <IconSymbol
-                      ios_icon_name="exclamationmark.triangle.fill"
-                      android_material_icon_name="warning"
-                      size={16}
-                      color="#FFFFFF"
-                    />
-                    <Text style={styles.walletWarningText}>
-                      ⚠️ Vous devez {formatCurrency(Math.abs(wallet.solde))} à Yombal Yoon. Veuillez recharger votre wallet.
-                    </Text>
-                  </View>
-                )}
-
-                {wallet.solde_bloque > 0 && (
-                  <View style={styles.walletBlocked}>
-                    <Text style={styles.walletBlockedText}>
-                      Montant en attente : {formatCurrency(wallet.solde_bloque)} (retraits ou courses en cours)
-                    </Text>
-                  </View>
-                )}
-              </LinearGradient>
-
-              <TouchableOpacity
-                style={[styles.walletMainButton, { backgroundColor: colors.primary }]}
-                activeOpacity={0.8}
-                onPress={() => router.push('/wallet')}
-              >
-                <IconSymbol
-                  ios_icon_name="wallet.pass.fill"
-                  android_material_icon_name="account-balance-wallet"
-                  size={20}
-                  color="#FFFFFF"
-                />
-                <Text style={styles.walletMainButtonText}>Voir mon wallet complet</Text>
-              </TouchableOpacity>
-
-              <View style={styles.walletQuickActions}>
-                <TouchableOpacity
-                  style={[styles.walletQuickAction, { backgroundColor: isDark ? colors.darkBackground : colors.background }]}
-                  activeOpacity={0.7}
-                  onPress={() => router.push('/wallet/withdrawal')}
-                >
-                  <IconSymbol
-                    ios_icon_name="arrow.down.circle.fill"
-                    android_material_icon_name="get-app"
-                    size={20}
-                    color={colors.accent}
-                  />
-                  <Text style={[styles.walletQuickActionText, { color: isDark ? colors.darkText : colors.text }]}>
-                    Demander un retrait
-                  </Text>
+                  <Text style={styles.walletMainButtonText}>Voir mon wallet complet</Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity
-                  style={[styles.walletQuickAction, { backgroundColor: isDark ? colors.darkBackground : colors.background }]}
-                  activeOpacity={0.7}
-                  onPress={() => router.push('/wallet/recharge')}
-                >
-                  <IconSymbol
-                    ios_icon_name="arrow.up.circle.fill"
-                    android_material_icon_name="publish"
-                    size={20}
-                    color={colors.primary}
-                  />
-                  <Text style={[styles.walletQuickActionText, { color: isDark ? colors.darkText : colors.text }]}>
-                    Recharger mon wallet
+                <View style={styles.walletQuickActions}>
+                  <TouchableOpacity
+                    style={[styles.walletQuickAction, { backgroundColor: isDark ? colors.darkBackground : colors.background }]}
+                    activeOpacity={0.7}
+                    onPress={() => router.push('/wallet/withdrawal')}
+                  >
+                    <IconSymbol
+                      ios_icon_name="arrow.down.circle.fill"
+                      android_material_icon_name="get-app"
+                      size={20}
+                      color={colors.accent}
+                    />
+                    <Text style={[styles.walletQuickActionText, { color: isDark ? colors.darkText : colors.text }]}>
+                      Demander un retrait
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.walletQuickAction, { backgroundColor: isDark ? colors.darkBackground : colors.background }]}
+                    activeOpacity={0.7}
+                    onPress={() => router.push('/wallet/recharge')}
+                  >
+                    <IconSymbol
+                      ios_icon_name="arrow.up.circle.fill"
+                      android_material_icon_name="publish"
+                      size={20}
+                      color={colors.primary}
+                    />
+                    <Text style={[styles.walletQuickActionText, { color: isDark ? colors.darkText : colors.text }]}>
+                      Recharger mon wallet
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </React.Fragment>
+            ) : (
+              <View style={[styles.walletErrorCard, { backgroundColor: isDark ? colors.darkBackground : colors.background }]}>
+                <IconSymbol
+                  ios_icon_name="exclamationmark.triangle.fill"
+                  android_material_icon_name="error"
+                  size={32}
+                  color={colors.error}
+                />
+                <Text style={[styles.walletErrorText, { color: isDark ? colors.darkText : colors.text }]}>
+                  Impossible de charger votre wallet. Veuillez réessayer.
+                </Text>
+                {walletError && (
+                  <Text style={[styles.walletErrorDetail, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+                    Détail: {walletError}
                   </Text>
+                )}
+                <TouchableOpacity
+                  style={[styles.walletRetryButton, { backgroundColor: colors.primary }]}
+                  onPress={loadWallet}
+                >
+                  <Text style={styles.walletRetryButtonText}>Réessayer</Text>
                 </TouchableOpacity>
               </View>
-            </React.Fragment>
-          ) : (
-            <View style={[styles.walletErrorCard, { backgroundColor: isDark ? colors.darkBackground : colors.background }]}>
-              <IconSymbol
-                ios_icon_name="exclamationmark.triangle.fill"
-                android_material_icon_name="error"
-                size={32}
-                color={colors.error}
-              />
-              <Text style={[styles.walletErrorText, { color: isDark ? colors.darkText : colors.text }]}>
-                Impossible de charger votre wallet. Veuillez réessayer.
-              </Text>
-              <TouchableOpacity
-                style={[styles.walletRetryButton, { backgroundColor: colors.primary }]}
-                onPress={loadWallet}
-              >
-                <Text style={styles.walletRetryButtonText}>Réessayer</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-        </View>
+            )}
+          </View>
+        )}
 
         {/* 4️⃣ SECTION – 🔐 SÉCURITÉ & IDENTITÉ */}
         <View style={[styles.sectionCard, { backgroundColor: isDark ? colors.darkCard : colors.card }]}>
@@ -1137,6 +1169,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: 'center',
     lineHeight: 20,
+  },
+  walletErrorDetail: {
+    fontSize: 12,
+    textAlign: 'center',
+    fontStyle: 'italic',
   },
   walletRetryButton: {
     paddingHorizontal: 20,
