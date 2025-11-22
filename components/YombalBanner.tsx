@@ -31,9 +31,9 @@ const styles = StyleSheet.create({
   container: {
     position: 'absolute',
     bottom: Platform.select({
-      ios: 100,
-      android: 100,
-      web: 100,
+      ios: 70,
+      android: 70,
+      web: 70,
     }),
     left: 0,
     right: 0,
