@@ -112,7 +112,25 @@
     "githubUrl": "https://github.com/yombalyoon/yombal-yoon-app",
     "runtimeVersion": {
       "policy": "appVersion"
-    }
+    },
+    "primaryCategory": "NAVIGATION",
+    "keywords": [
+      "yombal yoon",
+      "covoiturage",
+      "sénégal",
+      "thiak thiak",
+      "livraison",
+      "colis",
+      "dakar",
+      "transport",
+      "livraison express",
+      "wave",
+      "orange money",
+      "mobilité"
+    ],
+    "supportUrl": "https://yombalyoon.com/support",
+    "marketingUrl": "https://yombalyoon.com/",
+    "privacyPolicyUrl": "https://yombalyoon.com/privacy"
   },
   "scheme": "Yombal Yoon"
 }
