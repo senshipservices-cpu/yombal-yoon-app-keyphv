@@ -1,6 +1,7 @@
+
 {
   "expo": {
-    "name": "Yombal Yoon",
+    "name": "Yombal Yoon – Covoiturage & Livraison",
     "slug": "Yombal Yoon",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -37,12 +38,15 @@
             }
           }
         },
-        "NSLocationWhenInUseUsageDescription": "Yombal Yoon utilise votre position pour afficher les trajets de covoiturage et les livraisons \u00e0 proximit\u00e9.",
-        "NSLocationAlwaysAndWhenInUseUsageDescription": "Yombal Yoon utilise votre position pour suivre les livraisons en temps r\u00e9el.",
-        "NSCameraUsageDescription": "Yombal Yoon a besoin d'acc\u00e9der \u00e0 votre cam\u00e9ra pour prendre des photos de vos colis.",
-        "NSPhotoLibraryUsageDescription": "Yombal Yoon a besoin d'acc\u00e9der \u00e0 vos photos pour s\u00e9lectionner des images de vos colis.",
-        "NSMicrophoneUsageDescription": "Yombal Yoon a besoin d'acc\u00e9der \u00e0 votre microphone pour les appels.",
-        "NSContactsUsageDescription": "Yombal Yoon a besoin d'acc\u00e9der \u00e0 vos contacts pour faciliter le partage de trajets."
+        "NSLocationWhenInUseUsageDescription": "Yombal Yoon utilise votre position pour afficher les trajets de covoiturage et les livraisons à proximité.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Yombal Yoon utilise votre position pour suivre les livraisons en temps réel.",
+        "NSCameraUsageDescription": "Yombal Yoon a besoin d'accéder à votre caméra pour prendre des photos de vos colis.",
+        "NSPhotoLibraryUsageDescription": "Yombal Yoon a besoin d'accéder à vos photos pour sélectionner des images de vos colis.",
+        "NSMicrophoneUsageDescription": "Yombal Yoon a besoin d'accéder à votre microphone pour les appels.",
+        "NSContactsUsageDescription": "Yombal Yoon a besoin d'accéder à vos contacts pour faciliter le partage de trajets."
+      },
+      "config": {
+        "usesNonExemptEncryption": false
       }
     },
     "android": {
@@ -77,8 +81,8 @@
       [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUsePermission": "Yombal Yoon utilise votre position pour suivre les livraisons en temps r\u00e9el.",
-          "locationWhenInUsePermission": "Yombal Yoon utilise votre position pour afficher les trajets de covoiturage et les livraisons \u00e0 proximit\u00e9."
+          "locationAlwaysAndWhenInUsePermission": "Yombal Yoon utilise votre position pour suivre les livraisons en temps réel.",
+          "locationWhenInUsePermission": "Yombal Yoon utilise votre position pour afficher les trajets de covoiturage et les livraisons à proximité."
         }
       ],
       [
@@ -104,7 +108,7 @@
     },
     "owner": "yombalyoon",
     "privacy": "public",
-    "description": "Covoiturage, envoi de colis et livraisons inter-r\u00e9gions au S\u00e9n\u00e9gal. Yombal Yoon connecte les voyageurs, exp\u00e9diteurs et livreurs pour des d\u00e9placements et livraisons s\u00e9curis\u00e9s \u00e0 travers tout le S\u00e9n\u00e9gal.",
+    "description": "Covoiturage, envoi de colis et livraisons rapides au Sénégal.",
     "githubUrl": "https://github.com/yombalyoon/yombal-yoon-app",
     "runtimeVersion": {
       "policy": "appVersion"
