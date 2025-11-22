@@ -122,9 +122,11 @@ export default function HomeScreen() {
             </View>
           </View>
 
-          <Text style={[styles.tagline, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-            Votre partenaire de mobilité au Sénégal
-          </Text>
+          <View style={styles.taglineContainer}>
+            <Text style={[styles.tagline, { color: isDark ? colors.darkText : colors.text }]}>
+              Voyagez ensemble, économisez ensemble
+            </Text>
+          </View>
 
           {tipOfTheDay && (
             <View style={[styles.tipCard, { backgroundColor: isDark ? colors.darkCard : colors.card }]}>
@@ -257,9 +259,16 @@ const styles = StyleSheet.create({
     height: 40,
     borderRadius: 8,
   },
-  tagline: {
-    fontSize: 16,
+  taglineContainer: {
+    marginTop: 12,
     marginBottom: 16,
+    paddingVertical: 8,
+  },
+  tagline: {
+    fontSize: 20,
+    fontWeight: '700',
+    lineHeight: 28,
+    letterSpacing: 0.3,
   },
   tipCard: {
     borderRadius: 16,

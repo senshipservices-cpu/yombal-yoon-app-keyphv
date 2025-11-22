@@ -94,7 +94,7 @@ export default function HomeScreen() {
       case 'Livreur':
         return "Bienvenue ! Recevez des missions de livraison près de vous.";
       default:
-        return "Votre partenaire de mobilité au Sénégal";
+        return "Voyagez ensemble, économisez ensemble";
     }
   };
 
@@ -186,9 +186,11 @@ export default function HomeScreen() {
             </View>
           </View>
 
-          <Text style={[styles.tagline, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-            {getRoleBasedWelcomeMessage()}
-          </Text>
+          <View style={styles.taglineContainer}>
+            <Text style={[styles.tagline, { color: isDark ? colors.darkText : colors.text }]}>
+              {getRoleBasedWelcomeMessage()}
+            </Text>
+          </View>
 
           {tipOfTheDay && (
             <View style={[styles.tipCard, { backgroundColor: isDark ? colors.darkCard : colors.card }]}>
@@ -341,9 +343,16 @@ const styles = StyleSheet.create({
     height: 40,
     borderRadius: 8,
   },
-  tagline: {
-    fontSize: 16,
+  taglineContainer: {
+    marginTop: 12,
     marginBottom: 16,
+    paddingVertical: 8,
+  },
+  tagline: {
+    fontSize: 20,
+    fontWeight: '700',
+    lineHeight: 28,
+    letterSpacing: 0.3,
   },
   tipCard: {
     borderRadius: 16,
