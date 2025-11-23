@@ -1,109 +1,109 @@
+
 {
   "expo": {
     "name": "Yombal Yoon",
-    "slug": "Yombal Yoon",
+    "slug": "yombal-yoon-app",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/final_quest_240x240.png",
+    "icon": "./assets/images/0a4ef9db-9c41-4e1f-9345-3c8a798d6b1b.png",
+    "scheme": "yombalyoonapp",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
     "splash": {
-      "image": "./assets/images/final_quest_240x240.png",
+      "image": "./assets/images/0a4ef9db-9c41-4e1f-9345-3c8a798d6b1b.png",
       "resizeMode": "contain",
-      "backgroundColor": "#FFFFFF"
-    },
-    "updates": {
-      "enabled": false,
-      "fallbackToCacheTimeout": 0
+      "backgroundColor": "#ffffff"
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.yombalyoon.app",
-      "buildNumber": "1",
+      "bundleIdentifier": "com.yombalyoon.yombalyoonapp",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false,
         "NSAppTransportSecurity": {
           "NSAllowsArbitraryLoads": false,
           "NSExceptionDomains": {
             "supabase.co": {
               "NSExceptionAllowsInsecureHTTPLoads": false,
-              "NSIncludesSubdomains": true
+              "NSIncludesSubdomains": true,
+              "NSExceptionRequiresForwardSecrecy": true,
+              "NSExceptionMinimumTLSVersion": "TLSv1.2"
             },
-            "googleapis.com": {
+            "drxtaxepofuoelplgrei.supabase.co": {
               "NSExceptionAllowsInsecureHTTPLoads": false,
-              "NSIncludesSubdomains": true
+              "NSIncludesSubdomains": true,
+              "NSExceptionRequiresForwardSecrecy": true,
+              "NSExceptionMinimumTLSVersion": "TLSv1.2"
             }
           }
         },
-        "NSLocationWhenInUseUsageDescription": "Yombal Yoon utilise votre position pour afficher les trajets de covoiturage et les livraisons \u00e0 proximit\u00e9.",
-        "NSLocationAlwaysAndWhenInUseUsageDescription": "Yombal Yoon utilise votre position pour suivre les livraisons en temps r\u00e9el.",
-        "NSCameraUsageDescription": "Yombal Yoon a besoin d'acc\u00e9der \u00e0 votre cam\u00e9ra pour prendre des photos de vos colis.",
-        "NSPhotoLibraryUsageDescription": "Yombal Yoon a besoin d'acc\u00e9der \u00e0 vos photos pour s\u00e9lectionner des images de vos colis.",
-        "NSMicrophoneUsageDescription": "Yombal Yoon a besoin d'acc\u00e9der \u00e0 votre microphone pour les appels.",
-        "NSContactsUsageDescription": "Yombal Yoon a besoin d'acc\u00e9der \u00e0 vos contacts pour faciliter le partage de trajets."
+        "NSLocationWhenInUseUsageDescription": "Yombal Yoon a besoin d'accéder à votre position pour vous proposer des services de covoiturage et de livraison à proximité.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Yombal Yoon a besoin d'accéder à votre position en arrière-plan pour suivre vos trajets et livraisons en cours.",
+        "NSCameraUsageDescription": "Yombal Yoon a besoin d'accéder à votre caméra pour prendre des photos de vos colis.",
+        "NSPhotoLibraryUsageDescription": "Yombal Yoon a besoin d'accéder à vos photos pour sélectionner des images de vos colis.",
+        "NSMicrophoneUsageDescription": "Yombal Yoon a besoin d'accéder à votre microphone pour les appels vocaux.",
+        "UIBackgroundModes": [
+          "location",
+          "fetch",
+          "remote-notification"
+        ]
       }
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/final_quest_240x240.png",
-        "backgroundColor": "#FFFFFF"
+        "foregroundImage": "./assets/images/0a4ef9db-9c41-4e1f-9345-3c8a798d6b1b.png",
+        "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true,
-      "package": "com.yombalyoon.app",
-      "versionCode": 1,
-      "googleServicesFile": "./google-services.json",
+      "package": "com.yombalyoon.yombalyoonapp",
       "permissions": [
-        "INTERNET",
-        "ACCESS_NETWORK_STATE",
-        "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
         "CAMERA",
         "READ_EXTERNAL_STORAGE",
         "WRITE_EXTERNAL_STORAGE",
-        "VIBRATE",
-        "CALL_PHONE"
-      ]
+        "INTERNET",
+        "ACCESS_NETWORK_STATE"
+      ],
+      "usesCleartextTraffic": false
     },
     "web": {
-      "favicon": "./assets/images/final_quest_240x240.png",
-      "bundler": "metro"
+      "bundler": "metro",
+      "output": "static",
+      "favicon": "./assets/images/0a4ef9db-9c41-4e1f-9345-3c8a798d6b1b.png"
     },
     "plugins": [
-      "expo-font",
       "expo-router",
-      "expo-web-browser",
       [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUsePermission": "Yombal Yoon utilise votre position pour suivre les livraisons en temps r\u00e9el.",
-          "locationWhenInUsePermission": "Yombal Yoon utilise votre position pour afficher les trajets de covoiturage et les livraisons \u00e0 proximit\u00e9."
+          "locationAlwaysAndWhenInUsePermission": "Yombal Yoon a besoin d'accéder à votre position pour vous proposer des services de covoiturage et de livraison à proximité.",
+          "locationAlwaysPermission": "Yombal Yoon a besoin d'accéder à votre position en arrière-plan pour suivre vos trajets et livraisons en cours.",
+          "locationWhenInUsePermission": "Yombal Yoon a besoin d'accéder à votre position pour vous proposer des services de covoiturage et de livraison à proximité."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Yombal Yoon a besoin d'accéder à vos photos pour sélectionner des images de vos colis.",
+          "cameraPermission": "Yombal Yoon a besoin d'accéder à votre caméra pour prendre des photos de vos colis."
         }
       ],
       [
         "expo-notifications",
         {
-          "icon": "./assets/images/final_quest_240x240.png",
-          "color": "#008000",
-          "sounds": [],
-          "mode": "production"
+          "icon": "./assets/images/0a4ef9db-9c41-4e1f-9345-3c8a798d6b1b.png",
+          "color": "#00A651",
+          "sounds": []
         }
       ]
     ],
-    "scheme": "yombalyoon",
     "experiments": {
       "typedRoutes": true
     },
     "extra": {
-      "router": {},
-      "GOOGLE_MAPS_API_KEY": "AIzaSyCyIEHUEYap3t8z_lqy2tCNhHFBhYHTSHQ",
+      "router": {
+        "origin": false
+      },
       "eas": {
-        "projectId": "drxtaxepofuoelplgrei"
+        "projectId": "52fa7013-83b9-49a0-b966-0237771a3c4f"
       }
-    },
-    "owner": "yombalyoon",
-    "privacy": "public",
-    "description": "Covoiturage, envoi de colis et livraisons inter-r\u00e9gions au S\u00e9n\u00e9gal. Yombal Yoon connecte les voyageurs, exp\u00e9diteurs et livreurs pour des d\u00e9placements et livraisons s\u00e9curis\u00e9s \u00e0 travers tout le S\u00e9n\u00e9gal.",
-    "githubUrl": "https://github.com/yombalyoon/yombal-yoon-app"
-  },
-  "scheme": "Yombal Yoon"
+    }
+  }
 }

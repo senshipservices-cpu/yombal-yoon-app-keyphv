@@ -8,6 +8,7 @@ import { colors } from "@/styles/commonStyles";
 import { IconSymbol } from "@/components/IconSymbol";
 import { useProfile } from "@/contexts/ProfileContext";
 import { useNotifications } from "@/contexts/NotificationContext";
+import YombalBanner from "@/components/YombalBanner";
 
 const tips = [
   "Réservez vos trajets tôt le matin pour trouver plus de conducteurs.",
@@ -94,7 +95,7 @@ export default function HomeScreen() {
       case 'Livreur':
         return "Bienvenue ! Recevez des missions de livraison près de vous.";
       default:
-        return "Votre partenaire de mobilité au Sénégal";
+        return "Voyagez ensemble, économisez ensemble";
     }
   };
 
@@ -186,9 +187,11 @@ export default function HomeScreen() {
             </View>
           </View>
 
-          <Text style={[styles.tagline, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-            {getRoleBasedWelcomeMessage()}
-          </Text>
+          <View style={styles.taglineContainer}>
+            <Text style={[styles.tagline, { color: isDark ? colors.darkText : colors.text }]}>
+              {getRoleBasedWelcomeMessage()}
+            </Text>
+          </View>
 
           {tipOfTheDay && (
             <View style={[styles.tipCard, { backgroundColor: isDark ? colors.darkCard : colors.card }]}>
@@ -272,6 +275,9 @@ export default function HomeScreen() {
               Sélectionnez vos rôles dans votre profil pour accéder à toutes les fonctionnalités
             </Text>
           </View>
+
+          {/* YOMBAL YOON Banner - Only on Home Page */}
+          <YombalBanner />
         </View>
       </ScrollView>
     </View>
@@ -287,7 +293,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingTop: Platform.OS === 'android' ? 48 : 0,
-    paddingBottom: 120,
+    paddingBottom: 140,
   },
   header: {
     padding: 20,
@@ -341,9 +347,16 @@ const styles = StyleSheet.create({
     height: 40,
     borderRadius: 8,
   },
-  tagline: {
-    fontSize: 16,
+  taglineContainer: {
+    marginTop: 12,
     marginBottom: 16,
+    paddingVertical: 8,
+  },
+  tagline: {
+    fontSize: 20,
+    fontWeight: '700',
+    lineHeight: 28,
+    letterSpacing: 0.3,
   },
   tipCard: {
     borderRadius: 16,
