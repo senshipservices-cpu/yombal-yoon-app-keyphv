@@ -11,8 +11,8 @@ import { useRouter } from "expo-router";
 import { useNotifications } from "@/contexts/NotificationContext";
 import PhoneVerificationModal from "@/components/PhoneVerificationModal";
 import * as Haptics from 'expo-haptics';
+import { supabase } from "@/app/integrations/supabase/client";
 import { formatCurrency } from "@/utils/walletUtils";
-import { loadWalletForProfil } from "@/utils/profileWalletUtils";
 
 const SUPPORT_PHONE = "+221765676486";
 
@@ -29,7 +29,6 @@ export default function ProfileScreen() {
   const [wallet, setWallet] = useState<any>(null);
   const [isLoadingWallet, setIsLoadingWallet] = useState(true);
   const [walletError, setWalletError] = useState<string | null>(null);
-  const [walletRetryCount, setWalletRetryCount] = useState(0);
 
   useEffect(() => {
     setIsSender(profile.roles.sender);
@@ -37,68 +36,73 @@ export default function ProfileScreen() {
   }, [profile]);
 
   useEffect(() => {
-    // iOS timing fix: Only load wallet if profile.id is available
-    if (profile.id) {
-      loadWallet();
-    } else {
-      console.log('⏳ [iOS] Waiting for profile.id to be available...');
-      setIsLoadingWallet(true);
-    }
+    loadWallet();
   }, [profile.id]);
 
-  /**
-   * BLOC 2 - Load wallet using the new utility function with retry logic
-   * iOS-specific implementation with extra timing considerations
-   */
   const loadWallet = async () => {
     try {
       setIsLoadingWallet(true);
       setWalletError(null);
 
-      // iOS timing fix: Check if profile.id is available
       if (!profile.id) {
-        console.log('⏳ [iOS] Profile ID not yet available, showing loader...');
+        console.log('No profile ID available yet');
+        setWalletError('Profil non disponible');
+        setIsLoadingWallet(false);
         return;
       }
 
-      console.log('🔄 [iOS] Loading wallet for profile page with user ID:', profile.id);
+      console.log('Loading wallet for user:', profile.id);
 
-      // Use the new loadWalletForProfil utility function with retry logic (1 attempt only to avoid "Tentative #3")
-      const walletData = await loadWalletForProfil(profile.id, 1);
-      
-      setWallet(walletData);
-      setWalletRetryCount(0); // Reset retry count on success
-      console.log('✅ [iOS] Wallet loaded successfully');
-    } catch (error: any) {
-      console.error('❌ [iOS] Error loading wallet:', error);
-      
-      // Handle specific error types with more detailed messages
-      if (error.message === 'USER_NOT_AUTH') {
-        setWalletError('Vous devez être connecté pour accéder à votre wallet. Veuillez vous reconnecter.');
-      } else if (error.message === 'WALLET_LOAD_ERROR') {
-        setWalletError('Impossible de charger votre wallet pour le moment. Vérifiez votre connexion internet et appuyez sur Réessayer.');
-      } else if (error.code === 'PGRST116') {
-        setWalletError('Votre wallet n\'existe pas encore. Appuyez sur Réessayer pour le créer automatiquement.');
-      } else if (error.message?.includes('network') || error.message?.includes('fetch')) {
-        setWalletError('Problème de connexion réseau. Vérifiez votre connexion internet et réessayez.');
-      } else {
-        setWalletError(`Erreur technique: ${error.message || 'Erreur inconnue'}. Appuyez sur Réessayer.`);
+      // Try to get existing wallet
+      const { data: existingWallet, error: fetchError } = await supabase
+        .from('wallets')
+        .select('*')
+        .eq('user_id', profile.id)
+        .maybeSingle();
+
+      if (fetchError) {
+        console.error('Error fetching wallet:', fetchError);
+        setWalletError('Erreur de chargement');
+        setIsLoadingWallet(false);
+        return;
       }
-      
-      setWalletRetryCount(prev => prev + 1);
-    } finally {
+
+      if (existingWallet) {
+        console.log('Wallet found:', existingWallet);
+        setWallet(existingWallet);
+        setIsLoadingWallet(false);
+        return;
+      }
+
+      // Create new wallet if it doesn't exist
+      console.log('Creating new wallet for user:', profile.id);
+      const { data: newWallet, error: createError } = await supabase
+        .from('wallets')
+        .insert({
+          user_id: profile.id,
+          solde: 0,
+          solde_bloque: 0,
+          total_gagne: 0,
+          total_commissions: 0,
+        })
+        .select()
+        .single();
+
+      if (createError) {
+        console.error('Error creating wallet:', createError);
+        setWalletError('Erreur de création');
+        setIsLoadingWallet(false);
+        return;
+      }
+
+      console.log('Wallet created:', newWallet);
+      setWallet(newWallet);
+      setIsLoadingWallet(false);
+    } catch (error) {
+      console.error('Error in loadWallet:', error);
+      setWalletError('Erreur inattendue');
       setIsLoadingWallet(false);
     }
-  };
-
-  /**
-   * Retry loading wallet
-   */
-  const handleRetryWallet = async () => {
-    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    console.log(`🔄 [iOS] Manual retry attempt #${walletRetryCount + 1}`);
-    setWalletRetryCount(0); // Reset counter for manual retry
-    await loadWallet();
   };
 
   const handleRoleToggle = async (role: 'sender' | 'delivery', value: boolean) => {
@@ -181,20 +185,15 @@ export default function ProfileScreen() {
 
   const hasProviderRole = profile.roles.driver || profile.roles.delivery;
 
-  // iOS timing fix: Show loader if profile is still loading
-  if (isLoading || !profile.id) {
+  if (isLoading) {
     return (
       <SafeAreaView 
         style={[styles.safeArea, { backgroundColor: isDark ? colors.darkBackground : colors.background }]} 
         edges={['top']}
       >
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
           <Text style={[styles.loadingText, { color: isDark ? colors.darkText : colors.text }]}>
-            Chargement du profil...
-          </Text>
-          <Text style={[styles.loadingSubtext, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-            Veuillez patienter (iOS)
+            Chargement...
           </Text>
         </View>
       </SafeAreaView>
@@ -211,7 +210,6 @@ export default function ProfileScreen() {
         contentContainerStyle={styles.contentContainer}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header and other sections remain the same as Android version */}
         {/* 1️⃣ HEADER – Informations utilisateur */}
         <View style={[styles.headerCard, { backgroundColor: isDark ? colors.darkCard : colors.card }]}>
           <View style={styles.headerContent}>
@@ -486,7 +484,7 @@ export default function ProfileScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* 💰 SECTION – MON WALLET YOMBAL YOON (iOS-specific with improved error handling) */}
+        {/* 💰 SECTION – MON WALLET YOMBAL YOON */}
         {hasProviderRole && (
           <View style={[styles.sectionCard, { backgroundColor: isDark ? colors.darkCard : colors.card }]}>
             <Text style={[styles.sectionTitle, { color: isDark ? colors.darkText : colors.text }]}>
@@ -499,33 +497,6 @@ export default function ProfileScreen() {
                 <Text style={[styles.walletLoadingText, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
                   Chargement du wallet...
                 </Text>
-                <Text style={[styles.walletLoadingSubtext, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-                  Création automatique si nécessaire
-                </Text>
-              </View>
-            ) : walletError ? (
-              <View style={[styles.walletErrorCard, { backgroundColor: isDark ? colors.darkBackground : colors.background }]}>
-                <IconSymbol
-                  ios_icon_name="exclamationmark.triangle.fill"
-                  android_material_icon_name="error"
-                  size={32}
-                  color={colors.error}
-                />
-                <Text style={[styles.walletErrorText, { color: isDark ? colors.darkText : colors.text }]}>
-                  {walletError}
-                </Text>
-                <TouchableOpacity
-                  style={[styles.walletRetryButton, { backgroundColor: colors.primary }]}
-                  onPress={handleRetryWallet}
-                >
-                  <IconSymbol
-                    ios_icon_name="arrow.clockwise"
-                    android_material_icon_name="refresh"
-                    size={18}
-                    color="#FFFFFF"
-                  />
-                  <Text style={styles.walletRetryButtonText}>Réessayer</Text>
-                </TouchableOpacity>
               </View>
             ) : wallet ? (
               <React.Fragment>
@@ -620,11 +591,33 @@ export default function ProfileScreen() {
                   </TouchableOpacity>
                 </View>
               </React.Fragment>
-            ) : null}
+            ) : (
+              <View style={[styles.walletErrorCard, { backgroundColor: isDark ? colors.darkBackground : colors.background }]}>
+                <IconSymbol
+                  ios_icon_name="exclamationmark.triangle.fill"
+                  android_material_icon_name="error"
+                  size={32}
+                  color={colors.error}
+                />
+                <Text style={[styles.walletErrorText, { color: isDark ? colors.darkText : colors.text }]}>
+                  Impossible de charger votre wallet. Veuillez réessayer.
+                </Text>
+                {walletError && (
+                  <Text style={[styles.walletErrorDetail, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+                    Détail: {walletError}
+                  </Text>
+                )}
+                <TouchableOpacity
+                  style={[styles.walletRetryButton, { backgroundColor: colors.primary }]}
+                  onPress={loadWallet}
+                >
+                  <Text style={styles.walletRetryButtonText}>Réessayer</Text>
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
         )}
 
-        {/* Remaining sections (Security, Assistance, Settings, Footer) - same as Android */}
         {/* 4️⃣ SECTION – 🔐 SÉCURITÉ & IDENTITÉ */}
         <View style={[styles.sectionCard, { backgroundColor: isDark ? colors.darkCard : colors.card }]}>
           <Text style={[styles.sectionTitle, { color: isDark ? colors.darkText : colors.text }]}>
@@ -880,15 +873,9 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 12,
   },
   loadingText: {
     fontSize: 16,
-    fontWeight: '600',
-  },
-  loadingSubtext: {
-    fontSize: 14,
-    textAlign: 'center',
   },
 
   // 1️⃣ HEADER
@@ -1058,19 +1045,26 @@ const styles = StyleSheet.create({
 
   // 💰 WALLET SECTION
   walletLoadingContainer: {
-    flexDirection: 'column',
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: 12,
     paddingVertical: 24,
   },
   walletLoadingText: {
     fontSize: 14,
-    fontWeight: '600',
   },
-  walletLoadingSubtext: {
-    fontSize: 12,
-    textAlign: 'center',
+  walletInactiveCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    padding: 20,
+    borderRadius: 12,
+  },
+  walletInactiveText: {
+    flex: 1,
+    fontSize: 14,
+    lineHeight: 20,
   },
   walletCard: {
     borderRadius: 16,
@@ -1176,10 +1170,12 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 20,
   },
+  walletErrorDetail: {
+    fontSize: 12,
+    textAlign: 'center',
+    fontStyle: 'italic',
+  },
   walletRetryButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 8,

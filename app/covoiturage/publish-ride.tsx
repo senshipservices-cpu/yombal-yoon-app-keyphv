@@ -26,8 +26,7 @@ import CityAutocomplete from '@/components/CityAutocomplete';
 import PhoneVerificationModal from '@/components/PhoneVerificationModal';
 import DebtBlockModal from '@/components/DebtBlockModal';
 import { supabase } from '@/config/supabase';
-import { checkDebtStatus, calculateAmounts } from '@/utils/walletUtils';
-import { IS_TEST_MODE } from '@/config/testMode';
+import { checkDebtStatus } from '@/utils/walletUtils';
 
 const FAVORITE_ROUTE_KEY = '@yombal_yoon_favorite_route';
 

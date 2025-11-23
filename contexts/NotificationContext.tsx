@@ -6,17 +6,14 @@ import { Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 
-// Only set notification handler on native platforms
-if (Platform.OS !== 'web') {
-  Notifications.setNotificationHandler({
-    handleNotification: async () => ({
-      shouldShowBanner: true,
-      shouldShowList: true,
-      shouldPlaySound: true,
-      shouldSetBadge: true,
-    }),
-  });
-}
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowBanner: true,
+    shouldShowList: true,
+    shouldPlaySound: true,
+    shouldSetBadge: true,
+  }),
+});
 
 export interface DeviceToken {
   userId: string;
@@ -65,37 +62,6 @@ const NotificationContext = createContext<NotificationContextType | undefined>(u
 const DEVICE_TOKENS_STORAGE_KEY = '@yombal_yoon_device_tokens';
 const NOTIFICATIONS_STORAGE_KEY = '@yombal_yoon_notifications';
 
-// Platform-aware storage helper
-const getStorageItem = async (key: string): Promise<string | null> => {
-  if (Platform.OS === 'web') {
-    if (typeof window !== 'undefined' && window.localStorage) {
-      return window.localStorage.getItem(key);
-    }
-    return null;
-  }
-  return AsyncStorage.getItem(key);
-};
-
-const setStorageItem = async (key: string, value: string): Promise<void> => {
-  if (Platform.OS === 'web') {
-    if (typeof window !== 'undefined' && window.localStorage) {
-      window.localStorage.setItem(key, value);
-    }
-    return;
-  }
-  return AsyncStorage.setItem(key, value);
-};
-
-const removeStorageItem = async (key: string): Promise<void> => {
-  if (Platform.OS === 'web') {
-    if (typeof window !== 'undefined' && window.localStorage) {
-      window.localStorage.removeItem(key);
-    }
-    return;
-  }
-  return AsyncStorage.removeItem(key);
-};
-
 export function NotificationProvider({ children }: { children: ReactNode }) {
   const [deviceToken, setDeviceToken] = useState<string | null>(null);
   const [notifications, setNotifications] = useState<NotificationData[]>([]);
@@ -107,13 +73,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     loadData();
-    
-    // Only setup notification listeners on native platforms
-    if (Platform.OS !== 'web') {
-      setupNotificationListeners();
-    } else {
-      console.log('Push notifications not supported on web platform');
-    }
+    setupNotificationListeners();
 
     return () => {
       if (notificationListener.current) {
@@ -129,7 +89,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 
   const loadData = async () => {
     try {
-      const storedNotifications = await getStorageItem(NOTIFICATIONS_STORAGE_KEY);
+      const storedNotifications = await AsyncStorage.getItem(NOTIFICATIONS_STORAGE_KEY);
       if (storedNotifications) {
         setNotifications(JSON.parse(storedNotifications));
         console.log('Notifications loaded from storage');
@@ -176,7 +136,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         // Save notification to history
         setNotifications(prev => {
           const updated = [newNotification, ...prev];
-          setStorageItem(NOTIFICATIONS_STORAGE_KEY, JSON.stringify(updated));
+          AsyncStorage.setItem(NOTIFICATIONS_STORAGE_KEY, JSON.stringify(updated));
           return updated;
         });
 
@@ -230,13 +190,6 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   };
 
   const registerForPushNotifications = async (userId: string = 'current_user', roles: string[] = []) => {
-    // Skip push notification registration on web
-    if (Platform.OS === 'web') {
-      console.log('Push notifications not supported on web platform');
-      setHasPermission(false);
-      return;
-    }
-
     try {
       // Check if we're on a physical device or emulator
       if (Platform.OS === 'android') {
@@ -307,7 +260,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         createdAt: new Date().toISOString(),
       };
 
-      const storedTokens = await getStorageItem(DEVICE_TOKENS_STORAGE_KEY);
+      const storedTokens = await AsyncStorage.getItem(DEVICE_TOKENS_STORAGE_KEY);
       const tokens: DeviceToken[] = storedTokens ? JSON.parse(storedTokens) : [];
       
       const existingTokenIndex = tokens.findIndex(t => t.userId === userId && t.platform === Platform.OS);
@@ -317,7 +270,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         tokens.push(deviceTokenData);
       }
       
-      await setStorageItem(DEVICE_TOKENS_STORAGE_KEY, JSON.stringify(tokens));
+      await AsyncStorage.setItem(DEVICE_TOKENS_STORAGE_KEY, JSON.stringify(tokens));
 
       console.log('✅ Device token registered successfully:', token, 'Roles:', roles);
     } catch (error) {
@@ -328,12 +281,6 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   };
 
   const sendLocalNotification = async (title: string, body: string, data?: any) => {
-    // Skip on web platform
-    if (Platform.OS === 'web') {
-      console.log('Local notifications not supported on web platform');
-      return;
-    }
-
     try {
       if (!hasPermission) {
         console.log('Cannot send notification: permission not granted');
@@ -372,7 +319,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         notif.id === notificationId ? { ...notif, read: true } : notif
       );
       setNotifications(updatedNotifications);
-      await setStorageItem(NOTIFICATIONS_STORAGE_KEY, JSON.stringify(updatedNotifications));
+      await AsyncStorage.setItem(NOTIFICATIONS_STORAGE_KEY, JSON.stringify(updatedNotifications));
       console.log('Notification marked as read:', notificationId);
     } catch (error) {
       console.error('Error marking notification as read:', error);
@@ -383,7 +330,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     try {
       const updatedNotifications = notifications.map(notif => ({ ...notif, read: true }));
       setNotifications(updatedNotifications);
-      await setStorageItem(NOTIFICATIONS_STORAGE_KEY, JSON.stringify(updatedNotifications));
+      await AsyncStorage.setItem(NOTIFICATIONS_STORAGE_KEY, JSON.stringify(updatedNotifications));
       console.log('All notifications marked as read');
     } catch (error) {
       console.error('Error marking all notifications as read:', error);
@@ -393,13 +340,8 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   const clearAllNotifications = async () => {
     try {
       setNotifications([]);
-      await removeStorageItem(NOTIFICATIONS_STORAGE_KEY);
-      
-      // Only dismiss notifications on native platforms
-      if (Platform.OS !== 'web') {
-        await Notifications.dismissAllNotificationsAsync();
-      }
-      
+      await AsyncStorage.removeItem(NOTIFICATIONS_STORAGE_KEY);
+      await Notifications.dismissAllNotificationsAsync();
       console.log('All notifications cleared');
     } catch (error) {
       console.error('Error clearing notifications:', error);

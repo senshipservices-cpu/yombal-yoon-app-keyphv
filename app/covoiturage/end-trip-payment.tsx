@@ -18,7 +18,6 @@ import { IconSymbol } from '@/components/IconSymbol';
 import { supabase } from '@/app/integrations/supabase/client';
 import { useProfile } from '@/contexts/ProfileContext';
 import { formatCurrency, creditDriverWallet, debitCommission } from '@/utils/walletUtils';
-import { IS_TEST_MODE, getCommissionDisplayText } from '@/config/testMode';
 import * as Haptics from 'expo-haptics';
 
 type PaymentMethod = 'wave' | 'orange_money' | 'especes';
@@ -271,9 +270,9 @@ export default function EndTripPaymentScreen() {
 
             <View style={styles.amountRow}>
               <Text style={[styles.amountLabel, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-                {getCommissionDisplayText('covoiturage')}
+                Commission Yombal Yoon (12%)
               </Text>
-              <Text style={[styles.amountValue, { color: IS_TEST_MODE ? colors.success : colors.accent }]}>
+              <Text style={[styles.amountValue, { color: colors.accent }]}>
                 -{formatCurrency(rideData.commission_yombal)}
               </Text>
             </View>
@@ -362,17 +361,15 @@ export default function EndTripPaymentScreen() {
           </View>
 
           {/* Info Card */}
-          <View style={[styles.infoCard, { backgroundColor: IS_TEST_MODE ? colors.success + '20' : colors.primary + '20' }]}>
+          <View style={[styles.infoCard, { backgroundColor: colors.primary + '20' }]}>
             <IconSymbol
               ios_icon_name="info.circle.fill"
               android_material_icon_name="info"
               size={24}
-              color={IS_TEST_MODE ? colors.success : colors.primary}
+              color={colors.primary}
             />
             <Text style={[styles.infoText, { color: isDark ? colors.darkText : colors.text }]}>
-              {IS_TEST_MODE 
-                ? '🎉 Mode test activé : Vous recevrez 100% du montant sans commission !' 
-                : 'Après confirmation, votre wallet sera crédité du montant net et la commission sera automatiquement prélevée.'}
+              Après confirmation, votre wallet sera crédité du montant net et la commission sera automatiquement prélevée.
             </Text>
           </View>
         </View>

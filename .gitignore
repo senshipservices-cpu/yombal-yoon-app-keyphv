@@ -1,4 +1,3 @@
-
 node_modules/
 
 .git/
@@ -38,32 +37,3 @@ netlify.toml
 
 pnpm-lock.yaml
 package-lock.json
-
-# Browser cache files
-**/cache2/**
-**/Cache/**
-**/.cache/**
-
-# Windows system files
-Thumbs.db
-Desktop.ini
-
-# macOS system files
-.DS_Store
-.AppleDouble
-.LSOverride
-
-# Firefox cache
-**/Firefox/Profiles/**/cache2/**
-
-# Chrome cache
-**/Chrome/User Data/**/Cache/**
-
-# Temporary files
-*.tmp
-*.temp
-*.log
-
-# User-specific files
-Users/
-AppData/

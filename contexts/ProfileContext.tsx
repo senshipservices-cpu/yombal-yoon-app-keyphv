@@ -2,10 +2,8 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { supabase } from '@/app/integrations/supabase/client';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { ensureProfileAndWallet } from '@/utils/profileWalletUtils';
 
 export interface ProfileData {
-  id: string;
   fullName: string;
   phone: string;
   avatarUrl?: string;
@@ -55,7 +53,6 @@ interface ProfileContextType {
 }
 
 const defaultProfile: ProfileData = {
-  id: '',
   fullName: '',
   phone: '',
   avatarUrl: undefined,
@@ -139,7 +136,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
   const [userId, setUserId] = useState<string | null>(null);
 
   useEffect(() => {
-    initializeUser();
+    loadProfile();
   }, []);
 
   const getUserId = async (): Promise<string> => {
@@ -157,63 +154,47 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
     return storedUserId;
   };
 
-  /**
-   * Initialize user: Create profile and wallet automatically if they don't exist
-   * This is called on app start (BLOC 1 implementation)
-   */
-  const initializeUser = async () => {
+  const loadProfile = async () => {
     try {
-      setIsLoading(true);
       const currentUserId = await getUserId();
 
-      console.log('🔄 Initializing user:', currentUserId);
+      const { data, error } = await supabase
+        .from('user_profiles')
+        .select('*')
+        .eq('id', currentUserId)
+        .single();
 
-      // Load from local storage first to get any existing data
-      const localProfile = await getLocalProfile();
-
-      // Use the new ensureProfileAndWallet utility function
-      const result = await ensureProfileAndWallet(currentUserId, {
-        phone: localProfile.phone || '',
-        name: localProfile.fullName || 'Utilisateur',
-        roles: localProfile.roles,
-      });
-
-      if (result && result.profile) {
-        const profileData: ProfileData = {
-          id: result.profile.id,
-          fullName: result.profile.full_name || '',
-          phone: result.profile.phone_number || '',
-          avatarUrl: result.profile.avatar_url || undefined,
-          isPhoneVerified: result.profile.is_phone_verified || false,
-          roles: result.profile.roles || defaultProfile.roles,
-        };
-
-        setProfile(profileData);
-        await AsyncStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(profileData));
-        
-        console.log('✅ User initialization complete');
-      } else {
-        // Fallback to local storage if ensureProfileAndWallet fails
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error loading profile from Supabase:', error);
         await loadFromLocalStorage();
+        return;
+      }
+
+      if (data) {
+        const loadedProfile: ProfileData = {
+          fullName: data.full_name || '',
+          phone: data.phone_number || '',
+          avatarUrl: data.avatar_url || undefined,
+          isPhoneVerified: data.is_phone_verified || false,
+          roles: {
+            driver: data.roles?.driver ?? true,
+            passenger: data.roles?.passenger ?? true,
+            delivery: data.roles?.delivery ?? false,
+            sender: data.roles?.sender ?? false,
+          },
+        };
+        setProfile(loadedProfile);
+        console.log('Profile loaded from Supabase:', loadedProfile);
+      } else {
+        await loadFromLocalStorage();
+        await syncToSupabase(currentUserId);
       }
     } catch (error) {
-      console.error('❌ Error initializing user:', error);
+      console.error('Error loading profile:', error);
       await loadFromLocalStorage();
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const getLocalProfile = async (): Promise<Partial<ProfileData>> => {
-    try {
-      const storedProfile = await AsyncStorage.getItem(PROFILE_STORAGE_KEY);
-      if (storedProfile) {
-        return JSON.parse(storedProfile);
-      }
-    } catch (error) {
-      console.error('Error reading local profile:', error);
-    }
-    return {};
   };
 
   const loadFromLocalStorage = async () => {
@@ -223,7 +204,6 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
         const parsedProfile = JSON.parse(storedProfile);
         
         const migratedProfile: ProfileData = {
-          id: parsedProfile.id || '',
           fullName: parsedProfile.fullName || '',
           phone: parsedProfile.phone || '',
           avatarUrl: parsedProfile.avatarUrl,
@@ -239,16 +219,37 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
         setProfile(migratedProfile);
         console.log('Profile loaded from local storage');
       } else {
-        const currentUserId = await getUserId();
-        const newProfile = { ...defaultProfile, id: currentUserId };
-        setProfile(newProfile);
-        await AsyncStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(newProfile));
+        setProfile(defaultProfile);
+        await AsyncStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(defaultProfile));
         console.log('New user profile created with default carpooling roles activated');
       }
     } catch (error) {
       console.error('Error loading from local storage:', error);
-      const currentUserId = await getUserId();
-      setProfile({ ...defaultProfile, id: currentUserId });
+      setProfile(defaultProfile);
+    }
+  };
+
+  const syncToSupabase = async (currentUserId: string) => {
+    try {
+      const { error } = await supabase
+        .from('user_profiles')
+        .upsert({
+          id: currentUserId,
+          phone_number: profile.phone,
+          full_name: profile.fullName,
+          avatar_url: profile.avatarUrl,
+          is_phone_verified: profile.isPhoneVerified,
+          roles: profile.roles,
+          updated_at: new Date().toISOString(),
+        });
+
+      if (error) {
+        console.error('Error syncing to Supabase:', error);
+      } else {
+        console.log('Profile synced to Supabase');
+      }
+    } catch (error) {
+      console.error('Error syncing to Supabase:', error);
     }
   };
 
@@ -293,15 +294,15 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
 
   const refreshProfile = async () => {
     setIsLoading(true);
-    await initializeUser();
+    await loadProfile();
   };
 
   const resetProfile = async () => {
     try {
-      const currentUserId = await getUserId();
-      setProfile({ ...defaultProfile, id: currentUserId });
+      setProfile(defaultProfile);
       await AsyncStorage.removeItem(PROFILE_STORAGE_KEY);
       
+      const currentUserId = await getUserId();
       const { error } = await supabase
         .from('user_profiles')
         .delete()
