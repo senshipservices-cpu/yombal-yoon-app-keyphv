@@ -16,13 +16,15 @@ const corsHeaders = {
 function getApiKeyForPlatform(platform: string): { key: string; error?: string } {
   console.log(`🔑 Platform: ${platform}`);
   
-  switch (platform.toLowerCase()) {
+  const platformLower = platform.toLowerCase();
+  
+  switch (platformLower) {
     case 'ios':
       if (!GOOGLE_MAPS_API_KEY_IOS) {
         console.error('❌ GOOGLE_MAPS_API_KEY_IOS not configured');
         return {
           key: '',
-          error: 'iOS API key not configured. Please add GOOGLE_MAPS_API_KEY_IOS to Supabase Edge Function secrets.'
+          error: 'iOS API key not configured. Please add GOOGLE_MAPS_API_KEY_IOS to Supabase Edge Function secrets. See IOS_API_KEY_SETUP_GUIDE.md for instructions.'
         };
       }
       console.log('✅ Using iOS API key');

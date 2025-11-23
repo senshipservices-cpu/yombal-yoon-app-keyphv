@@ -1,210 +1,167 @@
 
-# 🔧 FIX: Autocomplétion iOS TestFlight - Yombal Yoon
+# Fix iOS Testflight Autocomplete Issue - Yombal Yoon
 
-## 📋 Problème
+## Problem Summary
 
-L'autocomplétion Google Places fonctionne sur **Web** mais **ne fonctionne pas sur iOS (TestFlight)** lors des tests sur iPhone physique.
+1. **iOS Autocomplete Not Working**: Address autocomplete in the "Envoi de colis" module doesn't work on iPhones via Testflight
+2. **Form Submission Error**: When manually entering addresses (without autocomplete), submitting the form shows error: "Une erreur est survenue lors de l'envoi de votre demande"
+3. **Covoiturage Works**: Autocomplete works fine in the "Covoiturage" module
 
-## 🔍 Diagnostic
+## Root Causes
 
-### Symptômes
-- ✅ Web: Autocomplétion fonctionne parfaitement
-- ❌ iOS (TestFlight): Aucune suggestion n'apparaît
-- ❌ iOS (TestFlight): Possibles erreurs `REQUEST_DENIED` dans les logs
+### 1. iOS API Key Not Configured
+The Google Maps API key for iOS platform is not properly configured in Supabase Edge Function secrets.
 
-### Cause Racine
+### 2. Manual Entry Validation Issue
+When users manually type addresses without selecting from autocomplete, the coordinates are never set, causing the form submission to fail.
 
-Le problème est causé par les **restrictions de clé API Google Maps**:
+## Solution
 
-1. **Clé API actuelle**: Configurée avec des restrictions HTTP referrer (pour Web uniquement)
-2. **iOS nécessite**: Une clé API avec restrictions d'application iOS (Bundle ID)
-3. **Résultat**: Les requêtes depuis l'app iOS sont rejetées par Google Maps API
+### Step 1: Configure iOS API Key in Google Cloud Console
 
-## ✅ Solution
+1. Go to [Google Cloud Console](https://console.cloud.google.com/)
+2. Select your project
+3. Navigate to **APIs & Services** > **Credentials**
+4. Create a new API key or use existing one
+5. Click **Edit API key** (pencil icon)
+6. Under **Application restrictions**, select **iOS apps**
+7. Add your iOS bundle identifier:
+   - Bundle ID: `com.yombalyoon.app` (from app.json)
+8. Under **API restrictions**, select **Restrict key**
+9. Enable these APIs:
+   - Places API
+   - Geocoding API
+   - Distance Matrix API
+   - Maps SDK for iOS
+10. Click **Save**
 
-### Étape 1: Créer une clé API iOS séparée
+### Step 2: Add iOS API Key to Supabase
 
-1. **Allez sur Google Cloud Console**
-   - URL: https://console.cloud.google.com/
-   - Sélectionnez votre projet
+1. Go to your Supabase project dashboard
+2. Navigate to **Edge Functions** > **Secrets**
+3. Add a new secret:
+   - Name: `GOOGLE_MAPS_API_KEY_IOS`
+   - Value: Your iOS API key from Step 1
+4. Click **Save**
 
-2. **Créez une nouvelle clé API**
-   - Navigation: `APIs & Services` → `Credentials`
-   - Cliquez sur `+ CREATE CREDENTIALS` → `API key`
-   - Nommez-la: `Yombal Yoon - iOS`
+### Step 3: Redeploy Edge Function
 
-3. **Configurez les restrictions iOS**
-   - Cliquez sur la clé nouvellement créée
-   - Section `Application restrictions`:
-     - Sélectionnez `iOS apps`
-     - Cliquez sur `ADD AN ITEM`
-     - Entrez le **Bundle ID**: `com.yombalyoon.yombalyoonapp`
-   - Cliquez sur `SAVE`
+The Edge Function has been updated to properly handle iOS requests. Deploy it:
 
-4. **Activez les APIs nécessaires**
-   - Assurez-vous que ces APIs sont activées:
-     - ✅ Places API
-     - ✅ Places API (New)
-     - ✅ Geocoding API
-     - ✅ Distance Matrix API
-
-### Étape 2: Configurer la clé dans Supabase
-
-1. **Allez sur Supabase Dashboard**
-   - URL: https://supabase.com/dashboard/project/drxtaxepofuoelplgrei
-
-2. **Ajoutez la variable d'environnement**
-   - Navigation: `Settings` → `Edge Functions` → `Secrets`
-   - Ajoutez un nouveau secret:
-     - **Nom**: `GOOGLE_MAPS_API_KEY_IOS`
-     - **Valeur**: Votre nouvelle clé API iOS
-   - Cliquez sur `Save`
-
-3. **Redéployez l'Edge Function**
-   ```bash
-   # Depuis votre terminal local
-   supabase functions deploy google-places-proxy
-   ```
-
-### Étape 3: Vérifier la configuration
-
-1. **Testez sur TestFlight**
-   - Ouvrez l'app Yombal Yoon sur iPhone
-   - Allez dans `Envoi de Colis`
-   - Tapez dans le champ "Adresse de départ"
-   - Vérifiez que les suggestions apparaissent
-
-2. **Vérifiez les logs de debug**
-   - Les logs de debug s'affichent sous le champ de saisie
-   - Recherchez:
-     - ✅ `Status: OK` → Tout fonctionne
-     - ❌ `Status: REQUEST_DENIED` → Problème de clé API
-     - ⚠️ `Status: ZERO_RESULTS` → Aucun résultat (normal si recherche vide)
-
-## 🔧 Configuration Actuelle
-
-### Clés API par plateforme
-
-L'Edge Function `google-places-proxy` utilise maintenant des clés API séparées:
-
-```typescript
-// Web (par défaut)
-const GOOGLE_MAPS_API_KEY_WEB = Deno.env.get('GOOGLE_MAPS_API_KEY_WEB') || DEFAULT_KEY;
-
-// Android
-const GOOGLE_MAPS_API_KEY_ANDROID = Deno.env.get('GOOGLE_MAPS_API_KEY_ANDROID') || DEFAULT_KEY;
-
-// iOS
-const GOOGLE_MAPS_API_KEY_IOS = Deno.env.get('GOOGLE_MAPS_API_KEY_IOS') || DEFAULT_KEY;
+```bash
+supabase functions deploy google-places-proxy
 ```
 
-### Détection de plateforme
+### Step 4: Test on Testflight
 
-La plateforme est détectée via le header `x-platform`:
+1. Build a new version of the app with the updated code
+2. Upload to Testflight
+3. Test the autocomplete in "Envoi de colis" module
+4. Verify that:
+   - Autocomplete suggestions appear when typing
+   - Selecting an address populates the coordinates
+   - Form submission works correctly
 
-```typescript
-const platform = req.headers.get('x-platform') || 'web';
-const apiKey = getApiKeyForPlatform(platform);
-```
+## Changes Made
 
-## 📱 Restrictions recommandées par plateforme
+### 1. AddressAutocomplete Component
+- Added better error handling for iOS platform
+- Added state tracking for autocomplete selection
+- Improved logging for debugging
+- Added platform-specific error messages
 
-### Web
-- **Type**: HTTP referrers
-- **Valeurs autorisées**:
-  - `localhost:*`
-  - `*.natively.dev/*`
-  - `*.supabase.co/*`
-  - Votre domaine personnalisé (si applicable)
+### 2. ColisContext
+- Added validation for required fields before submission
+- Improved error messages
+- Added detailed logging for debugging
+- Better handling of cases where coordinates are not available
 
-### iOS
-- **Type**: iOS apps
-- **Bundle ID**: `com.yombalyoon.yombalyoonapp`
+### 3. Edge Function (google-places-proxy)
+- Improved platform detection (case-insensitive)
+- Better error messages for missing API keys
+- Added platform-specific help messages
+- Enhanced logging for debugging
 
-### Android
-- **Type**: Android apps
-- **Package name**: `com.yombalyoon.app`
-- **SHA-1 certificate fingerprint**: (à obtenir depuis votre keystore)
+## Verification Checklist
 
-## 🐛 Débogage
+- [ ] iOS API key created in Google Cloud Console
+- [ ] iOS API key has correct bundle identifier restriction
+- [ ] iOS API key has required APIs enabled
+- [ ] `GOOGLE_MAPS_API_KEY_IOS` secret added to Supabase
+- [ ] Edge Function redeployed
+- [ ] New app build uploaded to Testflight
+- [ ] Autocomplete tested on iOS device
+- [ ] Form submission tested with autocomplete selection
+- [ ] Form submission tested with manual entry
 
-### Logs de debug activés
+## Troubleshooting
 
-Les composants d'autocomplétion affichent maintenant des informations de debug détaillées sur mobile:
+### Autocomplete Still Not Working
 
-```
-🔧 Debug Info:
-Platform: ios
-Status: OK
-Time: 234ms
-Predictions: 5
-
-✅ API fonctionne correctement
-```
-
-### En cas d'erreur REQUEST_DENIED
-
-```
-🔧 Debug Info:
-Platform: ios
-Status: REQUEST_DENIED
-Error: This API key is not authorized for this application
-
-🚫 PROBLÈME DE CLÉ API:
-La clé API Google Maps n'est pas configurée pour ios.
-
-SOLUTION:
-1. Allez sur Google Cloud Console
-2. Créez une clé API pour ios
-3. Pour iOS: Ajoutez le Bundle ID
-4. Activez: Places API, Geocoding API, Distance Matrix API
-```
-
-## 📚 Ressources
-
-- [Google Maps Platform - API Key Best Practices](https://developers.google.com/maps/api-security-best-practices)
-- [Google Maps Platform - iOS SDK Setup](https://developers.google.com/maps/documentation/ios-sdk/config)
-- [Supabase Edge Functions - Environment Variables](https://supabase.com/docs/guides/functions/secrets)
-
-## ✅ Checklist de vérification
-
-- [ ] Clé API iOS créée sur Google Cloud Console
-- [ ] Restrictions iOS configurées avec le Bundle ID correct
-- [ ] APIs activées (Places, Geocoding, Distance Matrix)
-- [ ] Variable d'environnement `GOOGLE_MAPS_API_KEY_IOS` ajoutée dans Supabase
-- [ ] Edge Function redéployée
-- [ ] Test sur TestFlight réussi
-- [ ] Logs de debug vérifiés (Status: OK)
-
-## 🎯 Résultat attendu
-
-Après avoir suivi ces étapes:
-
-1. ✅ L'autocomplétion fonctionne sur **Web**
-2. ✅ L'autocomplétion fonctionne sur **iOS (TestFlight)**
-3. ✅ L'autocomplétion fonctionne sur **Android** (si configuré)
-4. ✅ Les logs de debug affichent `Status: OK`
-5. ✅ Les suggestions apparaissent en temps réel
-
-## 📞 Support
-
-Si le problème persiste après avoir suivi ces étapes:
-
-1. Vérifiez les logs de l'Edge Function:
+1. **Check Edge Function Logs**:
    ```bash
    supabase functions logs google-places-proxy
    ```
+   Look for:
+   - Platform detection: Should show "iOS"
+   - API key status: Should show "✅ Using iOS API key"
+   - Google API response status
 
-2. Vérifiez les logs de debug dans l'app (affichés sous le champ de saisie)
+2. **Verify API Key Configuration**:
+   - Ensure bundle ID matches exactly: `com.yombalyoon.app`
+   - Verify all required APIs are enabled
+   - Check API key restrictions are correct
 
-3. Contactez le support avec:
-   - Plateforme (iOS/Android/Web)
-   - Message d'erreur exact
-   - Logs de debug
-   - Capture d'écran
+3. **Check App Logs**:
+   - Open Xcode console while running Testflight build
+   - Look for `[AddressAutocomplete]` log messages
+   - Check for error messages from the Edge Function
 
----
+### Form Submission Error
 
-**Date de création**: 23 novembre 2024  
-**Dernière mise à jour**: 23 novembre 2024  
-**Version**: 1.0.0
+If you still get "Une erreur est survenue lors de l'envoi de votre demande":
+
+1. **Check Required Fields**:
+   - All fields must be filled
+   - Sender name, phone
+   - Recipient name, phone
+   - Departure address
+   - Arrival address
+   - Description
+
+2. **Check Network Connection**:
+   - Ensure device has internet connection
+   - Check Supabase project is accessible
+
+3. **Check Supabase Logs**:
+   - Go to Supabase Dashboard > Logs
+   - Look for errors in the `parcels` table insert
+
+## API Key Security
+
+**Important**: The iOS API key should have these restrictions:
+- **Application restrictions**: iOS apps only
+- **Bundle ID**: `com.yombalyoon.app`
+- **API restrictions**: Only required APIs enabled
+
+This prevents unauthorized use of your API key.
+
+## Support
+
+If issues persist after following this guide:
+
+1. Check the Edge Function logs for detailed error messages
+2. Verify all API keys are correctly configured
+3. Ensure the app bundle ID matches the one in Google Cloud Console
+4. Contact support with:
+   - Edge Function logs
+   - App console logs
+   - Screenshots of the error
+   - Device and iOS version
+
+## Related Documentation
+
+- `IOS_API_KEY_SETUP_GUIDE.md` - Detailed iOS API key setup
+- `WEB_API_KEY_SETUP_GUIDE.md` - Web API key setup
+- `GOOGLE_MAPS_API_FIX.md` - General Google Maps API troubleshooting
+- `TESTING_GUIDE.md` - Testing procedures

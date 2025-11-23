@@ -53,10 +53,11 @@ export default function AddressAutocomplete({
   const [showPredictions, setShowPredictions] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
   const [showNoResults, setShowNoResults] = useState(false);
+  const [hasSelectedFromAutocomplete, setHasSelectedFromAutocomplete] = useState(false);
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-    if (value.length > 1) {
+    if (value.length > 1 && !hasSelectedFromAutocomplete) {
       if (debounceTimer.current) {
         clearTimeout(debounceTimer.current);
       }
@@ -64,7 +65,7 @@ export default function AddressAutocomplete({
       debounceTimer.current = setTimeout(() => {
         fetchPredictions(value);
       }, 500);
-    } else {
+    } else if (value.length <= 1) {
       setPredictions([]);
       setShowPredictions(false);
       setShowNoResults(false);
@@ -76,7 +77,7 @@ export default function AddressAutocomplete({
         clearTimeout(debounceTimer.current);
       }
     };
-  }, [value]);
+  }, [value, hasSelectedFromAutocomplete]);
 
   const fetchPredictions = async (input: string) => {
     setIsLoading(true);
@@ -84,6 +85,8 @@ export default function AddressAutocomplete({
     setShowNoResults(false);
     
     try {
+      console.log(`[AddressAutocomplete] Fetching predictions for: "${input}" on platform: ${Platform.OS}`);
+      
       const requestBody = {
         action: 'autocomplete',
         input: input,
@@ -102,12 +105,14 @@ export default function AddressAutocomplete({
       });
 
       if (error) {
-        console.error('[AddressAutocomplete] Error:', error);
+        console.error('[AddressAutocomplete] Supabase function error:', error);
         setApiError('Problème de connexion. Veuillez réessayer.');
         setPredictions([]);
         setShowPredictions(false);
         return;
       }
+
+      console.log('[AddressAutocomplete] API Response status:', data?.status);
 
       if (data.status === 'OK' && data.predictions) {
         if (data.predictions.length === 0) {
@@ -115,6 +120,7 @@ export default function AddressAutocomplete({
           setShowPredictions(false);
           setShowNoResults(true);
         } else {
+          console.log(`[AddressAutocomplete] Found ${data.predictions.length} predictions`);
           setPredictions(data.predictions);
           setShowPredictions(true);
           setShowNoResults(false);
@@ -129,7 +135,7 @@ export default function AddressAutocomplete({
         console.error('[AddressAutocomplete] REQUEST_DENIED:', data.error_message);
         
         const platformName = Platform.OS === 'web' ? 'Web' : Platform.OS === 'ios' ? 'iOS' : 'Android';
-        const errorMessage = `Configuration API ${platformName} manquante`;
+        const errorMessage = `Configuration API ${platformName} requise`;
         
         setApiError(errorMessage);
         setPredictions([]);
@@ -138,11 +144,9 @@ export default function AddressAutocomplete({
         if (Platform.OS !== 'web') {
           Alert.alert(
             'Configuration API',
-            `La clé API Google Maps pour ${platformName} n'est pas configurée correctement.\n\n${data.error_message || ''}\n\nVeuillez contacter le support.`,
+            `La clé API Google Maps pour ${platformName} n'est pas configurée.\n\n${data.error_message || ''}\n\nVeuillez contacter le support technique.`,
             [{ text: 'OK' }]
           );
-        } else {
-          console.error('[AddressAutocomplete] Web API key not configured. See WEB_API_KEY_SETUP_GUIDE.md');
         }
       } else if (data.status === 'OVER_QUERY_LIMIT') {
         setApiError('Quota API dépassé. Réessayez plus tard.');
@@ -150,6 +154,7 @@ export default function AddressAutocomplete({
         setShowPredictions(false);
       } else {
         console.error('[AddressAutocomplete] Unexpected status:', data.status);
+        setApiError('Erreur de service. Veuillez réessayer.');
         setPredictions([]);
         setShowNoResults(false);
       }
@@ -165,6 +170,8 @@ export default function AddressAutocomplete({
 
   const getPlaceDetails = async (placeId: string): Promise<Location | null> => {
     try {
+      console.log('[AddressAutocomplete] Fetching place details for:', placeId);
+      
       const { data, error } = await supabase.functions.invoke('google-places-proxy', {
         body: {
           action: 'place_details',
@@ -185,10 +192,12 @@ export default function AddressAutocomplete({
       }
 
       if (data.status === 'OK' && data.result?.geometry?.location) {
-        return {
+        const location = {
           lat: data.result.geometry.location.lat,
           lng: data.result.geometry.location.lng,
         };
+        console.log('[AddressAutocomplete] Place details retrieved:', location);
+        return location;
       }
       
       console.error('[AddressAutocomplete] Invalid place details:', data.status);
@@ -210,12 +219,20 @@ export default function AddressAutocomplete({
     setPredictions([]);
     setShowNoResults(false);
     setApiError(null);
+    setHasSelectedFromAutocomplete(true);
     Keyboard.dismiss();
+
+    console.log('[AddressAutocomplete] Selected prediction:', address);
 
     const location = await getPlaceDetails(prediction.place_id);
     if (location) {
       onSelectAddress(address, location, prediction.place_id);
     }
+  };
+
+  const handleTextChange = (text: string) => {
+    setHasSelectedFromAutocomplete(false);
+    onChangeText(text);
   };
 
   const getPlaceIcon = (types: string[]) => {
@@ -324,7 +341,7 @@ export default function AddressAutocomplete({
           placeholder={placeholder}
           placeholderTextColor={isDark ? colors.darkTextSecondary : colors.textSecondary}
           value={value}
-          onChangeText={onChangeText}
+          onChangeText={handleTextChange}
           onFocus={() => {
             if (predictions.length > 0) {
               setShowPredictions(true);
@@ -345,6 +362,11 @@ export default function AddressAutocomplete({
             <Text style={[styles.errorText, { color: '#FF0000' }]}>
               {apiError}
             </Text>
+            {Platform.OS === 'ios' && apiError.includes('Configuration') && (
+              <Text style={[styles.errorHint, { color: '#FF0000' }]}>
+                Consultez IOS_API_KEY_SETUP_GUIDE.md pour configurer la clé API iOS
+              </Text>
+            )}
             {Platform.OS === 'web' && apiError.includes('Configuration') && (
               <Text style={[styles.errorHint, { color: '#FF0000' }]}>
                 Consultez WEB_API_KEY_SETUP_GUIDE.md pour configurer la clé API Web

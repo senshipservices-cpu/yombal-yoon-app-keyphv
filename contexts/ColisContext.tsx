@@ -118,16 +118,6 @@ export function ColisProvider({ children }: { children: ReactNode }) {
   const [calculatedPrice, setCalculatedPrice] = useState<number>(0);
 
   // CALCUL DE DISTANCE ET DURÉE (Google Distance Matrix API)
-  // =========================================================
-  // Dès que les 4 coordonnées sont connues (pickupLat, pickupLng, dropoffLat, dropoffLng),
-  // appeler Google Distance Matrix API avec :
-  // - origins = pickupLat,pickupLng
-  // - destinations = dropoffLat,dropoffLng
-  // - mode=driving
-  // - language=fr
-  // Récupérer :
-  // - distance.value (mètres) → convertir en distanceKm
-  // - duration.value (secondes) → optionnel
   const calculateDistanceFromGoogleAPI = useCallback(async (
     originLat: number,
     originLng: number,
@@ -174,11 +164,7 @@ export function ColisProvider({ children }: { children: ReactNode }) {
           console.log('   - Distance:', distanceKilometers.toFixed(2), 'km');
           console.log('   - Durée:', durationMinutes, 'minutes');
           
-          // Mettre à jour la variable distanceKm
           setDistanceKmState(distanceKilometers);
-          
-          // Le prix sera automatiquement mis à jour via updatePriceFromDistance
-          // grâce au useEffect qui écoute distanceKm
         } else {
           console.error('❌ Distance Matrix element status:', element.status);
           // Fallback to Haversine formula
@@ -227,7 +213,6 @@ export function ColisProvider({ children }: { children: ReactNode }) {
 
       if (error) {
         console.error('Supabase error loading parcels:', error);
-        // Fallback to AsyncStorage if Supabase fails
         await loadFromAsyncStorage();
         return;
       }
@@ -245,12 +230,10 @@ export function ColisProvider({ children }: { children: ReactNode }) {
 
   const loadData = useCallback(async () => {
     try {
-      // If Supabase is configured and not in demo mode, load from Supabase
       if (isSupabaseConfigured() && !demoMode) {
         console.log('Loading parcels from Supabase...');
         await loadFromSupabase();
       } else {
-        // Otherwise, load from AsyncStorage (local mode)
         console.log('Loading parcels from AsyncStorage (local mode)...');
         await loadFromAsyncStorage();
       }
@@ -261,13 +244,11 @@ export function ColisProvider({ children }: { children: ReactNode }) {
     }
   }, [loadFromSupabase, loadFromAsyncStorage]);
 
-  // Load data on mount
   useEffect(() => {
     loadData();
   }, [loadData]);
 
   // AUTO-CALCUL DE DISTANCE QUAND LES 4 COORDONNÉES SONT DISPONIBLES
-  // Utilise Google Distance Matrix API pour calculer la distance réelle
   useEffect(() => {
     if (pickupLat !== null && pickupLng !== null && dropoffLat !== null && dropoffLng !== null) {
       console.log('✅ All coordinates available, calculating distance...');
@@ -277,13 +258,11 @@ export function ColisProvider({ children }: { children: ReactNode }) {
     }
   }, [pickupLat, pickupLng, dropoffLat, dropoffLng, calculateDistanceFromGoogleAPI]);
 
-  // MISE À JOUR DU PRIX AUTOMATIQUE VIA updatePriceFromDistance
-  // Calcule le prix basé sur la distance selon la logique de tarification
+  // MISE À JOUR DU PRIX AUTOMATIQUE
   const updatePriceFromDistance = useCallback((distance: number) => {
     console.log('💰 Calculating price for distance:', distance, 'km');
     
     if (distance <= 0) {
-      // Si la distance n'est pas connue, on met le prix minimum
       setCalculatedPrice(PRICING_CONFIG.minPrice);
       console.log('   → Minimum price:', PRICING_CONFIG.minPrice, 'FCFA');
       return;
@@ -292,13 +271,11 @@ export function ColisProvider({ children }: { children: ReactNode }) {
     let price = 0;
 
     if (distance <= 10) {
-      // Jusqu'à 10 km : baseFee + distance * pricePerKmShort
       price = PRICING_CONFIG.baseFee + (distance * PRICING_CONFIG.pricePerKmShort);
       console.log('   → Short distance pricing:');
       console.log('     - Base fee:', PRICING_CONFIG.baseFee, 'FCFA');
       console.log('     - Distance fee:', distance * PRICING_CONFIG.pricePerKmShort, 'FCFA');
     } else {
-      // Au-delà de 10 km : baseFee + (10 * pricePerKmShort) + ((distance - 10) * pricePerKmLong)
       price = PRICING_CONFIG.baseFee + 
               (10 * PRICING_CONFIG.pricePerKmShort) + 
               ((distance - 10) * PRICING_CONFIG.pricePerKmLong);
@@ -308,7 +285,6 @@ export function ColisProvider({ children }: { children: ReactNode }) {
       console.log('     - Additional km:', (distance - 10) * PRICING_CONFIG.pricePerKmLong, 'FCFA');
     }
 
-    // Appliquer le prix minimum
     const finalPrice = Math.max(price, PRICING_CONFIG.minPrice);
     setCalculatedPrice(Math.round(finalPrice));
     
@@ -325,7 +301,6 @@ export function ColisProvider({ children }: { children: ReactNode }) {
     await loadData();
   };
 
-  // STOCKER LES COORDONNÉES DE DÉPART (pickupLat / pickupLng)
   const setPickupCoordinates = (lat: number | null, lng: number | null, placeId?: string) => {
     console.log('📍 Setting pickup coordinates:', { lat, lng, placeId });
     setPickupLat(lat);
@@ -335,7 +310,6 @@ export function ColisProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // STOCKER LES COORDONNÉES D'ARRIVÉE (dropoffLat / dropoffLng)
   const setDropoffCoordinates = (lat: number | null, lng: number | null, placeId?: string) => {
     console.log('📍 Setting dropoff coordinates:', { lat, lng, placeId });
     setDropoffLat(lat);
@@ -345,13 +319,11 @@ export function ColisProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // Set distance and trigger price update
   const setDistanceKm = (distance: number) => {
     console.log('📏 Manually setting distance:', distance, 'km');
     setDistanceKmState(distance);
   };
 
-  // RÉINITIALISER TOUS LES CALCULS
   const resetCalculations = () => {
     console.log('🔄 Resetting calculations');
     setPickupLat(null);
@@ -371,7 +343,7 @@ export function ColisProvider({ children }: { children: ReactNode }) {
       
       const logData = {
         parcel_id: parcelId,
-        user_id: 'current_user', // In production, use actual user ID
+        user_id: 'current_user',
         sender_phone: requestData.senderPhone,
         recipient_phone: requestData.recipientPhone,
         pickup_lat: requestData.departureLocation?.lat || null,
@@ -403,6 +375,24 @@ export function ColisProvider({ children }: { children: ReactNode }) {
     requestData: Omit<ParcelRequest, 'id' | 'status' | 'createdAt'>
   ): Promise<{ success: boolean; requestId?: string; error?: string }> => {
     try {
+      console.log('📦 Adding parcel request...');
+      console.log('   - Departure address:', requestData.departureAddress);
+      console.log('   - Arrival address:', requestData.arrivalAddress);
+      console.log('   - Has departure location:', !!requestData.departureLocation);
+      console.log('   - Has arrival location:', !!requestData.arrivalLocation);
+      
+      // Validate required fields
+      if (!requestData.senderName || !requestData.senderPhone || 
+          !requestData.recipientName || !requestData.recipientPhone ||
+          !requestData.departureAddress || !requestData.arrivalAddress ||
+          !requestData.description) {
+        console.error('❌ Missing required fields');
+        return { 
+          success: false, 
+          error: 'Veuillez remplir tous les champs obligatoires' 
+        };
+      }
+
       // If Supabase is configured and not in demo mode, insert to Supabase
       if (isSupabaseConfigured() && !demoMode) {
         console.log('Inserting parcel to Supabase...');
@@ -420,7 +410,7 @@ export function ColisProvider({ children }: { children: ReactNode }) {
         return await saveToAsyncStorage(requestData);
       }
     } catch (error) {
-      console.error('Error adding parcel request:', error);
+      console.error('❌ Error adding parcel request:', error);
       return { 
         success: false, 
         error: 'Une erreur est survenue lors de l\'enregistrement du colis' 
@@ -435,7 +425,7 @@ export function ColisProvider({ children }: { children: ReactNode }) {
       const parcelRow = {
         sender_name: requestData.senderName,
         sender_phone: requestData.senderPhone,
-        sender_id: requestData.senderPhone, // Use phone as sender_id for now (until auth is implemented)
+        sender_id: requestData.senderPhone,
         recipient_name: requestData.recipientName,
         recipient_phone: requestData.recipientPhone,
         pickup_address: requestData.departureAddress,
@@ -450,6 +440,12 @@ export function ColisProvider({ children }: { children: ReactNode }) {
         price_fcfa: requestData.pricing?.total || null,
       };
 
+      console.log('📤 Inserting to Supabase:', {
+        ...parcelRow,
+        sender_phone: '***',
+        recipient_phone: '***',
+      });
+
       const { data, error } = await supabase
         .from('parcels')
         .insert([parcelRow])
@@ -457,7 +453,7 @@ export function ColisProvider({ children }: { children: ReactNode }) {
         .single();
 
       if (error) {
-        console.error('Supabase insert error:', error);
+        console.error('❌ Supabase insert error:', error);
         return { 
           success: false, 
           error: 'Impossible d\'enregistrer le colis. Vérifiez votre connexion internet et réessayez.' 
@@ -467,13 +463,13 @@ export function ColisProvider({ children }: { children: ReactNode }) {
       if (data) {
         const newParcel = convertSupabaseRowToParcel(data as ParcelRow);
         setParcelRequests(prev => [newParcel, ...prev]);
-        console.log('Parcel inserted to Supabase:', data.id);
+        console.log('✅ Parcel inserted to Supabase:', data.id);
         return { success: true, requestId: data.id };
       }
 
       return { success: false, error: 'Erreur inconnue' };
     } catch (error) {
-      console.error('Error inserting to Supabase:', error);
+      console.error('❌ Error inserting to Supabase:', error);
       return { 
         success: false, 
         error: 'Impossible d\'enregistrer le colis. Vérifiez votre connexion internet et réessayez.' 
@@ -496,10 +492,10 @@ export function ColisProvider({ children }: { children: ReactNode }) {
       setParcelRequests(updatedRequests);
       await AsyncStorage.setItem(PARCELS_STORAGE_KEY, JSON.stringify(updatedRequests));
       
-      console.log('Parcel request added to AsyncStorage:', newRequest);
+      console.log('✅ Parcel request added to AsyncStorage:', newRequest.id);
       return { success: true, requestId: newRequest.id };
     } catch (error) {
-      console.error('Error saving to AsyncStorage:', error);
+      console.error('❌ Error saving to AsyncStorage:', error);
       return { 
         success: false, 
         error: 'Une erreur est survenue lors de l\'enregistrement' 
@@ -512,7 +508,6 @@ export function ColisProvider({ children }: { children: ReactNode }) {
     status: ParcelRequest['status']
   ) => {
     try {
-      // If Supabase is configured and not in demo mode, update in Supabase
       if (isSupabaseConfigured() && !demoMode) {
         const { error } = await supabase
           .from('parcels')
@@ -525,7 +520,6 @@ export function ColisProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      // Update local state
       const updatedRequests = parcelRequests.map(request => {
         if (request.id === parcelId) {
           const updated = { ...request, status };
@@ -544,8 +538,6 @@ export function ColisProvider({ children }: { children: ReactNode }) {
       });
 
       setParcelRequests(updatedRequests);
-      
-      // Also update AsyncStorage for offline access
       await AsyncStorage.setItem(PARCELS_STORAGE_KEY, JSON.stringify(updatedRequests));
       
       console.log('Parcel status updated:', status);
@@ -572,7 +564,6 @@ export function ColisProvider({ children }: { children: ReactNode }) {
         getParcelById,
         isLoading,
         refreshParcels,
-        // Distance and price calculation
         pickupLat,
         pickupLng,
         dropoffLat,
