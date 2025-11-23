@@ -54,17 +54,11 @@ export default function AddressAutocomplete({
   const [apiError, setApiError] = useState<string | null>(null);
   const [showNoResults, setShowNoResults] = useState(false);
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
-  const abortControllerRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     if (value.length > 1) {
       if (debounceTimer.current) {
         clearTimeout(debounceTimer.current);
-      }
-
-      // Cancel any pending request
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
       }
 
       debounceTimer.current = setTimeout(() => {
@@ -81,9 +75,6 @@ export default function AddressAutocomplete({
       if (debounceTimer.current) {
         clearTimeout(debounceTimer.current);
       }
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-      }
     };
   }, [value]);
 
@@ -92,13 +83,7 @@ export default function AddressAutocomplete({
     setApiError(null);
     setShowNoResults(false);
     
-    // Create new abort controller for this request
-    abortControllerRef.current = new AbortController();
-    
     try {
-      console.log('🔍 [AddressAutocomplete] Fetching predictions for:', input);
-      console.log('📱 [AddressAutocomplete] Platform:', Platform.OS);
-
       const requestBody = {
         action: 'autocomplete',
         input: input,
@@ -109,161 +94,74 @@ export default function AddressAutocomplete({
         strictbounds: true,
       };
 
-      console.log('📤 [AddressAutocomplete] Request body:', JSON.stringify(requestBody));
-
-      const startTime = Date.now();
-
-      // iOS-specific: Use longer timeout for physical devices
-      const timeout = Platform.OS === 'ios' ? 15000 : 10000;
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Request timeout')), timeout);
-      });
-
-      const fetchPromise = supabase.functions.invoke('google-places-proxy', {
+      const { data, error } = await supabase.functions.invoke('google-places-proxy', {
         body: requestBody,
         headers: {
           'x-platform': Platform.OS,
-          'Content-Type': 'application/json',
         },
       });
 
-      const { data, error } = await Promise.race([
-        fetchPromise,
-        timeoutPromise,
-      ]) as any;
-
-      const responseTime = Date.now() - startTime;
-      console.log(`⏱️ [AddressAutocomplete] Response time: ${responseTime}ms`);
-
       if (error) {
-        console.error('❌ [AddressAutocomplete] Error:', error);
-        console.error('   Error details:', JSON.stringify(error, null, 2));
-        
         setApiError('Problème de connexion. Veuillez réessayer.');
         setPredictions([]);
         setShowPredictions(false);
         setShowNoResults(false);
-        
-        // Show detailed error on iOS for debugging
-        if (Platform.OS === 'ios' && __DEV__) {
-          Alert.alert(
-            'Debug Info (iOS)',
-            `Error: ${error.message || 'Unknown error'}\n\nTime: ${responseTime}ms\n\nDetails: ${JSON.stringify(error, null, 2)}`,
-            [{ text: 'OK' }]
-          );
-        }
         return;
       }
 
-      console.log('📦 [AddressAutocomplete] Response status:', data?.status);
-      console.log('📦 [AddressAutocomplete] Response data:', JSON.stringify(data, null, 2));
-
       if (data.status === 'OK' && data.predictions) {
         if (data.predictions.length === 0) {
-          console.log('⚠️ [AddressAutocomplete] No predictions found');
           setPredictions([]);
           setShowPredictions(false);
           setShowNoResults(true);
           setApiError(null);
         } else {
-          console.log(`✅ [AddressAutocomplete] Found ${data.predictions.length} predictions`);
           setPredictions(data.predictions);
           setShowPredictions(true);
           setShowNoResults(false);
           setApiError(null);
         }
       } else if (data.status === 'ZERO_RESULTS') {
-        console.log('⚠️ [AddressAutocomplete] ZERO_RESULTS');
         setPredictions([]);
         setShowPredictions(false);
         setShowNoResults(true);
         setApiError(null);
       } else if (data.status === 'REQUEST_DENIED') {
-        console.error('❌ [AddressAutocomplete] REQUEST_DENIED');
-        console.error('   Error message:', data.error_message);
-        
         setApiError('Service temporairement indisponible');
         setPredictions([]);
         setShowPredictions(false);
         setShowNoResults(false);
-        
-        // Show detailed error on iOS for debugging
-        if (Platform.OS === 'ios' && __DEV__) {
-          Alert.alert(
-            'Debug Info (iOS)',
-            `Status: REQUEST_DENIED\n\nMessage: ${data.error_message || 'No message'}\n\nTime: ${responseTime}ms`,
-            [{ text: 'OK' }]
-          );
-        }
       } else if (data.status === 'OVER_QUERY_LIMIT') {
-        console.error('❌ [AddressAutocomplete] OVER_QUERY_LIMIT');
         setApiError('Service temporairement indisponible. Veuillez réessayer plus tard.');
         setPredictions([]);
         setShowPredictions(false);
         setShowNoResults(false);
       } else {
-        console.error('❌ [AddressAutocomplete] Unknown status:', data.status);
         setPredictions([]);
         setShowNoResults(false);
       }
-    } catch (error: any) {
-      console.error('💥 [AddressAutocomplete] Exception:', error);
-      console.error('   Error message:', error.message);
-      console.error('   Error stack:', error.stack);
-      
-      if (error.message === 'Request timeout') {
-        setApiError('La connexion est lente. Veuillez réessayer.');
-      } else if (error.name === 'AbortError') {
-        console.log('🚫 [AddressAutocomplete] Request aborted');
-        return;
-      } else {
-        setApiError('Problème de connexion. Veuillez réessayer.');
-      }
-      
+    } catch (error) {
+      setApiError('Problème de connexion. Veuillez réessayer.');
       setPredictions([]);
       setShowNoResults(false);
-      
-      // Show detailed error on iOS for debugging
-      if (Platform.OS === 'ios' && __DEV__) {
-        Alert.alert(
-          'Debug Info (iOS)',
-          `Exception: ${error.message}\n\nType: ${error.name}\n\nStack: ${error.stack?.substring(0, 200)}`,
-          [{ text: 'OK' }]
-        );
-      }
     } finally {
       setIsLoading(false);
-      abortControllerRef.current = null;
     }
   };
 
   const getPlaceDetails = async (placeId: string): Promise<Location | null> => {
     try {
-      console.log('🔍 [AddressAutocomplete] Fetching place details for:', placeId);
-
-      const timeout = Platform.OS === 'ios' ? 15000 : 10000;
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Request timeout')), timeout);
-      });
-
-      const fetchPromise = supabase.functions.invoke('google-places-proxy', {
+      const { data, error } = await supabase.functions.invoke('google-places-proxy', {
         body: {
           action: 'place_details',
           placeId: placeId,
         },
         headers: {
           'x-platform': Platform.OS,
-          'Content-Type': 'application/json',
         },
       });
 
-      const { data, error } = await Promise.race([
-        fetchPromise,
-        timeoutPromise,
-      ]) as any;
-
       if (error) {
-        console.error('❌ [AddressAutocomplete] Error fetching place details:', error);
         Alert.alert(
           'Erreur',
           'Impossible de récupérer les coordonnées. Veuillez réessayer.'
@@ -276,24 +174,14 @@ export default function AddressAutocomplete({
           lat: data.result.geometry.location.lat,
           lng: data.result.geometry.location.lng,
         };
-        console.log('✅ [AddressAutocomplete] Place details:', location);
         return location;
       }
       return null;
-    } catch (error: any) {
-      console.error('💥 [AddressAutocomplete] Exception in getPlaceDetails:', error);
-      
-      if (error.message === 'Request timeout') {
-        Alert.alert(
-          'Erreur',
-          'La connexion est lente. Veuillez réessayer.'
-        );
-      } else {
-        Alert.alert(
-          'Erreur',
-          'Impossible de récupérer les coordonnées. Veuillez réessayer.'
-        );
-      }
+    } catch (error) {
+      Alert.alert(
+        'Erreur',
+        'Impossible de récupérer les coordonnées. Veuillez réessayer.'
+      );
       return null;
     }
   };
@@ -441,11 +329,6 @@ export default function AddressAutocomplete({
             <Text style={[styles.errorText, { color: '#FF0000' }]}>
               {apiError}
             </Text>
-            {Platform.OS === 'ios' && (
-              <Text style={[styles.errorHint, { color: '#FF0000' }]}>
-                Astuce: Vérifiez votre connexion internet
-              </Text>
-            )}
           </View>
         </View>
       )}
@@ -542,11 +425,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
     marginBottom: 4,
-  },
-  errorHint: {
-    fontSize: 11,
-    lineHeight: 16,
-    fontStyle: 'italic',
   },
   noResultsContainer: {
     flexDirection: 'row',
