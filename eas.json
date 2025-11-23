@@ -1,3 +1,4 @@
+
 {
   "cli": {
     "version": ">= 13.2.0",
@@ -12,7 +13,7 @@
         "bundleIdentifier": "com.yombalyoon.yombalyoonapp"
       },
       "android": {
-        "package": "com.yombalyoon.yombalyoonapp"
+        "package": "com.yombalyoon.app"
       }
     },
     "preview": {
@@ -23,7 +24,7 @@
       },
       "android": {
         "buildType": "apk",
-        "package": "com.yombalyoon.yombalyoonapp"
+        "package": "com.yombalyoon.app"
       }
     },
     "production": {
@@ -31,8 +32,8 @@
         "bundleIdentifier": "com.yombalyoon.yombalyoonapp"
       },
       "android": {
-        "buildType": "apk",
-        "package": "com.yombalyoon.yombalyoonapp"
+        "buildType": "app-bundle",
+        "package": "com.yombalyoon.app"
       },
       "env": {
         "EXPO_PUBLIC_SUPABASE_URL": "https://drxtaxepofuoelplgrei.supabase.co",
