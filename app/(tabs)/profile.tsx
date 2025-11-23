@@ -10,7 +10,6 @@ import { useProfile } from "@/contexts/ProfileContext";
 import { useRouter } from "expo-router";
 import { useNotifications } from "@/contexts/NotificationContext";
 import PhoneVerificationModal from "@/components/PhoneVerificationModal";
-import Avatar from "@/components/Avatar";
 import * as Haptics from 'expo-haptics';
 import { formatCurrency } from "@/utils/walletUtils";
 import { loadWalletForProfil, refreshWallet } from "@/utils/profileWalletUtils";
@@ -137,12 +136,6 @@ export default function ProfileScreen() {
     console.log(`Role ${role} ${value ? 'activated' : 'deactivated'} immediately`);
   };
 
-  const handleAvatarUpload = async (filePath: string) => {
-    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    await updateProfile({ avatarUrl: filePath });
-    await refreshProfile();
-  };
-
   const maskPhone = (phone: string) => {
     if (!phone || phone.length < 10) return phone;
     const cleaned = phone.replace(/\D/g, '');
@@ -227,12 +220,19 @@ export default function ProfileScreen() {
         {/* 1️⃣ HEADER – Informations utilisateur */}
         <View style={[styles.headerCard, { backgroundColor: isDark ? colors.darkCard : colors.card }]}>
           <View style={styles.headerContent}>
-            <Avatar
-              url={profile.avatarUrl}
-              size={70}
-              onUpload={handleAvatarUpload}
-              editable={true}
-            />
+            <LinearGradient
+              colors={[colors.primary, colors.accent]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.avatar}
+            >
+              <IconSymbol 
+                ios_icon_name="person.fill" 
+                android_material_icon_name="person" 
+                size={40} 
+                color="#FFFFFF" 
+              />
+            </LinearGradient>
             <View style={styles.headerInfo}>
               <Text style={[styles.userName, { color: isDark ? colors.darkText : colors.text }]}>
                 {profile.fullName || 'Utilisateur'}
@@ -912,9 +912,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 16,
   },
+  avatar: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 16,
+    boxShadow: '0px 4px 12px rgba(0, 128, 0, 0.3)',
+    elevation: 5,
+  },
   headerInfo: {
     flex: 1,
-    marginLeft: 16,
   },
   userName: {
     fontSize: 20,
