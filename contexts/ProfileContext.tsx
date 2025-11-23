@@ -138,11 +138,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
 
-  useEffect(() => {
-    initializeUser();
-  }, [initializeUser]);
-
-  const getUserId = async (): Promise<string> => {
+  const getUserId = React.useCallback(async (): Promise<string> => {
     if (userId) return userId;
 
     let storedUserId = await AsyncStorage.getItem(USER_ID_KEY);
@@ -155,7 +151,55 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
 
     setUserId(storedUserId);
     return storedUserId;
-  };
+  }, [userId]);
+
+  const getLocalProfile = React.useCallback(async (): Promise<Partial<ProfileData>> => {
+    try {
+      const storedProfile = await AsyncStorage.getItem(PROFILE_STORAGE_KEY);
+      if (storedProfile) {
+        return JSON.parse(storedProfile);
+      }
+    } catch (error) {
+      console.error('Error reading local profile:', error);
+    }
+    return {};
+  }, []);
+
+  const loadFromLocalStorage = React.useCallback(async () => {
+    try {
+      const storedProfile = await AsyncStorage.getItem(PROFILE_STORAGE_KEY);
+      if (storedProfile) {
+        const parsedProfile = JSON.parse(storedProfile);
+        
+        const migratedProfile: ProfileData = {
+          id: parsedProfile.id || '',
+          fullName: parsedProfile.fullName || '',
+          phone: parsedProfile.phone || '',
+          avatarUrl: parsedProfile.avatarUrl,
+          isPhoneVerified: parsedProfile.isPhoneVerified ?? false,
+          roles: {
+            driver: parsedProfile.roles?.driver ?? true,
+            passenger: parsedProfile.roles?.passenger ?? true,
+            delivery: parsedProfile.roles?.delivery ?? false,
+            sender: parsedProfile.roles?.sender ?? false,
+          },
+        };
+        
+        setProfile(migratedProfile);
+        console.log('Profile loaded from local storage');
+      } else {
+        const currentUserId = await getUserId();
+        const newProfile = { ...defaultProfile, id: currentUserId };
+        setProfile(newProfile);
+        await AsyncStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(newProfile));
+        console.log('New user profile created with default carpooling roles activated');
+      }
+    } catch (error) {
+      console.error('Error loading from local storage:', error);
+      const currentUserId = await getUserId();
+      setProfile({ ...defaultProfile, id: currentUserId });
+    }
+  }, [getUserId]);
 
   /**
    * Initialize user: Create profile and wallet automatically if they don't exist
@@ -202,59 +246,11 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [getUserId, getLocalProfile, loadFromLocalStorage]);
 
   useEffect(() => {
     initializeUser();
   }, [initializeUser]);
-
-  const getLocalProfile = async (): Promise<Partial<ProfileData>> => {
-    try {
-      const storedProfile = await AsyncStorage.getItem(PROFILE_STORAGE_KEY);
-      if (storedProfile) {
-        return JSON.parse(storedProfile);
-      }
-    } catch (error) {
-      console.error('Error reading local profile:', error);
-    }
-    return {};
-  };
-
-  const loadFromLocalStorage = async () => {
-    try {
-      const storedProfile = await AsyncStorage.getItem(PROFILE_STORAGE_KEY);
-      if (storedProfile) {
-        const parsedProfile = JSON.parse(storedProfile);
-        
-        const migratedProfile: ProfileData = {
-          id: parsedProfile.id || '',
-          fullName: parsedProfile.fullName || '',
-          phone: parsedProfile.phone || '',
-          avatarUrl: parsedProfile.avatarUrl,
-          isPhoneVerified: parsedProfile.isPhoneVerified ?? false,
-          roles: {
-            driver: parsedProfile.roles?.driver ?? true,
-            passenger: parsedProfile.roles?.passenger ?? true,
-            delivery: parsedProfile.roles?.delivery ?? false,
-            sender: parsedProfile.roles?.sender ?? false,
-          },
-        };
-        
-        setProfile(migratedProfile);
-        console.log('Profile loaded from local storage');
-      } else {
-        const currentUserId = await getUserId();
-        const newProfile = { ...defaultProfile, id: currentUserId };
-        setProfile(newProfile);
-        await AsyncStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(newProfile));
-        console.log('New user profile created with default carpooling roles activated');
-      }
-    } catch (error) {
-      console.error('Error loading from local storage:', error);
-      const currentUserId = await getUserId();
-      setProfile({ ...defaultProfile, id: currentUserId });
-    }
-  };
 
   const updateProfile = async (data: Partial<ProfileData>) => {
     try {
@@ -295,12 +291,12 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const refreshProfile = async () => {
+  const refreshProfile = React.useCallback(async () => {
     setIsLoading(true);
     await initializeUser();
-  };
+  }, [initializeUser]);
 
-  const resetProfile = async () => {
+  const resetProfile = React.useCallback(async () => {
     try {
       const currentUserId = await getUserId();
       setProfile({ ...defaultProfile, id: currentUserId });
@@ -319,7 +315,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error('Error resetting profile:', error);
     }
-  };
+  }, [getUserId]);
 
   return (
     <ProfileContext.Provider
