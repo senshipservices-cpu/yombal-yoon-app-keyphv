@@ -54,6 +54,7 @@ export default function AddressAutocomplete({
   const [apiError, setApiError] = useState<string | null>(null);
   const [showNoResults, setShowNoResults] = useState(false);
   const [debugInfo, setDebugInfo] = useState<string>('');
+  const [configError, setConfigError] = useState<any>(null);
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
@@ -71,6 +72,7 @@ export default function AddressAutocomplete({
       setShowNoResults(false);
       setApiError(null);
       setDebugInfo('');
+      setConfigError(null);
     }
 
     return () => {
@@ -85,15 +87,11 @@ export default function AddressAutocomplete({
     setApiError(null);
     setShowNoResults(false);
     setDebugInfo('');
+    setConfigError(null);
     
     try {
       console.log('🔍 [AddressAutocomplete] Fetching predictions for:', input);
       console.log('📱 [AddressAutocomplete] Platform:', Platform.OS);
-
-      // Update debug info for mobile
-      if (Platform.OS !== 'web') {
-        setDebugInfo(`Platform: ${Platform.OS}\nInput: "${input}"\nCalling API...`);
-      }
 
       const startTime = Date.now();
 
@@ -127,22 +125,16 @@ export default function AddressAutocomplete({
         setShowPredictions(false);
         setShowNoResults(false);
         
-        // Update debug info
         if (Platform.OS !== 'web') {
           setDebugInfo(
             `Platform: ${Platform.OS}\n` +
             `Error: ${error.message}\n` +
-            `Time: ${responseTime}ms\n` +
-            `\nℹ️ Si ce problème persiste sur iOS/Android:\n` +
-            `1. Vérifiez que la clé API Google Maps est configurée pour ${Platform.OS}\n` +
-            `2. Pour iOS: Ajoutez le Bundle ID dans les restrictions\n` +
-            `3. Pour Android: Ajoutez le Package Name + SHA-1\n` +
-            `4. Activez: Places API, Geocoding API`
+            `Time: ${responseTime}ms`
           );
           
           Alert.alert(
             'Erreur de connexion',
-            `Impossible de récupérer les suggestions.\n\nPlateforme: ${Platform.OS}\nDétails: ${error.message}\n\nSi ce problème persiste, contactez le support.`,
+            `Impossible de récupérer les suggestions.\n\nPlateforme: ${Platform.OS}\nDétails: ${error.message}`,
             [{ text: 'OK' }]
           );
         }
@@ -150,11 +142,55 @@ export default function AddressAutocomplete({
       }
 
       console.log('📦 [AddressAutocomplete] Response status:', data?.status);
-      console.log('📦 [AddressAutocomplete] Response data:', JSON.stringify(data, null, 2));
+
+      // Check for configuration errors
+      if (data?.configuration_help) {
+        console.error('❌ [AddressAutocomplete] Configuration error detected');
+        setConfigError(data.configuration_help);
+        setApiError('Configuration API manquante');
+        setPredictions([]);
+        setShowPredictions(false);
+        setShowNoResults(false);
+        
+        if (Platform.OS !== 'web') {
+          const platformConfig = data.configuration_help[Platform.OS.toLowerCase()];
+          const setupInstructions = data.configuration_help.setup_instructions || [];
+          
+          setDebugInfo(
+            `🚫 CONFIGURATION MANQUANTE\n\n` +
+            `Platform: ${Platform.OS}\n` +
+            `Secret requis: ${platformConfig?.required_secret || 'N/A'}\n` +
+            `Bundle ID: ${platformConfig?.bundle_id || platformConfig?.package_name || 'N/A'}\n\n` +
+            `SOLUTION:\n` +
+            setupInstructions.join('\n')
+          );
+          
+          Alert.alert(
+            '🚫 Configuration API Manquante',
+            `La clé API Google Maps pour ${Platform.OS} n'est pas configurée.\n\n` +
+            `Secret requis: ${platformConfig?.required_secret}\n\n` +
+            `Veuillez suivre le guide IOS_API_KEY_SETUP_GUIDE.md pour configurer la clé API.`,
+            [
+              { text: 'OK', style: 'cancel' },
+              {
+                text: 'Voir le Guide',
+                onPress: () => {
+                  Alert.alert(
+                    'Guide de Configuration',
+                    setupInstructions.join('\n\n'),
+                    [{ text: 'OK' }]
+                  );
+                }
+              }
+            ]
+          );
+        }
+        return;
+      }
 
       if (data.status === 'OK' && data.predictions) {
         if (data.predictions.length === 0) {
-          console.log('⚠️ [AddressAutocomplete] No predictions found (status=OK but 0 results)');
+          console.log('⚠️ [AddressAutocomplete] No predictions found');
           setPredictions([]);
           setShowPredictions(false);
           setShowNoResults(true);
@@ -165,8 +201,8 @@ export default function AddressAutocomplete({
               `Platform: ${Platform.OS}\n` +
               `Status: ${data.status}\n` +
               `Time: ${responseTime}ms\n` +
-              `Predictions: 0\n` +
-              `\nℹ️ Aucun résultat trouvé pour "${input}"`
+              `Predictions: 0\n\n` +
+              `ℹ️ Aucun résultat trouvé pour "${input}"`
             );
           }
         } else {
@@ -181,8 +217,8 @@ export default function AddressAutocomplete({
               `Platform: ${Platform.OS}\n` +
               `Status: ${data.status}\n` +
               `Time: ${responseTime}ms\n` +
-              `Predictions: ${data.predictions.length}\n` +
-              `\n✅ API fonctionne correctement`
+              `Predictions: ${data.predictions.length}\n\n` +
+              `✅ API fonctionne correctement`
             );
           }
         }
@@ -197,53 +233,71 @@ export default function AddressAutocomplete({
           setDebugInfo(
             `Platform: ${Platform.OS}\n` +
             `Status: ZERO_RESULTS\n` +
-            `Time: ${responseTime}ms\n` +
-            `\nℹ️ Aucun résultat trouvé`
+            `Time: ${responseTime}ms\n\n` +
+            `ℹ️ Aucun résultat trouvé`
           );
         }
       } else if (data.status === 'REQUEST_DENIED') {
-        console.error('❌ [AddressAutocomplete] REQUEST_DENIED - API key issue');
-        console.error('   Platform:', Platform.OS);
-        console.error('   Error message:', data.error_message);
+        console.error('❌ [AddressAutocomplete] REQUEST_DENIED');
         
-        const errorMessage = 'Service temporairement indisponible';
+        const errorMessage = 'Configuration API incorrecte';
         setApiError(errorMessage);
         setPredictions([]);
         setShowPredictions(false);
         setShowNoResults(false);
         
         if (Platform.OS !== 'web') {
+          const platformInfo = data.platform_info?.configuration_help?.[Platform.OS.toLowerCase()];
+          
           setDebugInfo(
+            `🚫 REQUEST_DENIED\n\n` +
             `Platform: ${Platform.OS}\n` +
             `Status: REQUEST_DENIED\n` +
             `Time: ${responseTime}ms\n` +
-            `Error: ${data.error_message || 'No error message'}\n` +
-            `\n🚫 PROBLÈME DE CLÉ API:\n` +
-            `La clé API Google Maps n'est pas configurée pour ${Platform.OS}.\n` +
-            `\nSOLUTION:\n` +
-            `1. Allez sur Google Cloud Console\n` +
-            `2. Créez une clé API pour ${Platform.OS}\n` +
-            `3. Pour iOS: Ajoutez le Bundle ID\n` +
-            `4. Pour Android: Ajoutez Package Name + SHA-1\n` +
-            `5. Activez: Places API, Geocoding API, Distance Matrix API`
+            `Error: ${data.error_message || 'No error message'}\n\n` +
+            `PROBLÈME:\n` +
+            `La clé API n'est pas configurée correctement pour ${Platform.OS}.\n\n` +
+            `SOLUTION:\n` +
+            `1. Créez une clé API séparée pour ${Platform.OS}\n` +
+            `2. Configurez les restrictions:\n` +
+            `   - Type: ${platformInfo?.restriction_type || 'iOS apps'}\n` +
+            `   - Bundle ID: ${platformInfo?.bundle_id || platformInfo?.package_name || 'N/A'}\n` +
+            `3. Activez les APIs requises\n` +
+            `4. Ajoutez la clé dans Supabase:\n` +
+            `   Secret: ${platformInfo?.required_secret || 'N/A'}\n\n` +
+            `📚 Voir: IOS_API_KEY_SETUP_GUIDE.md`
           );
           
           Alert.alert(
-            '🚫 Clé API non configurée',
+            '🚫 Configuration API Incorrecte',
             `La clé API Google Maps n'est pas configurée pour ${Platform.OS}.\n\n` +
-            `Plateforme: ${Platform.OS}\n` +
             `Erreur: ${data.error_message || 'REQUEST_DENIED'}\n\n` +
-            `Pour résoudre ce problème:\n` +
-            `1. Créez une clé API séparée pour ${Platform.OS}\n` +
+            `Pour résoudre:\n` +
+            `1. Créez une clé API pour ${Platform.OS}\n` +
             `2. Configurez les restrictions d'application\n` +
-            `3. Activez les APIs nécessaires\n\n` +
-            `Contactez le support pour plus d'aide.`,
-            [{ text: 'OK' }]
+            `3. Ajoutez-la dans Supabase\n\n` +
+            `Consultez le guide IOS_API_KEY_SETUP_GUIDE.md`,
+            [
+              { text: 'OK', style: 'cancel' },
+              {
+                text: 'Voir Détails',
+                onPress: () => {
+                  Alert.alert(
+                    'Détails de Configuration',
+                    `Secret requis: ${platformInfo?.required_secret}\n` +
+                    `Bundle ID: ${platformInfo?.bundle_id || platformInfo?.package_name}\n` +
+                    `Type: ${platformInfo?.restriction_type}\n\n` +
+                    `APIs requises:\n${platformInfo?.required_apis?.join('\n') || 'N/A'}`,
+                    [{ text: 'OK' }]
+                  );
+                }
+              }
+            ]
           );
         }
       } else if (data.status === 'OVER_QUERY_LIMIT') {
         console.error('❌ [AddressAutocomplete] OVER_QUERY_LIMIT');
-        setApiError('Service temporairement indisponible. Veuillez réessayer plus tard.');
+        setApiError('Quota API dépassé. Réessayez plus tard.');
         setPredictions([]);
         setShowPredictions(false);
         setShowNoResults(false);
@@ -252,8 +306,8 @@ export default function AddressAutocomplete({
           setDebugInfo(
             `Platform: ${Platform.OS}\n` +
             `Status: OVER_QUERY_LIMIT\n` +
-            `Time: ${responseTime}ms\n` +
-            `\n⚠️ Quota API dépassé`
+            `Time: ${responseTime}ms\n\n` +
+            `⚠️ Quota API dépassé`
           );
         }
       } else {
@@ -265,8 +319,8 @@ export default function AddressAutocomplete({
           setDebugInfo(
             `Platform: ${Platform.OS}\n` +
             `Status: ${data.status}\n` +
-            `Time: ${responseTime}ms\n` +
-            `\n⚠️ Statut inattendu`
+            `Time: ${responseTime}ms\n\n` +
+            `⚠️ Statut inattendu`
           );
         }
       }
@@ -279,8 +333,8 @@ export default function AddressAutocomplete({
       if (Platform.OS !== 'web') {
         setDebugInfo(
           `Platform: ${Platform.OS}\n` +
-          `Exception: ${error.message}\n` +
-          `\n💥 Erreur inattendue`
+          `Exception: ${error.message}\n\n` +
+          `💥 Erreur inattendue`
         );
         
         Alert.alert(
@@ -346,6 +400,7 @@ export default function AddressAutocomplete({
     setShowNoResults(false);
     setApiError(null);
     setDebugInfo('');
+    setConfigError(null);
     Keyboard.dismiss();
 
     const location = await getPlaceDetails(prediction.place_id);
@@ -494,6 +549,20 @@ export default function AddressAutocomplete({
             <Text style={[styles.errorText, { color: '#FF0000' }]}>
               {apiError}
             </Text>
+            {configError && (
+              <TouchableOpacity
+                onPress={() => {
+                  Alert.alert(
+                    'Aide Configuration',
+                    'Consultez le fichier IOS_API_KEY_SETUP_GUIDE.md pour configurer correctement les clés API Google Maps.',
+                    [{ text: 'OK' }]
+                  );
+                }}
+                style={styles.helpButton}
+              >
+                <Text style={styles.helpButtonText}>📚 Voir le Guide</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
       )}
@@ -606,7 +675,19 @@ const styles = StyleSheet.create({
   errorText: {
     fontSize: 13,
     lineHeight: 18,
-    marginBottom: 4,
+    marginBottom: 8,
+  },
+  helpButton: {
+    backgroundColor: '#2196F3',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+    alignSelf: 'flex-start',
+  },
+  helpButtonText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '600',
   },
   noResultsContainer: {
     flexDirection: 'row',

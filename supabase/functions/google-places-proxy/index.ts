@@ -6,13 +6,15 @@
 
 // Configuration des clés API
 // ---------------------------
-// Option 1: Clé unique (développement)
-const GOOGLE_MAPS_API_KEY_DEFAULT = "AIzaSyCyIEHUEYap3t8z_lqy2tCNhHFBhYHTSHQ";
+// IMPORTANT: Les clés doivent être configurées dans Supabase Edge Function Secrets
+// avec les noms suivants:
+// - GOOGLE_MAPS_API_KEY_WEB (avec restrictions HTTP referrer)
+// - GOOGLE_MAPS_API_KEY_ANDROID (avec restrictions Android app)
+// - GOOGLE_MAPS_API_KEY_IOS (avec restrictions iOS app)
 
-// Option 2: Clés séparées par plateforme (production - recommandé)
-const GOOGLE_MAPS_API_KEY_WEB = Deno.env.get('GOOGLE_MAPS_API_KEY_WEB') || GOOGLE_MAPS_API_KEY_DEFAULT;
-const GOOGLE_MAPS_API_KEY_ANDROID = Deno.env.get('GOOGLE_MAPS_API_KEY_ANDROID') || GOOGLE_MAPS_API_KEY_DEFAULT;
-const GOOGLE_MAPS_API_KEY_IOS = Deno.env.get('GOOGLE_MAPS_API_KEY_IOS') || GOOGLE_MAPS_API_KEY_DEFAULT;
+const GOOGLE_MAPS_API_KEY_WEB = Deno.env.get('GOOGLE_MAPS_API_KEY_WEB');
+const GOOGLE_MAPS_API_KEY_ANDROID = Deno.env.get('GOOGLE_MAPS_API_KEY_ANDROID');
+const GOOGLE_MAPS_API_KEY_IOS = Deno.env.get('GOOGLE_MAPS_API_KEY_IOS');
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -20,20 +22,43 @@ const corsHeaders = {
 };
 
 // Fonction pour sélectionner la bonne clé API selon la plateforme
-function getApiKeyForPlatform(platform: string): string {
+function getApiKeyForPlatform(platform: string): { key: string; error?: string } {
   console.log(`🔑 Selecting API key for platform: ${platform}`);
   
   switch (platform.toLowerCase()) {
     case 'ios':
-      console.log('   → Using iOS API key');
-      return GOOGLE_MAPS_API_KEY_IOS;
+      if (!GOOGLE_MAPS_API_KEY_IOS) {
+        console.error('❌ GOOGLE_MAPS_API_KEY_IOS is not configured in Supabase secrets');
+        return {
+          key: '',
+          error: 'iOS API key not configured. Please add GOOGLE_MAPS_API_KEY_IOS to Supabase Edge Function secrets.'
+        };
+      }
+      console.log('   → Using iOS API key:', GOOGLE_MAPS_API_KEY_IOS.substring(0, 20) + '...');
+      return { key: GOOGLE_MAPS_API_KEY_IOS };
+      
     case 'android':
-      console.log('   → Using Android API key');
-      return GOOGLE_MAPS_API_KEY_ANDROID;
+      if (!GOOGLE_MAPS_API_KEY_ANDROID) {
+        console.error('❌ GOOGLE_MAPS_API_KEY_ANDROID is not configured in Supabase secrets');
+        return {
+          key: '',
+          error: 'Android API key not configured. Please add GOOGLE_MAPS_API_KEY_ANDROID to Supabase Edge Function secrets.'
+        };
+      }
+      console.log('   → Using Android API key:', GOOGLE_MAPS_API_KEY_ANDROID.substring(0, 20) + '...');
+      return { key: GOOGLE_MAPS_API_KEY_ANDROID };
+      
     case 'web':
     default:
-      console.log('   → Using Web API key');
-      return GOOGLE_MAPS_API_KEY_WEB;
+      if (!GOOGLE_MAPS_API_KEY_WEB) {
+        console.error('❌ GOOGLE_MAPS_API_KEY_WEB is not configured in Supabase secrets');
+        return {
+          key: '',
+          error: 'Web API key not configured. Please add GOOGLE_MAPS_API_KEY_WEB to Supabase Edge Function secrets.'
+        };
+      }
+      console.log('   → Using Web API key:', GOOGLE_MAPS_API_KEY_WEB.substring(0, 20) + '...');
+      return { key: GOOGLE_MAPS_API_KEY_WEB };
   }
 }
 
@@ -51,7 +76,39 @@ Deno.serve(async (req) => {
     const userAgent = req.headers.get('user-agent') || '';
     
     // Select the appropriate API key for the platform
-    const apiKey = getApiKeyForPlatform(platform);
+    const apiKeyResult = getApiKeyForPlatform(platform);
+    
+    if (apiKeyResult.error) {
+      console.error('❌ API Key configuration error:', apiKeyResult.error);
+      return new Response(
+        JSON.stringify({
+          status: 'REQUEST_DENIED',
+          error_message: apiKeyResult.error,
+          platform,
+          timestamp: new Date().toISOString(),
+          configuration_help: {
+            message: 'API key not configured for this platform',
+            platform,
+            required_secret_name: `GOOGLE_MAPS_API_KEY_${platform.toUpperCase()}`,
+            setup_instructions: [
+              '1. Go to Supabase Dashboard > Edge Functions > google-places-proxy',
+              '2. Add a new secret with the name above',
+              '3. Use a Google Maps API key with appropriate restrictions:',
+              '   - iOS: Bundle ID restriction (com.yombalyoon.yombalyoonapp)',
+              '   - Android: Package name + SHA-1 restriction',
+              '   - Web: HTTP referrer restriction',
+              '4. Enable these APIs: Places API, Geocoding API, Distance Matrix API'
+            ]
+          }
+        }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
+    }
+    
+    const apiKey = apiKeyResult.key;
     
     console.log('='.repeat(80));
     console.log('📱 REQUEST INFO:');
@@ -253,19 +310,28 @@ Deno.serve(async (req) => {
       if (data.status === 'REQUEST_DENIED') {
         console.error('🚫 REQUEST_DENIED - Possible causes:');
         console.error('  1. API key is invalid or expired');
-        console.error('  2. API key has HTTP referrer restrictions (Web only)');
+        console.error('  2. API key restrictions do not match the platform');
         console.error('  3. API key does not have the required API enabled');
-        console.error('  4. API key has IP address restrictions');
-        console.error('  5. Billing is not enabled for this project');
+        console.error('  4. Billing is not enabled for this project');
         console.error('');
-        console.error('🔧 SOLUTION FOR MOBILE:');
-        console.error('  - Remove HTTP referrer restrictions from the API key');
-        console.error('  - OR create a separate API key for mobile apps');
-        console.error('  - Add Android app restrictions (package name + SHA-1)');
-        console.error('  - Add iOS app restrictions (bundle ID)');
-        console.error('  - Enable: Places API, Geocoding API, Distance Matrix API');
+        console.error('🔧 SOLUTION FOR iOS:');
+        console.error('  1. Go to Google Cloud Console > Credentials');
+        console.error('  2. Create a NEW API key specifically for iOS');
+        console.error('  3. Set Application restrictions to "iOS apps"');
+        console.error('  4. Add Bundle ID: com.yombalyoon.yombalyoonapp');
+        console.error('  5. Enable APIs: Places API, Geocoding API, Distance Matrix API');
+        console.error('  6. Add this key to Supabase as GOOGLE_MAPS_API_KEY_IOS');
         console.error('');
-        console.error('📚 Documentation: See GOOGLE_MAPS_FIX_GUIDE.md');
+        console.error('🔧 SOLUTION FOR ANDROID:');
+        console.error('  1. Go to Google Cloud Console > Credentials');
+        console.error('  2. Create a NEW API key specifically for Android');
+        console.error('  3. Set Application restrictions to "Android apps"');
+        console.error('  4. Add Package name: com.yombalyoon.app');
+        console.error('  5. Add SHA-1 certificate fingerprint');
+        console.error('  6. Enable APIs: Places API, Geocoding API, Distance Matrix API');
+        console.error('  7. Add this key to Supabase as GOOGLE_MAPS_API_KEY_ANDROID');
+        console.error('');
+        console.error('📚 Documentation: See GOOGLE_MAPS_API_KEY_SETUP_IOS.md');
       } else if (data.status === 'OVER_QUERY_LIMIT') {
         console.error('⚠️ OVER_QUERY_LIMIT - API quota exceeded');
         console.error('  - Check your Google Cloud Console billing');
@@ -284,6 +350,25 @@ Deno.serve(async (req) => {
         timestamp: new Date().toISOString(),
         requestParams: params,
         apiKeyPrefix: apiKey.substring(0, 20) + '...',
+        configuration_help: {
+          ios: {
+            required_secret: 'GOOGLE_MAPS_API_KEY_IOS',
+            bundle_id: 'com.yombalyoon.yombalyoonapp',
+            restriction_type: 'iOS apps',
+            required_apis: ['Places API', 'Geocoding API', 'Distance Matrix API']
+          },
+          android: {
+            required_secret: 'GOOGLE_MAPS_API_KEY_ANDROID',
+            package_name: 'com.yombalyoon.app',
+            restriction_type: 'Android apps (with SHA-1)',
+            required_apis: ['Places API', 'Geocoding API', 'Distance Matrix API']
+          },
+          web: {
+            required_secret: 'GOOGLE_MAPS_API_KEY_WEB',
+            restriction_type: 'HTTP referrers',
+            required_apis: ['Places API', 'Geocoding API', 'Distance Matrix API']
+          }
+        }
       };
     } else if (data.predictions) {
       const predictionCount = data.predictions.length;
