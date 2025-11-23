@@ -158,7 +158,7 @@ export default function DriverRouteToPickupScreen() {
   useEffect(() => {
     const updatedParcel = getParcelById(parcelId);
     setParcel(updatedParcel);
-  }, [parcelId]);
+  }, [parcelId, getParcelById]);
 
   const handleOpenGoogleMaps = () => {
     if (!parcel?.departureLocation) {

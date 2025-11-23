@@ -51,11 +51,7 @@ export default function TrackParcelScreen() {
   const [parcel, setParcel] = useState<ParcelDetails | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    loadParcelDetails();
-  }, [parcelId]);
-
-  const loadParcelDetails = async () => {
+  const loadParcelDetails = React.useCallback(async () => {
     try {
       if (!isSupabaseConfigured() || demoMode) {
         console.log('Demo mode or Supabase not configured');
@@ -87,7 +83,11 @@ export default function TrackParcelScreen() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [parcelId]);
+
+  useEffect(() => {
+    loadParcelDetails();
+  }, [loadParcelDetails]);
 
   const getStatusText = (status: string) => {
     switch (status) {

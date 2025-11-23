@@ -44,14 +44,14 @@ export default function ProfileScreen() {
       console.log('⏳ Waiting for profile.id to be available...');
       setIsLoadingWallet(true);
     }
-  }, [profile.id]);
+  }, [profile.id, loadWallet]);
 
   /**
    * BLOC 2 - Load wallet using the new utility function with retry logic
    * Handles errors gracefully and provides retry functionality
    * Implements iOS timing fix: waits for profile to load before attempting wallet load
    */
-  const loadWallet = async () => {
+  const loadWallet = React.useCallback(async () => {
     try {
       setIsLoadingWallet(true);
       setWalletError(null);
@@ -91,7 +91,7 @@ export default function ProfileScreen() {
     } finally {
       setIsLoadingWallet(false);
     }
-  };
+  }, [profile.id]);
 
   /**
    * Retry loading wallet

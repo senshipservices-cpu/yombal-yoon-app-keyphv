@@ -20,6 +20,7 @@ import { useProfile } from '@/contexts/ProfileContext';
 import { formatCurrency, creditDriverWallet, debitCommission } from '@/utils/walletUtils';
 import { IS_TEST_MODE, getCommissionRate, getCommissionDisplayText } from '@/config/testMode';
 import * as Haptics from 'expo-haptics';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 type PaymentMethod = 'wave' | 'orange_money' | 'especes';
 
@@ -38,11 +39,7 @@ export default function DeliveryCompletePaymentScreen() {
 
   const parcelId = params.parcelId as string;
 
-  useEffect(() => {
-    loadParcelData();
-  }, [parcelId]);
-
-  const loadParcelData = async () => {
+  const loadParcelData = React.useCallback(async () => {
     try {
       setIsLoading(true);
 
@@ -84,7 +81,11 @@ export default function DeliveryCompletePaymentScreen() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [parcelId, router]);
+
+  useEffect(() => {
+    loadParcelData();
+  }, [loadParcelData]);
 
   const handlePaymentMethodSelect = (method: PaymentMethod) => {
     setSelectedPaymentMethod(method);
@@ -178,7 +179,6 @@ export default function DeliveryCompletePaymentScreen() {
 
   const getUserId = async (): Promise<string> => {
     const USER_ID_KEY = '@yombal_yoon_user_id';
-    const AsyncStorage = require('@react-native-async-storage/async-storage').default;
     
     let userId = await AsyncStorage.getItem(USER_ID_KEY);
     

@@ -36,11 +36,7 @@ export default function WithdrawalScreen() {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethod>('wave');
 
-  useEffect(() => {
-    loadWallet();
-  }, []);
-
-  const loadWallet = async () => {
+  const loadWallet = React.useCallback(async () => {
     try {
       setIsLoading(true);
       const userId = await getUserId();
@@ -60,7 +56,11 @@ export default function WithdrawalScreen() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [router]);
+
+  useEffect(() => {
+    loadWallet();
+  }, [loadWallet]);
 
   const getUserId = async (): Promise<string> => {
     const USER_ID_KEY = '@yombal_yoon_user_id';

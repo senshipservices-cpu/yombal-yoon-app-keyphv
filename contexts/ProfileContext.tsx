@@ -140,7 +140,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     initializeUser();
-  }, []);
+  }, [initializeUser]);
 
   const getUserId = async (): Promise<string> => {
     if (userId) return userId;
@@ -161,7 +161,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
    * Initialize user: Create profile and wallet automatically if they don't exist
    * This is called on app start (BLOC 1 implementation)
    */
-  const initializeUser = async () => {
+  const initializeUser = React.useCallback(async () => {
     try {
       setIsLoading(true);
       const currentUserId = await getUserId();
@@ -202,7 +202,11 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    initializeUser();
+  }, [initializeUser]);
 
   const getLocalProfile = async (): Promise<Partial<ProfileData>> => {
     try {

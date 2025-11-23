@@ -160,7 +160,7 @@ export default function DriverRouteToDeliveryScreen() {
   useEffect(() => {
     const updatedParcel = getParcelById(parcelId);
     setParcel(updatedParcel);
-  }, [parcelId]);
+  }, [parcelId, getParcelById]);
 
   const handleOpenGoogleMaps = () => {
     if (!parcel?.arrivalLocation) {

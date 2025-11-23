@@ -43,7 +43,7 @@ export default function DriverParcelDetailScreen() {
     } else {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     }
-  }, [parcelId]);
+  }, [parcelId, assignmentId, getParcelById]);
 
   if (!parcel) {
     return (

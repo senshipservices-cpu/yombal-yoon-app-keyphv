@@ -83,7 +83,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         responseListener.current.remove();
       }
     };
-  }, []);
+  }, [setupNotificationListeners]);
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
@@ -101,7 +101,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const navigateToParcelDetail = (parcelId: string, assignmentId: string) => {
+  const navigateToParcelDetail = React.useCallback((parcelId: string, assignmentId: string) => {
     console.log('Navigating to driver parcel detail:', parcelId, assignmentId);
     try {
       router.push({
@@ -114,9 +114,9 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error('Error navigating to parcel detail:', error);
     }
-  };
+  }, [router]);
 
-  const setupNotificationListeners = () => {
+  const setupNotificationListeners = React.useCallback(() => {
     try {
       // Listener for notifications received while app is in foreground
       notificationListener.current = Notifications.addNotificationReceivedListener(notification => {
@@ -187,7 +187,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error('Error setting up notification listeners:', error);
     }
-  };
+  }, [navigateToParcelDetail, router]);
 
   const registerForPushNotifications = async (userId: string = 'current_user', roles: string[] = []) => {
     try {

@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Alert, Linking, ActivityIndicator } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { IconSymbol } from "@/components/IconSymbol";
@@ -36,21 +36,11 @@ export default function ProfileScreen() {
     setIsDelivery(profile.roles.delivery);
   }, [profile]);
 
-  useEffect(() => {
-    // iOS timing fix: Only load wallet if profile.id is available
-    if (profile.id) {
-      loadWallet();
-    } else {
-      console.log('⏳ [iOS] Waiting for profile.id to be available...');
-      setIsLoadingWallet(true);
-    }
-  }, [profile.id]);
-
   /**
    * BLOC 2 - Load wallet using the new utility function with retry logic
    * iOS-specific implementation with extra timing considerations
    */
-  const loadWallet = async () => {
+  const loadWallet = useCallback(async () => {
     try {
       setIsLoadingWallet(true);
       setWalletError(null);
@@ -89,7 +79,17 @@ export default function ProfileScreen() {
     } finally {
       setIsLoadingWallet(false);
     }
-  };
+  }, [profile.id]);
+
+  useEffect(() => {
+    // iOS timing fix: Only load wallet if profile.id is available
+    if (profile.id) {
+      loadWallet();
+    } else {
+      console.log('⏳ [iOS] Waiting for profile.id to be available...');
+      setIsLoadingWallet(true);
+    }
+  }, [profile.id, loadWallet]);
 
   /**
    * Retry loading wallet
