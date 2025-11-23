@@ -53,8 +53,6 @@ export default function AddressAutocomplete({
   const [showPredictions, setShowPredictions] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
   const [showNoResults, setShowNoResults] = useState(false);
-  const [debugInfo, setDebugInfo] = useState<string>('');
-  const [configError, setConfigError] = useState<any>(null);
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
@@ -71,8 +69,6 @@ export default function AddressAutocomplete({
       setShowPredictions(false);
       setShowNoResults(false);
       setApiError(null);
-      setDebugInfo('');
-      setConfigError(null);
     }
 
     return () => {
@@ -86,15 +82,8 @@ export default function AddressAutocomplete({
     setIsLoading(true);
     setApiError(null);
     setShowNoResults(false);
-    setDebugInfo('');
-    setConfigError(null);
     
     try {
-      console.log('🔍 [AddressAutocomplete] Fetching predictions for:', input);
-      console.log('📱 [AddressAutocomplete] Platform:', Platform.OS);
-
-      const startTime = Date.now();
-
       const requestBody = {
         action: 'autocomplete',
         input: input,
@@ -105,8 +94,6 @@ export default function AddressAutocomplete({
         strictbounds: true,
       };
 
-      console.log('📤 [AddressAutocomplete] Request body:', JSON.stringify(requestBody, null, 2));
-
       const { data, error } = await supabase.functions.invoke('google-places-proxy', {
         body: requestBody,
         headers: {
@@ -114,235 +101,56 @@ export default function AddressAutocomplete({
         },
       });
 
-      const responseTime = Date.now() - startTime;
-      console.log(`⏱️ [AddressAutocomplete] Response time: ${responseTime}ms`);
-
       if (error) {
-        console.error('❌ [AddressAutocomplete] Supabase function error:', error);
-        const errorMessage = 'Problème de connexion. Veuillez réessayer.';
-        setApiError(errorMessage);
+        console.error('[AddressAutocomplete] Error:', error);
+        setApiError('Problème de connexion. Veuillez réessayer.');
         setPredictions([]);
         setShowPredictions(false);
-        setShowNoResults(false);
-        
-        if (Platform.OS !== 'web') {
-          setDebugInfo(
-            `Platform: ${Platform.OS}\n` +
-            `Error: ${error.message}\n` +
-            `Time: ${responseTime}ms`
-          );
-          
-          Alert.alert(
-            'Erreur de connexion',
-            `Impossible de récupérer les suggestions.\n\nPlateforme: ${Platform.OS}\nDétails: ${error.message}`,
-            [{ text: 'OK' }]
-          );
-        }
-        return;
-      }
-
-      console.log('📦 [AddressAutocomplete] Response status:', data?.status);
-
-      // Check for configuration errors
-      if (data?.configuration_help) {
-        console.error('❌ [AddressAutocomplete] Configuration error detected');
-        setConfigError(data.configuration_help);
-        setApiError('Configuration API manquante');
-        setPredictions([]);
-        setShowPredictions(false);
-        setShowNoResults(false);
-        
-        if (Platform.OS !== 'web') {
-          const platformConfig = data.configuration_help[Platform.OS.toLowerCase()];
-          const setupInstructions = data.configuration_help.setup_instructions || [];
-          
-          setDebugInfo(
-            `🚫 CONFIGURATION MANQUANTE\n\n` +
-            `Platform: ${Platform.OS}\n` +
-            `Secret requis: ${platformConfig?.required_secret || 'N/A'}\n` +
-            `Bundle ID: ${platformConfig?.bundle_id || platformConfig?.package_name || 'N/A'}\n\n` +
-            `SOLUTION:\n` +
-            setupInstructions.join('\n')
-          );
-          
-          Alert.alert(
-            '🚫 Configuration API Manquante',
-            `La clé API Google Maps pour ${Platform.OS} n'est pas configurée.\n\n` +
-            `Secret requis: ${platformConfig?.required_secret}\n\n` +
-            `Veuillez suivre le guide IOS_API_KEY_SETUP_GUIDE.md pour configurer la clé API.`,
-            [
-              { text: 'OK', style: 'cancel' },
-              {
-                text: 'Voir le Guide',
-                onPress: () => {
-                  Alert.alert(
-                    'Guide de Configuration',
-                    setupInstructions.join('\n\n'),
-                    [{ text: 'OK' }]
-                  );
-                }
-              }
-            ]
-          );
-        }
         return;
       }
 
       if (data.status === 'OK' && data.predictions) {
         if (data.predictions.length === 0) {
-          console.log('⚠️ [AddressAutocomplete] No predictions found');
           setPredictions([]);
           setShowPredictions(false);
           setShowNoResults(true);
-          setApiError(null);
-          
-          if (Platform.OS !== 'web') {
-            setDebugInfo(
-              `Platform: ${Platform.OS}\n` +
-              `Status: ${data.status}\n` +
-              `Time: ${responseTime}ms\n` +
-              `Predictions: 0\n\n` +
-              `ℹ️ Aucun résultat trouvé pour "${input}"`
-            );
-          }
         } else {
-          console.log(`✅ [AddressAutocomplete] Found ${data.predictions.length} predictions`);
           setPredictions(data.predictions);
           setShowPredictions(true);
           setShowNoResults(false);
-          setApiError(null);
-          
-          if (Platform.OS !== 'web') {
-            setDebugInfo(
-              `Platform: ${Platform.OS}\n` +
-              `Status: ${data.status}\n` +
-              `Time: ${responseTime}ms\n` +
-              `Predictions: ${data.predictions.length}\n\n` +
-              `✅ API fonctionne correctement`
-            );
-          }
         }
+        setApiError(null);
       } else if (data.status === 'ZERO_RESULTS') {
-        console.log('⚠️ [AddressAutocomplete] ZERO_RESULTS status');
         setPredictions([]);
         setShowPredictions(false);
         setShowNoResults(true);
         setApiError(null);
-        
-        if (Platform.OS !== 'web') {
-          setDebugInfo(
-            `Platform: ${Platform.OS}\n` +
-            `Status: ZERO_RESULTS\n` +
-            `Time: ${responseTime}ms\n\n` +
-            `ℹ️ Aucun résultat trouvé`
-          );
-        }
       } else if (data.status === 'REQUEST_DENIED') {
-        console.error('❌ [AddressAutocomplete] REQUEST_DENIED');
-        
-        const errorMessage = 'Configuration API incorrecte';
-        setApiError(errorMessage);
+        console.error('[AddressAutocomplete] REQUEST_DENIED:', data.error_message);
+        setApiError('Configuration API incorrecte');
         setPredictions([]);
         setShowPredictions(false);
-        setShowNoResults(false);
         
         if (Platform.OS !== 'web') {
-          const platformInfo = data.platform_info?.configuration_help?.[Platform.OS.toLowerCase()];
-          
-          setDebugInfo(
-            `🚫 REQUEST_DENIED\n\n` +
-            `Platform: ${Platform.OS}\n` +
-            `Status: REQUEST_DENIED\n` +
-            `Time: ${responseTime}ms\n` +
-            `Error: ${data.error_message || 'No error message'}\n\n` +
-            `PROBLÈME:\n` +
-            `La clé API n'est pas configurée correctement pour ${Platform.OS}.\n\n` +
-            `SOLUTION:\n` +
-            `1. Créez une clé API séparée pour ${Platform.OS}\n` +
-            `2. Configurez les restrictions:\n` +
-            `   - Type: ${platformInfo?.restriction_type || 'iOS apps'}\n` +
-            `   - Bundle ID: ${platformInfo?.bundle_id || platformInfo?.package_name || 'N/A'}\n` +
-            `3. Activez les APIs requises\n` +
-            `4. Ajoutez la clé dans Supabase:\n` +
-            `   Secret: ${platformInfo?.required_secret || 'N/A'}\n\n` +
-            `📚 Voir: IOS_API_KEY_SETUP_GUIDE.md`
-          );
-          
           Alert.alert(
-            '🚫 Configuration API Incorrecte',
-            `La clé API Google Maps n'est pas configurée pour ${Platform.OS}.\n\n` +
-            `Erreur: ${data.error_message || 'REQUEST_DENIED'}\n\n` +
-            `Pour résoudre:\n` +
-            `1. Créez une clé API pour ${Platform.OS}\n` +
-            `2. Configurez les restrictions d'application\n` +
-            `3. Ajoutez-la dans Supabase\n\n` +
-            `Consultez le guide IOS_API_KEY_SETUP_GUIDE.md`,
-            [
-              { text: 'OK', style: 'cancel' },
-              {
-                text: 'Voir Détails',
-                onPress: () => {
-                  Alert.alert(
-                    'Détails de Configuration',
-                    `Secret requis: ${platformInfo?.required_secret}\n` +
-                    `Bundle ID: ${platformInfo?.bundle_id || platformInfo?.package_name}\n` +
-                    `Type: ${platformInfo?.restriction_type}\n\n` +
-                    `APIs requises:\n${platformInfo?.required_apis?.join('\n') || 'N/A'}`,
-                    [{ text: 'OK' }]
-                  );
-                }
-              }
-            ]
+            'Configuration API',
+            `La clé API Google Maps pour ${Platform.OS} n'est pas configurée correctement.\n\nVeuillez contacter le support.`,
+            [{ text: 'OK' }]
           );
         }
       } else if (data.status === 'OVER_QUERY_LIMIT') {
-        console.error('❌ [AddressAutocomplete] OVER_QUERY_LIMIT');
         setApiError('Quota API dépassé. Réessayez plus tard.');
         setPredictions([]);
         setShowPredictions(false);
-        setShowNoResults(false);
-        
-        if (Platform.OS !== 'web') {
-          setDebugInfo(
-            `Platform: ${Platform.OS}\n` +
-            `Status: OVER_QUERY_LIMIT\n` +
-            `Time: ${responseTime}ms\n\n` +
-            `⚠️ Quota API dépassé`
-          );
-        }
       } else {
-        console.log('⚠️ [AddressAutocomplete] Unexpected status:', data.status);
         setPredictions([]);
         setShowNoResults(false);
-        
-        if (Platform.OS !== 'web') {
-          setDebugInfo(
-            `Platform: ${Platform.OS}\n` +
-            `Status: ${data.status}\n` +
-            `Time: ${responseTime}ms\n\n` +
-            `⚠️ Statut inattendu`
-          );
-        }
       }
     } catch (error) {
-      console.error('💥 [AddressAutocomplete] Exception:', error);
+      console.error('[AddressAutocomplete] Exception:', error);
       setApiError('Problème de connexion. Veuillez réessayer.');
       setPredictions([]);
       setShowNoResults(false);
-      
-      if (Platform.OS !== 'web') {
-        setDebugInfo(
-          `Platform: ${Platform.OS}\n` +
-          `Exception: ${error.message}\n\n` +
-          `💥 Erreur inattendue`
-        );
-        
-        Alert.alert(
-          'Erreur',
-          `Une erreur est survenue:\n\nPlateforme: ${Platform.OS}\n${error.message}`,
-          [{ text: 'OK' }]
-        );
-      }
     } finally {
       setIsLoading(false);
     }
@@ -350,8 +158,6 @@ export default function AddressAutocomplete({
 
   const getPlaceDetails = async (placeId: string): Promise<Location | null> => {
     try {
-      console.log('🔍 [AddressAutocomplete] Fetching place details for:', placeId);
-
       const { data, error } = await supabase.functions.invoke('google-places-proxy', {
         body: {
           action: 'place_details',
@@ -363,7 +169,7 @@ export default function AddressAutocomplete({
       });
 
       if (error) {
-        console.error('❌ [AddressAutocomplete] Error fetching place details:', error);
+        console.error('[AddressAutocomplete] Place details error:', error);
         Alert.alert(
           'Erreur',
           'Impossible de récupérer les coordonnées. Veuillez réessayer.'
@@ -372,18 +178,16 @@ export default function AddressAutocomplete({
       }
 
       if (data.status === 'OK' && data.result?.geometry?.location) {
-        const location = {
+        return {
           lat: data.result.geometry.location.lat,
           lng: data.result.geometry.location.lng,
         };
-        console.log('✅ [AddressAutocomplete] Place coordinates:', location);
-        return location;
       }
       
-      console.error('❌ [AddressAutocomplete] Invalid place details response:', data.status);
+      console.error('[AddressAutocomplete] Invalid place details:', data.status);
       return null;
     } catch (error) {
-      console.error('💥 [AddressAutocomplete] Exception in getPlaceDetails:', error);
+      console.error('[AddressAutocomplete] Place details exception:', error);
       Alert.alert(
         'Erreur',
         'Impossible de récupérer les coordonnées. Veuillez réessayer.'
@@ -399,8 +203,6 @@ export default function AddressAutocomplete({
     setPredictions([]);
     setShowNoResults(false);
     setApiError(null);
-    setDebugInfo('');
-    setConfigError(null);
     Keyboard.dismiss();
 
     const location = await getPlaceDetails(prediction.place_id);
@@ -529,45 +331,15 @@ export default function AddressAutocomplete({
         )}
       </View>
 
-      {/* Debug Info (only on mobile platforms) */}
-      {Platform.OS !== 'web' && debugInfo !== '' && (
-        <View style={[styles.debugContainer, { backgroundColor: isDark ? colors.darkCard : '#E3F2FD' }]}>
-          <Text style={[styles.debugTitle, { color: isDark ? colors.darkText : colors.text }]}>
-            🔧 Debug Info:
-          </Text>
-          <Text style={[styles.debugText, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-            {debugInfo}
-          </Text>
-        </View>
-      )}
-
-      {/* Error Message */}
       {apiError && (
         <View style={[styles.errorContainer, { backgroundColor: '#FF000020' }]}>
           <Text style={styles.errorIcon}>⚠️</Text>
-          <View style={styles.errorTextContainer}>
-            <Text style={[styles.errorText, { color: '#FF0000' }]}>
-              {apiError}
-            </Text>
-            {configError && (
-              <TouchableOpacity
-                onPress={() => {
-                  Alert.alert(
-                    'Aide Configuration',
-                    'Consultez le fichier IOS_API_KEY_SETUP_GUIDE.md pour configurer correctement les clés API Google Maps.',
-                    [{ text: 'OK' }]
-                  );
-                }}
-                style={styles.helpButton}
-              >
-                <Text style={styles.helpButtonText}>📚 Voir le Guide</Text>
-              </TouchableOpacity>
-            )}
-          </View>
+          <Text style={[styles.errorText, { color: '#FF0000' }]}>
+            {apiError}
+          </Text>
         </View>
       )}
 
-      {/* No Results Message */}
       {showNoResults && !apiError && !isLoading && value.length > 1 && (
         <View style={[styles.noResultsContainer, { backgroundColor: isDark ? colors.darkCard : '#FFF8E1' }]}>
           <Text style={styles.noResultsIcon}>🔍</Text>
@@ -585,7 +357,6 @@ export default function AddressAutocomplete({
         </View>
       )}
 
-      {/* Predictions List */}
       {showPredictions && predictions.length > 0 && (
         <View
           style={[
@@ -638,26 +409,9 @@ const styles = StyleSheet.create({
     right: 14,
     top: 14,
   },
-  debugContainer: {
-    marginTop: 8,
-    padding: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#2196F3',
-  },
-  debugTitle: {
-    fontSize: 12,
-    fontWeight: '700',
-    marginBottom: 6,
-  },
-  debugText: {
-    fontSize: 11,
-    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
-    lineHeight: 16,
-  },
   errorContainer: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     marginTop: 8,
     padding: 12,
     borderRadius: 8,
@@ -667,27 +421,11 @@ const styles = StyleSheet.create({
   errorIcon: {
     fontSize: 20,
     marginRight: 8,
-    marginTop: 2,
-  },
-  errorTextContainer: {
-    flex: 1,
   },
   errorText: {
+    flex: 1,
     fontSize: 13,
     lineHeight: 18,
-    marginBottom: 8,
-  },
-  helpButton: {
-    backgroundColor: '#2196F3',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 6,
-    alignSelf: 'flex-start',
-  },
-  helpButtonText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '600',
   },
   noResultsContainer: {
     flexDirection: 'row',
