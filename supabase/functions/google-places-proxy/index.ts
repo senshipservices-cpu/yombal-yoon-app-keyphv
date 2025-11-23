@@ -25,6 +25,7 @@ function getApiKeyForPlatform(platform: string): { key: string; error?: string }
           error: 'iOS API key not configured. Please add GOOGLE_MAPS_API_KEY_IOS to Supabase Edge Function secrets.'
         };
       }
+      console.log('✅ Using iOS API key');
       return { key: GOOGLE_MAPS_API_KEY_IOS };
       
     case 'android':
@@ -35,6 +36,7 @@ function getApiKeyForPlatform(platform: string): { key: string; error?: string }
           error: 'Android API key not configured. Please add GOOGLE_MAPS_API_KEY_ANDROID to Supabase Edge Function secrets.'
         };
       }
+      console.log('✅ Using Android API key');
       return { key: GOOGLE_MAPS_API_KEY_ANDROID };
       
     case 'web':
@@ -43,9 +45,10 @@ function getApiKeyForPlatform(platform: string): { key: string; error?: string }
         console.error('❌ GOOGLE_MAPS_API_KEY_WEB not configured');
         return {
           key: '',
-          error: 'Web API key not configured. Please add GOOGLE_MAPS_API_KEY_WEB to Supabase Edge Function secrets.'
+          error: 'Web API key not configured. Please add GOOGLE_MAPS_API_KEY_WEB to Supabase Edge Function secrets. See WEB_API_KEY_SETUP_GUIDE.md for instructions.'
         };
       }
+      console.log('✅ Using Web API key');
       return { key: GOOGLE_MAPS_API_KEY_WEB };
   }
 }
@@ -59,6 +62,8 @@ Deno.serve(async (req) => {
     const { action, ...params } = await req.json();
     const platform = req.headers.get('x-platform') || 'web';
     
+    console.log(`📱 Request: ${platform} - ${action}`);
+    
     const apiKeyResult = getApiKeyForPlatform(platform);
     
     if (apiKeyResult.error) {
@@ -68,7 +73,8 @@ Deno.serve(async (req) => {
           status: 'REQUEST_DENIED',
           error_message: apiKeyResult.error,
           platform,
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
+          help: 'Please configure the appropriate Google Maps API key for this platform in Supabase Edge Function secrets.'
         }),
         {
           status: 500,
@@ -78,7 +84,6 @@ Deno.serve(async (req) => {
     }
     
     const apiKey = apiKeyResult.key;
-    console.log(`📱 ${platform} - ${action}`);
 
     let url: string;
     let response: Response;
@@ -122,6 +127,7 @@ Deno.serve(async (req) => {
         }
 
         url = `${baseUrl}?${urlParams.toString()}`;
+        console.log(`🔍 Autocomplete request for: "${params.input}"`);
         response = await fetch(url);
         break;
       }
@@ -137,6 +143,7 @@ Deno.serve(async (req) => {
         });
 
         url = `${baseUrl}?${urlParams.toString()}`;
+        console.log(`🏙️ City autocomplete request for: "${params.input}"`);
         response = await fetch(url);
         break;
       }
@@ -144,6 +151,7 @@ Deno.serve(async (req) => {
       case 'place_details': {
         const fields = params.fields || 'geometry,formatted_address,name,types,address_components';
         url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${params.placeId}&fields=${fields}&language=fr&key=${apiKey}`;
+        console.log(`📍 Place details request for: ${params.placeId}`);
         response = await fetch(url);
         break;
       }
@@ -166,6 +174,7 @@ Deno.serve(async (req) => {
         const language = params.language || 'fr';
 
         url = `https://maps.googleapis.com/maps/api/distancematrix/json?origins=${origins}&destinations=${destinations}&mode=${mode}&language=${language}&key=${apiKey}`;
+        console.log(`🚗 Distance matrix request`);
         response = await fetch(url);
         break;
       }
@@ -184,9 +193,13 @@ Deno.serve(async (req) => {
     const data = await response.json();
     
     if (data.status !== 'OK' && data.status !== 'ZERO_RESULTS') {
-      console.error(`❌ ${data.status}: ${data.error_message || 'No error message'}`);
+      console.error(`❌ Google Maps API error: ${data.status} - ${data.error_message || 'No error message'}`);
     } else if (data.predictions) {
-      console.log(`✅ ${data.predictions.length} results`);
+      console.log(`✅ ${data.predictions.length} results found`);
+    } else if (data.result) {
+      console.log(`✅ Place details retrieved`);
+    } else if (data.rows) {
+      console.log(`✅ Distance matrix calculated`);
     }
 
     return new Response(JSON.stringify(data), {

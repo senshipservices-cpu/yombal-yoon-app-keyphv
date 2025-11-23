@@ -127,22 +127,29 @@ export default function AddressAutocomplete({
         setApiError(null);
       } else if (data.status === 'REQUEST_DENIED') {
         console.error('[AddressAutocomplete] REQUEST_DENIED:', data.error_message);
-        setApiError('Configuration API incorrecte');
+        
+        const platformName = Platform.OS === 'web' ? 'Web' : Platform.OS === 'ios' ? 'iOS' : 'Android';
+        const errorMessage = `Configuration API ${platformName} manquante`;
+        
+        setApiError(errorMessage);
         setPredictions([]);
         setShowPredictions(false);
         
         if (Platform.OS !== 'web') {
           Alert.alert(
             'Configuration API',
-            `La clé API Google Maps pour ${Platform.OS} n'est pas configurée correctement.\n\nVeuillez contacter le support.`,
+            `La clé API Google Maps pour ${platformName} n'est pas configurée correctement.\n\n${data.error_message || ''}\n\nVeuillez contacter le support.`,
             [{ text: 'OK' }]
           );
+        } else {
+          console.error('[AddressAutocomplete] Web API key not configured. See WEB_API_KEY_SETUP_GUIDE.md');
         }
       } else if (data.status === 'OVER_QUERY_LIMIT') {
         setApiError('Quota API dépassé. Réessayez plus tard.');
         setPredictions([]);
         setShowPredictions(false);
       } else {
+        console.error('[AddressAutocomplete] Unexpected status:', data.status);
         setPredictions([]);
         setShowNoResults(false);
       }
@@ -334,9 +341,16 @@ export default function AddressAutocomplete({
       {apiError && (
         <View style={[styles.errorContainer, { backgroundColor: '#FF000020' }]}>
           <Text style={styles.errorIcon}>⚠️</Text>
-          <Text style={[styles.errorText, { color: '#FF0000' }]}>
-            {apiError}
-          </Text>
+          <View style={styles.errorTextContainer}>
+            <Text style={[styles.errorText, { color: '#FF0000' }]}>
+              {apiError}
+            </Text>
+            {Platform.OS === 'web' && apiError.includes('Configuration') && (
+              <Text style={[styles.errorHint, { color: '#FF0000' }]}>
+                Consultez WEB_API_KEY_SETUP_GUIDE.md pour configurer la clé API Web
+              </Text>
+            )}
+          </View>
         </View>
       )}
 
@@ -411,7 +425,7 @@ const styles = StyleSheet.create({
   },
   errorContainer: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     marginTop: 8,
     padding: 12,
     borderRadius: 8,
@@ -421,11 +435,21 @@ const styles = StyleSheet.create({
   errorIcon: {
     fontSize: 20,
     marginRight: 8,
+    marginTop: 2,
+  },
+  errorTextContainer: {
+    flex: 1,
   },
   errorText: {
-    flex: 1,
     fontSize: 13,
     lineHeight: 18,
+    fontWeight: '600',
+  },
+  errorHint: {
+    fontSize: 12,
+    lineHeight: 16,
+    marginTop: 4,
+    fontStyle: 'italic',
   },
   noResultsContainer: {
     flexDirection: 'row',
