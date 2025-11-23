@@ -1,7 +1,8 @@
 
 {
   "cli": {
-    "version": ">= 5.0.0"
+    "version": ">= 13.2.0",
+    "appVersionSource": "remote"
   },
   "build": {
     "development": {
@@ -14,44 +15,40 @@
     "preview": {
       "distribution": "internal",
       "ios": {
-        "simulator": false
+        "simulator": false,
+        "bundleIdentifier": "com.yombalyoon.app"
       },
       "android": {
-        "buildType": "apk"
+        "buildType": "apk",
+        "package": "com.yombalyoon.app"
       }
     },
     "production": {
-      "autoIncrement": true,
-      "cache": {
-        "disabled": false,
-        "clear": true
-      },
-      "env": {
-        "SUPABASE_URL": "https://drxtaxepofuoelplgrei.supabase.co",
-        "SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRyeHRheGVwb2Z1b2VscGxncmVpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM1NTE4OTIsImV4cCI6MjA3OTEyNzg5Mn0.Neyu511N_7zLuFp0hywz2GBF-5TVgjLvcs70VrAj9QQ",
-        "GOOGLE_MAPS_API_KEY": "AIzaSyCyIEHUEYap3t8z_lqy2tCNhHFBhYHTSHQ",
-        "NOTIFICATIONS_KEY": "production"
-      },
       "ios": {
         "bundleIdentifier": "com.yombalyoon.app",
         "buildNumber": "1"
       },
       "android": {
+        "buildType": "apk",
         "package": "com.yombalyoon.app",
         "versionCode": 1
+      },
+      "env": {
+        "EXPO_PUBLIC_SUPABASE_URL": "https://drxtaxepofuoelplgrei.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRyeHRheGVwb2Z1b2VscGxncmVpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM1NTE4OTIsImV4cCI6MjA3OTEyNzg5Mn0.Neyu511N_7zLuFp0hywz2GBF-5TVgjLvcs70VrAj9QQ",
+        "EXPO_PUBLIC_GOOGLE_MAPS_API_KEY": "AIzaSyCyIEHUEYap3t8z_lqy2tCNhHFBhYHTSHQ"
       }
     }
   },
   "submit": {
     "production": {
       "ios": {
-        "appleId": "your-apple-id@example.com",
-        "ascAppId": "your-asc-app-id",
-        "appleTeamId": "your-apple-team-id"
+        "appleId": "senshipservices@gmail.com",
+        "ascAppId": "placeholder",
+        "appleTeamId": "placeholder"
       },
       "android": {
-        "serviceAccountKeyPath": "./google-play-service-account.json",
-        "track": "internal"
+        "serviceAccountKeyPath": "placeholder"
       }
     }
   }
