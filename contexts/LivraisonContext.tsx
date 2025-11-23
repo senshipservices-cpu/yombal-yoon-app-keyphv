@@ -132,6 +132,34 @@ export function LivraisonProvider({ children }: { children: ReactNode }) {
     requestData: Omit<InterRegionalRequest, 'id' | 'status' | 'createdAt'>
   ): Promise<{ success: boolean; requestId?: string; error?: string }> => {
     try {
+      console.log('📦 Adding inter-regional request...');
+      console.log('   - Departure region:', requestData.departureRegion);
+      console.log('   - Destination region:', requestData.destinationRegion);
+      console.log('   - Destination department:', requestData.destinationDepartment);
+
+      // ✅ VALIDATION STRICTE - PARTIE 2
+      // Vérifier que tous les champs obligatoires sont remplis
+      if (!requestData.senderName || !requestData.senderPhone || 
+          !requestData.recipientName || !requestData.recipientPhone) {
+        console.error('❌ Missing required sender/recipient fields');
+        return { 
+          success: false, 
+          error: 'Veuillez remplir tous les champs obligatoires' 
+        };
+      }
+
+      // ✅ VALIDATION DES RÉGIONS
+      // Vérifier que les régions de départ et destination sont sélectionnées
+      if (!requestData.departureRegion || !requestData.destinationRegion) {
+        console.error('❌ Missing departure or destination region');
+        return { 
+          success: false, 
+          error: 'Veuillez choisir une région de départ et une région de destination.' 
+        };
+      }
+
+      console.log('✅ All validations passed - proceeding with submission');
+
       // Prepare data for Supabase
       const insertData: TablesInsert<'intercity_deliveries'> = {
         sender_name: requestData.senderName,

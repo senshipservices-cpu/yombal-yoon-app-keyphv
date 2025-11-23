@@ -381,7 +381,8 @@ export function ColisProvider({ children }: { children: ReactNode }) {
       console.log('   - Has departure location:', !!requestData.departureLocation);
       console.log('   - Has arrival location:', !!requestData.arrivalLocation);
       
-      // Validate required fields
+      // ✅ VALIDATION STRICTE - PARTIE 2
+      // Vérifier que tous les champs obligatoires sont remplis
       if (!requestData.senderName || !requestData.senderPhone || 
           !requestData.recipientName || !requestData.recipientPhone ||
           !requestData.departureAddress || !requestData.arrivalAddress ||
@@ -392,6 +393,30 @@ export function ColisProvider({ children }: { children: ReactNode }) {
           error: 'Veuillez remplir tous les champs obligatoires' 
         };
       }
+
+      // ✅ VALIDATION STRICTE DES COORDONNÉES
+      // Vérifier que les adresses ont été sélectionnées dans l'autocomplétion (avec lat/lng)
+      if (!requestData.departureLocation || 
+          !requestData.departureLocation.lat || 
+          !requestData.departureLocation.lng) {
+        console.error('❌ Missing departure coordinates - user did not select from autocomplete');
+        return { 
+          success: false, 
+          error: 'Veuillez sélectionner une adresse dans la liste d\'autocomplétion pour Départ et Arrivée.' 
+        };
+      }
+
+      if (!requestData.arrivalLocation || 
+          !requestData.arrivalLocation.lat || 
+          !requestData.arrivalLocation.lng) {
+        console.error('❌ Missing arrival coordinates - user did not select from autocomplete');
+        return { 
+          success: false, 
+          error: 'Veuillez sélectionner une adresse dans la liste d\'autocomplétion pour Départ et Arrivée.' 
+        };
+      }
+
+      console.log('✅ All validations passed - proceeding with submission');
 
       // If Supabase is configured and not in demo mode, insert to Supabase
       if (isSupabaseConfigured() && !demoMode) {
