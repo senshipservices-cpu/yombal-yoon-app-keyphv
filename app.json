@@ -1,8 +1,7 @@
-
 {
   "expo": {
     "name": "Yombal Yoon",
-    "slug": "yombal-yoon-app",
+    "slug": "Yombal Yoon",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/final_quest_240x240.png",
@@ -38,12 +37,12 @@
             }
           }
         },
-        "NSLocationWhenInUseUsageDescription": "Yombal Yoon utilise votre position pour afficher les trajets de covoiturage et les livraisons à proximité.",
-        "NSLocationAlwaysAndWhenInUseUsageDescription": "Yombal Yoon utilise votre position pour suivre les livraisons en temps réel.",
-        "NSCameraUsageDescription": "Yombal Yoon a besoin d'accéder à votre caméra pour prendre des photos de vos colis.",
-        "NSPhotoLibraryUsageDescription": "Yombal Yoon a besoin d'accéder à vos photos pour sélectionner des images de vos colis.",
-        "NSMicrophoneUsageDescription": "Yombal Yoon a besoin d'accéder à votre microphone pour les appels.",
-        "NSContactsUsageDescription": "Yombal Yoon a besoin d'accéder à vos contacts pour faciliter le partage de trajets."
+        "NSLocationWhenInUseUsageDescription": "Yombal Yoon utilise votre position pour afficher les trajets de covoiturage et les livraisons \u00e0 proximit\u00e9.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Yombal Yoon utilise votre position pour suivre les livraisons en temps r\u00e9el.",
+        "NSCameraUsageDescription": "Yombal Yoon a besoin d'acc\u00e9der \u00e0 votre cam\u00e9ra pour prendre des photos de vos colis.",
+        "NSPhotoLibraryUsageDescription": "Yombal Yoon a besoin d'acc\u00e9der \u00e0 vos photos pour s\u00e9lectionner des images de vos colis.",
+        "NSMicrophoneUsageDescription": "Yombal Yoon a besoin d'acc\u00e9der \u00e0 votre microphone pour les appels.",
+        "NSContactsUsageDescription": "Yombal Yoon a besoin d'acc\u00e9der \u00e0 vos contacts pour faciliter le partage de trajets."
       },
       "config": {
         "usesNonExemptEncryption": false
@@ -80,8 +79,8 @@
       [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUsePermission": "Yombal Yoon utilise votre position pour suivre les livraisons en temps réel.",
-          "locationWhenInUsePermission": "Yombal Yoon utilise votre position pour afficher les trajets de covoiturage et les livraisons à proximité."
+          "locationAlwaysAndWhenInUsePermission": "Yombal Yoon utilise votre position pour suivre les livraisons en temps r\u00e9el.",
+          "locationWhenInUsePermission": "Yombal Yoon utilise votre position pour afficher les trajets de covoiturage et les livraisons \u00e0 proximit\u00e9."
         }
       ],
       [
@@ -112,7 +111,7 @@
     },
     "owner": "yombalyoon",
     "privacy": "public",
-    "description": "Covoiturage, envoi de colis et livraisons rapides au Sénégal.",
+    "description": "Covoiturage, envoi de colis et livraisons rapides au S\u00e9n\u00e9gal.",
     "githubUrl": "https://github.com/yombalyoon/yombal-yoon-app",
     "runtimeVersion": {
       "policy": "appVersion"
@@ -121,7 +120,7 @@
     "keywords": [
       "yombal yoon",
       "covoiturage",
-      "sénégal",
+      "s\u00e9n\u00e9gal",
       "thiak thiak",
       "livraison",
       "colis",
@@ -130,10 +129,11 @@
       "livraison express",
       "wave",
       "orange money",
-      "mobilité"
+      "mobilit\u00e9"
     ],
     "supportUrl": "https://yombalyoon.com/support",
     "marketingUrl": "https://yombalyoon.com/",
     "privacyPolicyUrl": "https://yombalyoon.com/privacy"
-  }
+  },
+  "scheme": "Yombal Yoon"
 }

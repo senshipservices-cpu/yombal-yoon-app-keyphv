@@ -2,7 +2,6 @@
 import React from 'react';
 import { Stack } from 'expo-router';
 import FloatingTabBar, { TabBarItem } from '@/components/FloatingTabBar';
-import YombalBanner from '@/components/YombalBanner';
 
 export default function TabLayout() {
   // Define the tabs configuration for Yombal Yoon
@@ -53,7 +52,6 @@ export default function TabLayout() {
         <Stack.Screen key="livraison" name="livraison" />
         <Stack.Screen key="profile" name="profile" />
       </Stack>
-      <YombalBanner />
       <FloatingTabBar tabs={tabs} containerWidth={380} />
     </>
   );
