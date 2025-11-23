@@ -16,21 +16,21 @@
       "distribution": "internal",
       "ios": {
         "simulator": false,
-        "bundleIdentifier": "com.teranga.car"
+        "bundleIdentifier": "com.yombalyoon.app"
       },
       "android": {
         "buildType": "apk",
-        "package": "com.teranga.car"
+        "package": "com.yombalyoon.app"
       }
     },
     "production": {
       "ios": {
-        "bundleIdentifier": "com.teranga.car",
+        "bundleIdentifier": "com.yombalyoon.app",
         "buildNumber": "1"
       },
       "android": {
         "buildType": "apk",
-        "package": "com.teranga.car",
+        "package": "com.yombalyoon.app",
         "versionCode": 1
       },
       "env": {

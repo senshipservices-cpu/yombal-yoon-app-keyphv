@@ -21,7 +21,7 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.teranga.car",
+      "bundleIdentifier": "com.yombalyoon.app",
       "buildNumber": "1",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
@@ -55,7 +55,7 @@
         "backgroundColor": "#FFFFFF"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.teranga.car",
+      "package": "com.yombalyoon.app",
       "versionCode": 1,
       "permissions": [
         "INTERNET",
