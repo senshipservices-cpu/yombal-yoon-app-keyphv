@@ -1,3 +1,4 @@
+
 {
   "cli": {
     "version": ">= 5.0.0"
@@ -6,55 +7,51 @@
     "development": {
       "developmentClient": true,
       "distribution": "internal",
-      "autoIncrement": true,
-      "env": {
-        "EXPO_PUBLIC_ENV": "development"
+      "ios": {
+        "simulator": true
       }
     },
     "preview": {
       "distribution": "internal",
-      "autoIncrement": true,
-      "env": {
-        "EXPO_PUBLIC_ENV": "preview"
+      "ios": {
+        "simulator": false
+      },
+      "android": {
+        "buildType": "apk"
       }
     },
     "production": {
       "autoIncrement": true,
+      "cache": {
+        "disabled": false,
+        "clear": true
+      },
       "env": {
-        "EXPO_PUBLIC_ENV": "production"
-      },
-      "android": {
-        "buildType": "app-bundle",
-        "gradleCommand": ":app:bundleRelease"
+        "SUPABASE_URL": "https://drxtaxepofuoelplgrei.supabase.co",
+        "SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRyeHRheGVwb2Z1b2VscGxncmVpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM1NTE4OTIsImV4cCI6MjA3OTEyNzg5Mn0.Neyu511N_7zLuFp0hywz2GBF-5TVgjLvcs70VrAj9QQ",
+        "GOOGLE_MAPS_API_KEY": "AIzaSyCyIEHUEYap3t8z_lqy2tCNhHFBhYHTSHQ",
+        "NOTIFICATIONS_KEY": "production"
       },
       "ios": {
-        "buildConfiguration": "Release"
-      }
-    },
-    "production-android": {
-      "extends": "production",
+        "bundleIdentifier": "com.yombalyoon.app",
+        "buildNumber": "1"
+      },
       "android": {
-        "buildType": "app-bundle",
-        "gradleCommand": ":app:bundleRelease"
-      }
-    },
-    "production-ios": {
-      "extends": "production",
-      "ios": {
-        "buildConfiguration": "Release"
+        "package": "com.yombalyoon.app",
+        "versionCode": 1
       }
     }
   },
   "submit": {
     "production": {
-      "android": {
-        "serviceAccountKeyPath": "./service-account-key.json",
-        "track": "internal"
-      },
       "ios": {
         "appleId": "your-apple-id@example.com",
         "ascAppId": "your-asc-app-id",
-        "appleTeamId": "your-team-id"
+        "appleTeamId": "your-apple-team-id"
+      },
+      "android": {
+        "serviceAccountKeyPath": "./google-play-service-account.json",
+        "track": "internal"
       }
     }
   }
