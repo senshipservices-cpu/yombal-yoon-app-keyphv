@@ -106,7 +106,7 @@ export default function AddressAutocomplete({
 
       if (error) {
         console.error('[AddressAutocomplete] Supabase function error:', error);
-        setApiError('Problème de connexion. Veuillez réessayer.');
+        setApiError('Autocomplétion momentanément indisponible. Vérifiez votre connexion internet ou réessayez plus tard.');
         setPredictions([]);
         setShowPredictions(false);
         return;
@@ -135,32 +135,29 @@ export default function AddressAutocomplete({
         console.error('[AddressAutocomplete] REQUEST_DENIED:', data.error_message);
         
         const platformName = Platform.OS === 'web' ? 'Web' : Platform.OS === 'ios' ? 'iOS' : 'Android';
-        const errorMessage = `Configuration API ${platformName} requise`;
         
-        setApiError(errorMessage);
+        setApiError('Autocomplétion momentanément indisponible. Vérifiez votre connexion internet ou réessayez plus tard.');
         setPredictions([]);
         setShowPredictions(false);
         
-        if (Platform.OS !== 'web') {
-          Alert.alert(
-            'Configuration API',
-            `La clé API Google Maps pour ${platformName} n'est pas configurée.\n\n${data.error_message || ''}\n\nVeuillez contacter le support technique.`,
-            [{ text: 'OK' }]
-          );
+        // Log detailed error for debugging
+        console.error(`[AddressAutocomplete] Configuration API ${platformName} requise:`, data.error_message);
+        if (data.help_ios) {
+          console.error('[AddressAutocomplete] iOS Help:', data.help_ios);
         }
       } else if (data.status === 'OVER_QUERY_LIMIT') {
-        setApiError('Quota API dépassé. Réessayez plus tard.');
+        setApiError('Autocomplétion momentanément indisponible. Vérifiez votre connexion internet ou réessayez plus tard.');
         setPredictions([]);
         setShowPredictions(false);
       } else {
         console.error('[AddressAutocomplete] Unexpected status:', data.status);
-        setApiError('Erreur de service. Veuillez réessayer.');
+        setApiError('Autocomplétion momentanément indisponible. Vérifiez votre connexion internet ou réessayez plus tard.');
         setPredictions([]);
         setShowNoResults(false);
       }
     } catch (error) {
       console.error('[AddressAutocomplete] Exception:', error);
-      setApiError('Problème de connexion. Veuillez réessayer.');
+      setApiError('Autocomplétion momentanément indisponible. Vérifiez votre connexion internet ou réessayez plus tard.');
       setPredictions([]);
       setShowNoResults(false);
     } finally {
@@ -356,22 +353,15 @@ export default function AddressAutocomplete({
       </View>
 
       {apiError && (
-        <View style={[styles.errorContainer, { backgroundColor: '#FF000020' }]}>
+        <View style={[styles.errorContainer, { backgroundColor: '#FFF3CD', borderColor: '#FFC107' }]}>
           <Text style={styles.errorIcon}>⚠️</Text>
           <View style={styles.errorTextContainer}>
-            <Text style={[styles.errorText, { color: '#FF0000' }]}>
+            <Text style={[styles.errorText, { color: '#856404' }]}>
               {apiError}
             </Text>
-            {Platform.OS === 'ios' && apiError.includes('Configuration') && (
-              <Text style={[styles.errorHint, { color: '#FF0000' }]}>
-                Consultez IOS_API_KEY_SETUP_GUIDE.md pour configurer la clé API iOS
-              </Text>
-            )}
-            {Platform.OS === 'web' && apiError.includes('Configuration') && (
-              <Text style={[styles.errorHint, { color: '#FF0000' }]}>
-                Consultez WEB_API_KEY_SETUP_GUIDE.md pour configurer la clé API Web
-              </Text>
-            )}
+            <Text style={[styles.errorHint, { color: '#856404' }]}>
+              Vous pouvez continuer en saisissant l&apos;adresse manuellement.
+            </Text>
           </View>
         </View>
       )}
@@ -452,7 +442,6 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#FF0000',
   },
   errorIcon: {
     fontSize: 20,
