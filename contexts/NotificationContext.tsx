@@ -1,5 +1,5 @@
 
-import React, { createContext, useContext, useState, useEffect, ReactNode, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useRef, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
@@ -71,23 +71,9 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   const responseListener = useRef<any>();
   const router = useRouter();
 
-  useEffect(() => {
-    loadData();
-    setupNotificationListeners();
-
-    return () => {
-      if (notificationListener.current) {
-        notificationListener.current.remove();
-      }
-      if (responseListener.current) {
-        responseListener.current.remove();
-      }
-    };
-  }, [setupNotificationListeners]);
-
   const unreadCount = notifications.filter(n => !n.read).length;
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       const storedNotifications = await AsyncStorage.getItem(NOTIFICATIONS_STORAGE_KEY);
       if (storedNotifications) {
@@ -99,9 +85,9 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
-  const navigateToParcelDetail = React.useCallback((parcelId: string, assignmentId: string) => {
+  const navigateToParcelDetail = useCallback((parcelId: string, assignmentId: string) => {
     console.log('Navigating to driver parcel detail:', parcelId, assignmentId);
     try {
       router.push({
@@ -116,7 +102,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     }
   }, [router]);
 
-  const setupNotificationListeners = React.useCallback(() => {
+  const setupNotificationListeners = useCallback(() => {
     try {
       // Listener for notifications received while app is in foreground
       notificationListener.current = Notifications.addNotificationReceivedListener(notification => {
@@ -188,6 +174,20 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       console.error('Error setting up notification listeners:', error);
     }
   }, [navigateToParcelDetail, router]);
+
+  useEffect(() => {
+    loadData();
+    setupNotificationListeners();
+
+    return () => {
+      if (notificationListener.current) {
+        notificationListener.current.remove();
+      }
+      if (responseListener.current) {
+        responseListener.current.remove();
+      }
+    };
+  }, [loadData, setupNotificationListeners]);
 
   const registerForPushNotifications = async (userId: string = 'current_user', roles: string[] = []) => {
     try {
