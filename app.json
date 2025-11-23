@@ -2,7 +2,7 @@
 {
   "expo": {
     "name": "Yombal Yoon",
-    "slug": "yombal-yoon",
+    "slug": "yombal-yoon-app",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/final_quest_240x240.png",
@@ -17,11 +17,11 @@
       "enabled": true,
       "fallbackToCacheTimeout": 30000,
       "checkAutomatically": "ON_LOAD",
-      "url": "https://u.expo.dev/drxtaxepofuoelplgrei"
+      "url": "https://u.expo.dev/52fa7013-83b9-49a0-b966-0237771a3c4f"
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.yombalyoon.teranga.car",
+      "bundleIdentifier": "com.yombalyoon.yombalyoonapp",
       "buildNumber": "1",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
@@ -55,7 +55,7 @@
         "backgroundColor": "#FFFFFF"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.yombalyoon.teranga.car",
+      "package": "com.yombalyoon.yombalyoonapp",
       "versionCode": 1,
       "permissions": [
         "INTERNET",
@@ -107,7 +107,7 @@
       "GOOGLE_MAPS_API_KEY": "AIzaSyCyIEHUEYap3t8z_lqy2tCNhHFBhYHTSHQ",
       "NOTIFICATIONS_KEY": "production",
       "eas": {
-        "projectId": "drxtaxepofuoelplgrei"
+        "projectId": "52fa7013-83b9-49a0-b966-0237771a3c4f"
       }
     },
     "owner": "yombalyoon",
