@@ -9,29 +9,31 @@
       "developmentClient": true,
       "distribution": "internal",
       "ios": {
-        "simulator": true
+        "simulator": true,
+        "bundleIdentifier": "com.yombalyoon.teranga.car"
+      },
+      "android": {
+        "package": "com.yombalyoon.teranga.car"
       }
     },
     "preview": {
       "distribution": "internal",
       "ios": {
         "simulator": false,
-        "bundleIdentifier": "com.yombalyoon.app"
+        "bundleIdentifier": "com.yombalyoon.teranga.car"
       },
       "android": {
         "buildType": "apk",
-        "package": "com.yombalyoon.app"
+        "package": "com.yombalyoon.teranga.car"
       }
     },
     "production": {
       "ios": {
-        "bundleIdentifier": "com.yombalyoon.app",
-        "buildNumber": "1"
+        "bundleIdentifier": "com.yombalyoon.teranga.car"
       },
       "android": {
         "buildType": "apk",
-        "package": "com.yombalyoon.app",
-        "versionCode": 1
+        "package": "com.yombalyoon.teranga.car"
       },
       "env": {
         "EXPO_PUBLIC_SUPABASE_URL": "https://drxtaxepofuoelplgrei.supabase.co",
@@ -45,7 +47,7 @@
       "ios": {
         "appleId": "senshipservices@gmail.com",
         "ascAppId": "placeholder",
-        "appleTeamId": "placeholder"
+        "appleTeamId": "532Q9L7B6G"
       },
       "android": {
         "serviceAccountKeyPath": "placeholder"
