@@ -29,8 +29,15 @@ export default function YombalBanner() {
 
 const styles = StyleSheet.create({
   container: {
-    marginTop: 16,
-    marginBottom: 16,
+    position: 'absolute',
+    bottom: Platform.select({
+      ios: 70,
+      android: 70,
+      web: 70,
+    }),
+    left: 0,
+    right: 0,
+    zIndex: 999,
     paddingHorizontal: 16,
   },
   gradient: {

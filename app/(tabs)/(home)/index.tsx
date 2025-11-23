@@ -8,7 +8,6 @@ import { colors } from "@/styles/commonStyles";
 import { IconSymbol } from "@/components/IconSymbol";
 import { useProfile } from "@/contexts/ProfileContext";
 import { useNotifications } from "@/contexts/NotificationContext";
-import YombalBanner from "@/components/YombalBanner";
 
 const tips = [
   "Réservez vos trajets tôt le matin pour trouver plus de conducteurs.",
@@ -275,9 +274,6 @@ export default function HomeScreen() {
               Sélectionnez vos rôles dans votre profil pour accéder à toutes les fonctionnalités
             </Text>
           </View>
-
-          {/* YOMBAL YOON Banner - Only on Home Page */}
-          <YombalBanner />
         </View>
       </ScrollView>
     </View>
@@ -293,7 +289,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingTop: Platform.OS === 'android' ? 48 : 0,
-    paddingBottom: 140,
+    paddingBottom: 120,
   },
   header: {
     padding: 20,
