@@ -2,24 +2,55 @@
 // GOOGLE MAPS API PROXY - YOMBAL YOON
 // ====================================
 // Cette Edge Function sert de proxy pour les appels à Google Maps API
-// Elle utilise une seule clé API configurée pour fonctionner sur toutes les plateformes
+// Elle utilise trois clés API distinctes selon la plateforme (Web, Android, iOS)
 //
 // CONFIGURATION REQUISE:
-// - GOOGLE_MAPS_API_KEY: Clé API unique pour Web, Android et iOS
+// - GOOGLE_MAPS_API_KEY_WEB: Clé API pour le Web (restrictions HTTP referrers)
+// - GOOGLE_MAPS_API_KEY_ANDROID: Clé API pour Android (restrictions package name + SHA-1)
+// - GOOGLE_MAPS_API_KEY_IOS: Clé API pour iOS (restrictions Bundle ID)
 //
-// La clé doit être configurée dans Google Cloud Console avec les restrictions appropriées:
-// - Web: Restrictions HTTP referrers (*.natively.dev/*, localhost/*)
-// - Android: Restrictions d'application (package name + SHA-1)
-// - iOS: Restrictions d'application (Bundle ID: com.yombalyoon.yombalyoonapp)
-//
-// IMPORTANT: Pour iOS, assurez-vous que le Bundle ID est correctement configuré dans les restrictions
+// IMPORTANT: Chaque clé doit être configurée dans Google Cloud Console avec les restrictions appropriées
 
-const GOOGLE_MAPS_API_KEY = Deno.env.get('GOOGLE_MAPS_API_KEY');
+const GOOGLE_MAPS_API_KEY_WEB = Deno.env.get('GOOGLE_MAPS_API_KEY_WEB');
+const GOOGLE_MAPS_API_KEY_ANDROID = Deno.env.get('GOOGLE_MAPS_API_KEY_ANDROID');
+const GOOGLE_MAPS_API_KEY_IOS = Deno.env.get('GOOGLE_MAPS_API_KEY_IOS');
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-platform'
 };
+
+// Fonction pour obtenir la clé API selon la plateforme
+function getApiKeyForPlatform(platform: string): string | null {
+  const platformLower = platform.toLowerCase();
+  
+  if (platformLower === 'web') {
+    return GOOGLE_MAPS_API_KEY_WEB || null;
+  } else if (platformLower === 'android') {
+    return GOOGLE_MAPS_API_KEY_ANDROID || null;
+  } else if (platformLower === 'ios') {
+    return GOOGLE_MAPS_API_KEY_IOS || null;
+  }
+  
+  // Fallback: essayer Web si la plateforme n'est pas reconnue
+  console.warn(`⚠️ Platform "${platform}" not recognized, falling back to Web key`);
+  return GOOGLE_MAPS_API_KEY_WEB || null;
+}
+
+// Fonction pour obtenir le nom du secret manquant
+function getMissingSecretName(platform: string): string {
+  const platformLower = platform.toLowerCase();
+  
+  if (platformLower === 'web') {
+    return 'GOOGLE_MAPS_API_KEY_WEB';
+  } else if (platformLower === 'android') {
+    return 'GOOGLE_MAPS_API_KEY_ANDROID';
+  } else if (platformLower === 'ios') {
+    return 'GOOGLE_MAPS_API_KEY_IOS';
+  }
+  
+  return 'GOOGLE_MAPS_API_KEY_[PLATFORM]';
+}
 
 Deno.serve(async (req) => {
   // Handle CORS preflight
@@ -34,24 +65,29 @@ Deno.serve(async (req) => {
     console.log(`📱 Requête: ${platform} - ${action}`);
     console.log(`📊 Paramètres:`, JSON.stringify(params, null, 2));
     
+    // Obtenir la clé API pour la plateforme
+    const apiKey = getApiKeyForPlatform(platform);
+    
     // Vérifier que la clé API est configurée
-    if (!GOOGLE_MAPS_API_KEY) {
-      console.error('❌ GOOGLE_MAPS_API_KEY non configurée');
+    if (!apiKey) {
+      const secretName = getMissingSecretName(platform);
+      console.error(`❌ ${secretName} non configurée pour la plateforme: ${platform}`);
+      
       return new Response(
         JSON.stringify({
           status: 'REQUEST_DENIED',
-          error_message: 'La clé API Google Maps n\'est pas configurée. Veuillez ajouter GOOGLE_MAPS_API_KEY aux secrets Supabase Edge Function.',
+          error_message: `La clé API Google Maps pour ${platform} n'est pas configurée. Veuillez ajouter ${secretName} aux secrets Supabase Edge Function.`,
           platform: platform,
           timestamp: new Date().toISOString(),
           help: {
-            message: 'Configuration requise dans Supabase',
+            message: `Configuration requise dans Supabase pour ${platform}`,
             steps: [
               '1. Créez une clé API dans Google Cloud Console',
-              '2. Configurez les restrictions pour toutes les plateformes (Web, Android, iOS)',
-              '3. Ajoutez la clé aux secrets Supabase Edge Function avec le nom GOOGLE_MAPS_API_KEY',
+              `2. Configurez les restrictions pour ${platform}`,
+              `3. Ajoutez la clé aux secrets Supabase Edge Function avec le nom ${secretName}`,
               '4. Redéployez cette Edge Function'
             ],
-            documentation: 'GOOGLE_MAPS_PLATFORM_SETUP.md'
+            documentation: 'GOOGLE_MAPS_API_RESET_GUIDE.md'
           }
         }),
         {
@@ -61,7 +97,7 @@ Deno.serve(async (req) => {
       );
     }
     
-    console.log(`🔐 Clé API chargée avec succès pour ${platform}`);
+    console.log(`🔐 Clé API ${platform} chargée avec succès`);
 
     let url: string;
     let response: Response;
@@ -71,7 +107,7 @@ Deno.serve(async (req) => {
         const baseUrl = 'https://maps.googleapis.com/maps/api/place/autocomplete/json';
         const urlParams = new URLSearchParams({
           input: params.input,
-          key: GOOGLE_MAPS_API_KEY,
+          key: apiKey,
         });
 
         // Location (default: Dakar, Senegal)
@@ -122,7 +158,7 @@ Deno.serve(async (req) => {
           types: '(cities)',
           components: 'country:sn',
           language: 'fr',
-          key: GOOGLE_MAPS_API_KEY,
+          key: apiKey,
         });
 
         url = `${baseUrl}?${urlParams.toString()}`;
@@ -133,7 +169,7 @@ Deno.serve(async (req) => {
 
       case 'place_details': {
         const fields = params.fields || 'geometry,formatted_address,name,types,address_components';
-        url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${params.placeId}&fields=${fields}&language=fr&key=${GOOGLE_MAPS_API_KEY}`;
+        url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${params.placeId}&fields=${fields}&language=fr&key=${apiKey}`;
         console.log(`📍 Place details pour: ${params.placeId} (${platform})`);
         response = await fetch(url);
         break;
@@ -156,7 +192,7 @@ Deno.serve(async (req) => {
         const mode = params.mode || 'driving';
         const language = params.language || 'fr';
 
-        url = `https://maps.googleapis.com/maps/api/distancematrix/json?origins=${origins}&destinations=${destinations}&mode=${mode}&language=${language}&key=${GOOGLE_MAPS_API_KEY}`;
+        url = `https://maps.googleapis.com/maps/api/distancematrix/json?origins=${origins}&destinations=${destinations}&mode=${mode}&language=${language}&key=${apiKey}`;
         console.log(`🚗 Distance matrix (${platform})`);
         response = await fetch(url);
         break;
@@ -187,19 +223,49 @@ Deno.serve(async (req) => {
       data.platform_used = platform;
       data.timestamp = new Date().toISOString();
       
-      // Add helpful error message for iOS
-      if (platform.toLowerCase() === 'ios' && data.status === 'REQUEST_DENIED') {
-        data.help_ios = {
-          message: 'Vérifiez que le Bundle ID est correctement configuré dans Google Cloud Console',
-          bundle_id: 'com.yombalyoon.yombalyoonapp',
-          steps: [
-            '1. Allez dans Google Cloud Console > APIs & Services > Credentials',
-            '2. Sélectionnez votre clé API',
-            '3. Dans "Application restrictions", choisissez "iOS apps"',
-            '4. Ajoutez le Bundle ID: com.yombalyoon.yombalyoonapp',
-            '5. Sauvegardez les modifications'
-          ]
-        };
+      // Add helpful error message based on platform and error type
+      if (data.status === 'REQUEST_DENIED') {
+        if (platform.toLowerCase() === 'ios') {
+          data.help_ios = {
+            message: 'Vérifiez que le Bundle ID est correctement configuré dans Google Cloud Console',
+            bundle_id: 'com.yombalyoon.yombalyoonapp',
+            steps: [
+              '1. Allez dans Google Cloud Console > APIs & Services > Credentials',
+              '2. Sélectionnez votre clé API iOS',
+              '3. Dans "Application restrictions", choisissez "iOS apps"',
+              '4. Ajoutez le Bundle ID: com.yombalyoon.yombalyoonapp',
+              '5. Dans "API restrictions", activez: Places API, Geocoding API, Distance Matrix API',
+              '6. Sauvegardez les modifications'
+            ]
+          };
+        } else if (platform.toLowerCase() === 'android') {
+          data.help_android = {
+            message: 'Vérifiez que le package name et SHA-1 sont correctement configurés dans Google Cloud Console',
+            package_name: 'com.yombalyoon.app',
+            steps: [
+              '1. Allez dans Google Cloud Console > APIs & Services > Credentials',
+              '2. Sélectionnez votre clé API Android',
+              '3. Dans "Application restrictions", choisissez "Android apps"',
+              '4. Ajoutez le package name: com.yombalyoon.app',
+              '5. Ajoutez le SHA-1 de votre keystore',
+              '6. Dans "API restrictions", activez: Places API, Geocoding API, Distance Matrix API',
+              '7. Sauvegardez les modifications'
+            ]
+          };
+        } else if (platform.toLowerCase() === 'web') {
+          data.help_web = {
+            message: 'Vérifiez que les HTTP referrers sont correctement configurés dans Google Cloud Console',
+            referrers: ['https://*.natively.dev/*', 'http://localhost/*'],
+            steps: [
+              '1. Allez dans Google Cloud Console > APIs & Services > Credentials',
+              '2. Sélectionnez votre clé API Web',
+              '3. Dans "Application restrictions", choisissez "HTTP referrers (web sites)"',
+              '4. Ajoutez les referrers: *.natively.dev/* et localhost/*',
+              '5. Dans "API restrictions", activez: Places API, Geocoding API, Distance Matrix API',
+              '6. Sauvegardez les modifications'
+            ]
+          };
+        }
       }
     } else if (data.predictions) {
       console.log(`✅ ${data.predictions.length} résultats trouvés (${platform})`);
