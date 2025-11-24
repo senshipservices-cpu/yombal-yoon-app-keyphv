@@ -31,6 +31,7 @@ interface CityAutocompleteProps {
   onSelectCity: (city: string, placeId: string, lat: number, lng: number) => void;
   placeholder?: string;
   label?: string;
+  error?: string;
 }
 
 export default function CityAutocomplete({
@@ -39,6 +40,7 @@ export default function CityAutocomplete({
   onSelectCity,
   placeholder = 'Ex: Dakar',
   label = 'Ville',
+  error,
 }: CityAutocompleteProps) {
   const theme = useTheme();
   const isDark = theme.dark;
@@ -47,16 +49,17 @@ export default function CityAutocomplete({
   const [isLoading, setIsLoading] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [debugInfo, setDebugInfo] = useState<string>('');
+  const [hasSelectedFromAutocomplete, setHasSelectedFromAutocomplete] = useState(false);
 
   useEffect(() => {
-    if (value.length >= 2) {
+    if (value.length >= 2 && !hasSelectedFromAutocomplete) {
       fetchSuggestions(value);
-    } else {
+    } else if (value.length < 2) {
       setSuggestions([]);
       setShowSuggestions(false);
       setDebugInfo('');
     }
-  }, [value]);
+  }, [value, hasSelectedFromAutocomplete]);
 
   const fetchSuggestions = async (input: string) => {
     setIsLoading(true);
@@ -211,7 +214,13 @@ export default function CityAutocomplete({
     setShowSuggestions(false);
     setSuggestions([]);
     setDebugInfo('');
+    setHasSelectedFromAutocomplete(true);
     fetchPlaceDetails(prediction.place_id, cityName);
+  };
+
+  const handleTextChange = (text: string) => {
+    setHasSelectedFromAutocomplete(false);
+    onChangeText(text);
   };
 
   const renderSuggestionItem = ({ item }: { item: PlacePrediction }) => (
@@ -270,13 +279,14 @@ export default function CityAutocomplete({
             {
               backgroundColor: isDark ? colors.darkCard : colors.card,
               color: isDark ? colors.darkText : colors.text,
-              borderColor: colors.border,
+              borderColor: error ? colors.error : colors.border,
+              borderWidth: error ? 2 : 1,
             },
           ]}
           placeholder={placeholder}
           placeholderTextColor={colors.textSecondary}
           value={value}
-          onChangeText={onChangeText}
+          onChangeText={handleTextChange}
           autoCapitalize="words"
           autoCorrect={false}
         />
@@ -287,6 +297,16 @@ export default function CityAutocomplete({
           </View>
         )}
       </View>
+
+      {/* Validation Error Message */}
+      {error && (
+        <View style={[styles.validationErrorContainer, { backgroundColor: colors.error + '20', borderColor: colors.error }]}>
+          <Text style={styles.errorIcon}>⚠️</Text>
+          <Text style={[styles.validationErrorText, { color: colors.error }]}>
+            {error}
+          </Text>
+        </View>
+      )}
 
       {/* Debug Info (only on mobile platforms) */}
       {Platform.OS !== 'web' && debugInfo !== '' && (
@@ -352,6 +372,25 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: 16,
     top: 16,
+  },
+  validationErrorContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginTop: 8,
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 2,
+  },
+  errorIcon: {
+    fontSize: 20,
+    marginRight: 8,
+    marginTop: 2,
+  },
+  validationErrorText: {
+    flex: 1,
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '600',
   },
   debugContainer: {
     marginTop: 8,

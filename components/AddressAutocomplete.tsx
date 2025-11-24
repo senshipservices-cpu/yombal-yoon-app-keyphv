@@ -38,6 +38,7 @@ interface AddressAutocompleteProps {
   onSelectAddress: (address: string, location: Location, placeId: string) => void;
   placeholder: string;
   label: string;
+  error?: string;
 }
 
 interface DebugInfo {
@@ -73,6 +74,7 @@ export default function AddressAutocomplete({
   onSelectAddress,
   placeholder,
   label,
+  error,
 }: AddressAutocompleteProps) {
   const theme = useTheme();
   const isDark = theme.dark;
@@ -341,6 +343,9 @@ export default function AddressAutocomplete({
     return '📍';
   };
 
+  // Check if user has selected from autocomplete
+  const isValidSelection = hasSelectedFromAutocomplete || value.trim() === '';
+
   const renderPredictionItem = ({ item }: { item: Prediction }) => (
     <TouchableOpacity
       style={[
@@ -377,8 +382,8 @@ export default function AddressAutocomplete({
             {
               backgroundColor: isDark ? colors.darkBackground : colors.background,
               color: isDark ? colors.darkText : colors.text,
-              borderColor: apiError ? '#FF0000' : (isDark ? colors.darkCard : colors.border),
-              borderWidth: apiError ? 2 : 1,
+              borderColor: error ? colors.error : (apiError ? '#FF0000' : (isDark ? colors.darkCard : colors.border)),
+              borderWidth: (error || apiError) ? 2 : 1,
             },
           ]}
           placeholder={placeholder}
@@ -397,6 +402,16 @@ export default function AddressAutocomplete({
           </View>
         )}
       </View>
+
+      {/* Validation Error Message */}
+      {error && (
+        <View style={[styles.validationErrorContainer, { backgroundColor: colors.error + '20', borderColor: colors.error }]}>
+          <Text style={styles.errorIcon}>⚠️</Text>
+          <Text style={[styles.validationErrorText, { color: colors.error }]}>
+            {error}
+          </Text>
+        </View>
+      )}
 
       {apiError && (
         <View style={[styles.errorContainer, { backgroundColor: '#FFF3CD', borderColor: '#FFC107' }]}>
@@ -599,6 +614,20 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: 14,
     top: 14,
+  },
+  validationErrorContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginTop: 8,
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 2,
+  },
+  validationErrorText: {
+    flex: 1,
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '600',
   },
   errorContainer: {
     flexDirection: 'row',

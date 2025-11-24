@@ -50,6 +50,10 @@ export default function ColisScreen() {
   const [showSuccess, setShowSuccess] = useState(false);
   const [showVerificationModal, setShowVerificationModal] = useState(false);
   const [showSecurityReminder, setShowSecurityReminder] = useState(false);
+  
+  // Validation errors
+  const [departureAddressError, setDepartureAddressError] = useState('');
+  const [arrivalAddressError, setArrivalAddressError] = useState('');
 
   // Load verification status on mount
   useEffect(() => {
@@ -66,9 +70,41 @@ export default function ColisScreen() {
     description.trim() !== '' &&
     !isSubmitting;
 
+  const validateAddresses = (): boolean => {
+    let isValid = true;
+    
+    // Reset errors
+    setDepartureAddressError('');
+    setArrivalAddressError('');
+    
+    // Check if departure address was selected from autocomplete
+    if (departureAddress.trim() !== '' && !departureLocation) {
+      setDepartureAddressError('Veuillez sélectionner l\'adresse de départ dans la liste proposée');
+      isValid = false;
+    }
+    
+    // Check if arrival address was selected from autocomplete
+    if (arrivalAddress.trim() !== '' && !arrivalLocation) {
+      setArrivalAddressError('Veuillez sélectionner l\'adresse d\'arrivée dans la liste proposée');
+      isValid = false;
+    }
+    
+    return isValid;
+  };
+
   const handleSubmitClick = () => {
     if (!canSubmit) {
       Alert.alert('Erreur', 'Veuillez remplir tous les champs obligatoires');
+      return;
+    }
+
+    // Validate addresses were selected from autocomplete
+    if (!validateAddresses()) {
+      Alert.alert(
+        'Adresses non valides',
+        'Veuillez sélectionner vos adresses dans la liste proposée pour Départ et Arrivée.',
+        [{ text: 'OK' }]
+      );
       return;
     }
 
@@ -137,8 +173,10 @@ export default function ColisScreen() {
         setArrivalLocation(null);
         setDescription('');
         
-        // Reset calculations
+        // Reset calculations and errors
         resetCalculations();
+        setDepartureAddressError('');
+        setArrivalAddressError('');
         
         // Show success message
         setShowSuccess(true);
@@ -373,31 +411,41 @@ export default function ColisScreen() {
               Détails du Colis
             </Text>
 
-            {/* Address Autocomplete Fields */}
+            {/* Address Autocomplete Fields with Validation */}
             <AddressAutocomplete
               value={departureAddress}
-              onChangeText={setDepartureAddress}
+              onChangeText={(text) => {
+                setDepartureAddress(text);
+                setDepartureAddressError('');
+              }}
               onSelectAddress={(address, location, placeId) => {
                 setDepartureAddress(address);
                 setDepartureLocation(location);
                 setPickupCoordinates(location.lat, location.lng, placeId);
+                setDepartureAddressError('');
                 console.log('Adresse de départ sélectionnée:', { address, location, placeId });
               }}
               placeholder="Rechercher une adresse à Dakar..."
               label="Adresse de départ *"
+              error={departureAddressError}
             />
 
             <AddressAutocomplete
               value={arrivalAddress}
-              onChangeText={setArrivalAddress}
+              onChangeText={(text) => {
+                setArrivalAddress(text);
+                setArrivalAddressError('');
+              }}
               onSelectAddress={(address, location, placeId) => {
                 setArrivalAddress(address);
                 setArrivalLocation(location);
                 setDropoffCoordinates(location.lat, location.lng, placeId);
+                setArrivalAddressError('');
                 console.log('Adresse d\'arrivée sélectionnée:', { address, location, placeId });
               }}
               placeholder="Rechercher une adresse à Dakar..."
               label="Adresse d'arrivée *"
+              error={arrivalAddressError}
             />
 
             {/* Distance et Prix estimés */}

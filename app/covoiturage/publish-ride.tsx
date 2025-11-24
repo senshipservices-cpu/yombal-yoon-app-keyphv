@@ -72,6 +72,8 @@ export default function PublishRideScreen() {
   const [showNoFavoriteMessage, setShowNoFavoriteMessage] = useState(false);
 
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const [departureCityError, setDepartureCityError] = useState('');
+  const [arrivalCityError, setArrivalCityError] = useState('');
 
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [successAnimation] = useState(new Animated.Value(0));
@@ -214,6 +216,7 @@ export default function PublishRideScreen() {
     setDeparturePlaceId(placeId);
     setDepartureLat(lat);
     setDepartureLng(lng);
+    setDepartureCityError('');
   };
 
   const handleSelectArrivalCity = (city: string, placeId: string, lat: number, lng: number) => {
@@ -222,6 +225,7 @@ export default function PublishRideScreen() {
     setArrivalPlaceId(placeId);
     setArrivalLat(lat);
     setArrivalLng(lng);
+    setArrivalCityError('');
   };
 
   const handleDateChange = (event: any, selectedDate?: Date) => {
@@ -332,16 +336,22 @@ export default function PublishRideScreen() {
   const validateForm = (): { isValid: boolean; errors: string[] } => {
     const errors: string[] = [];
 
+    // Reset city errors
+    setDepartureCityError('');
+    setArrivalCityError('');
+
     if (departureCity.trim() === '') {
       errors.push('Ville de départ requise');
     } else if (!departureLat || !departureLng) {
       errors.push('Veuillez sélectionner la ville de départ dans la liste');
+      setDepartureCityError('Veuillez sélectionner la ville dans la liste proposée');
     }
 
     if (arrivalCity.trim() === '') {
       errors.push('Ville d\'arrivée requise');
     } else if (!arrivalLat || !arrivalLng) {
       errors.push('Veuillez sélectionner la ville d\'arrivée dans la liste');
+      setArrivalCityError('Veuillez sélectionner la ville dans la liste proposée');
     }
 
     if (!departureDate) {
@@ -952,18 +962,26 @@ export default function PublishRideScreen() {
 
           <CityAutocomplete
             value={departureCity}
-            onChangeText={setDepartureCity}
+            onChangeText={(text) => {
+              setDepartureCity(text);
+              setDepartureCityError('');
+            }}
             onSelectCity={handleSelectDepartureCity}
             placeholder="Ex: Dakar"
             label="Ville de départ"
+            error={departureCityError}
           />
 
           <CityAutocomplete
             value={arrivalCity}
-            onChangeText={setArrivalCity}
+            onChangeText={(text) => {
+              setArrivalCity(text);
+              setArrivalCityError('');
+            }}
             onSelectCity={handleSelectArrivalCity}
             placeholder="Ex: Thiès"
             label="Ville d'arrivée"
+            error={arrivalCityError}
           />
 
           {(rideDistanceKm > 0 || isCalculatingDistance) && (
