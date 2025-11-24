@@ -108,9 +108,56 @@ Ce document liste tous les fichiers de documentation créés pour la préparatio
 
 ---
 
+### 🗺️ Configuration Google Maps API
+
+#### 7. **GOOGLE_MAPS_API_KEYS_SETUP.md**
+**Guide complet de configuration des clés Google Maps**
+- Vue d'ensemble des 3 clés API (Web, Android, iOS)
+- Instructions détaillées pour créer les clés dans Google Cloud Console
+- Configuration des restrictions par plateforme
+- Configuration des secrets Supabase
+- Vérification de la configuration
+- Architecture technique et flux de données
+- Dépannage des problèmes courants
+- Gestion des quotas et facturation
+- Bonnes pratiques de sécurité
+
+**Essentiel** pour configurer les clés Google Maps API de manière sécurisée.
+
+---
+
+#### 8. **VERIFICATION_GOOGLE_MAPS_SETUP.md**
+**Checklist de vérification de la configuration Google Maps**
+- Checklist complète pour Google Cloud Console
+- Vérification des secrets Supabase
+- Tests fonctionnels par plateforme (Web, Android, iOS)
+- Vérification des logs
+- Tests de calcul de distance
+- Tests de géocodage
+- Tests Covoiturage et Livraison
+- Résolution des problèmes
+- Tableau de bord de vérification
+
+**Indispensable** pour valider que la configuration Google Maps fonctionne correctement.
+
+---
+
+#### 9. **GOOGLE_MAPS_QUICK_START.md**
+**Guide rapide de configuration en 5 minutes**
+- Configuration rapide des clés Google Cloud
+- Configuration rapide des secrets Supabase
+- Tests rapides
+- Informations importantes (package names, APIs, référents)
+- Problèmes courants et solutions
+- Checklist rapide
+
+**Idéal** pour une configuration rapide de Google Maps API.
+
+---
+
 ### ⚡ Documents de Référence Rapide
 
-#### 7. **QUICK_START_GUIDE.md**
+#### 10. **QUICK_START_GUIDE.md**
 **Guide de démarrage rapide en 5 étapes**
 - Démarrage rapide condensé
 - Checklist ultra-rapide
@@ -125,7 +172,7 @@ Ce document liste tous les fichiers de documentation créés pour la préparatio
 
 ### 📜 Documents Légaux
 
-#### 8. **PRIVACY_POLICY_TEMPLATE.md**
+#### 11. **PRIVACY_POLICY_TEMPLATE.md**
 **Modèle de politique de confidentialité**
 - Introduction
 - Informations collectées
@@ -142,7 +189,7 @@ Ce document liste tous les fichiers de documentation créés pour la préparatio
 
 ---
 
-#### 9. **TERMS_OF_SERVICE_TEMPLATE.md**
+#### 12. **TERMS_OF_SERVICE_TEMPLATE.md**
 **Modèle de conditions d'utilisation**
 - Acceptation des conditions
 - Description du service
@@ -163,7 +210,7 @@ Ce document liste tous les fichiers de documentation créés pour la préparatio
 
 ### ⚙️ Fichiers de Configuration
 
-#### 10. **app.json**
+#### 13. **app.json**
 **Configuration de l'application Expo**
 - Nom, slug, version
 - Icône et splash screen
@@ -176,7 +223,7 @@ Ce document liste tous les fichiers de documentation créés pour la préparatio
 
 ---
 
-#### 11. **eas.json**
+#### 14. **eas.json**
 **Configuration des builds EAS**
 - Profils de build (development, preview, production)
 - Configuration Android (AAB)
@@ -193,13 +240,16 @@ Ce document liste tous les fichiers de documentation créés pour la préparatio
 
 1. **PRODUCTION_SUBMISSION_SUMMARY.md** - Vue d'ensemble
 2. **QUICK_START_GUIDE.md** - Démarrage rapide
-3. **BUILD_INSTRUCTIONS.md** - Génération des builds
-4. **TESTING_GUIDE.md** - Tests complets
-5. **PRE_SUBMISSION_CHECKLIST.md** - Vérification finale
-6. **STORE_LISTING_PREPARATION.md** - Fiches store
-7. **STORE_DESCRIPTIONS_FR.md** - Contenu des fiches
-8. **PRIVACY_POLICY_TEMPLATE.md** - Politique de confidentialité
-9. **TERMS_OF_SERVICE_TEMPLATE.md** - Conditions d'utilisation
+3. **GOOGLE_MAPS_QUICK_START.md** - Configuration Google Maps (rapide)
+4. **GOOGLE_MAPS_API_KEYS_SETUP.md** - Configuration Google Maps (détaillée)
+5. **VERIFICATION_GOOGLE_MAPS_SETUP.md** - Vérification Google Maps
+6. **BUILD_INSTRUCTIONS.md** - Génération des builds
+7. **TESTING_GUIDE.md** - Tests complets
+8. **PRE_SUBMISSION_CHECKLIST.md** - Vérification finale
+9. **STORE_LISTING_PREPARATION.md** - Fiches store
+10. **STORE_DESCRIPTIONS_FR.md** - Contenu des fiches
+11. **PRIVACY_POLICY_TEMPLATE.md** - Politique de confidentialité
+12. **TERMS_OF_SERVICE_TEMPLATE.md** - Conditions d'utilisation
 
 ### Par Catégorie
 
@@ -220,6 +270,11 @@ Ce document liste tous les fichiers de documentation créés pour la préparatio
 - STORE_LISTING_PREPARATION.md
 - STORE_DESCRIPTIONS_FR.md
 
+#### 🗺️ Google Maps
+- GOOGLE_MAPS_QUICK_START.md
+- GOOGLE_MAPS_API_KEYS_SETUP.md
+- VERIFICATION_GOOGLE_MAPS_SETUP.md
+
 #### 📜 Légal
 - PRIVACY_POLICY_TEMPLATE.md
 - TERMS_OF_SERVICE_TEMPLATE.md
@@ -236,6 +291,9 @@ Ce document liste tous les fichiers de documentation créés pour la préparatio
 - [x] PRE_SUBMISSION_CHECKLIST.md
 - [x] STORE_DESCRIPTIONS_FR.md
 - [x] QUICK_START_GUIDE.md
+- [x] GOOGLE_MAPS_API_KEYS_SETUP.md
+- [x] VERIFICATION_GOOGLE_MAPS_SETUP.md
+- [x] GOOGLE_MAPS_QUICK_START.md
 - [x] PRIVACY_POLICY_TEMPLATE.md
 - [x] TERMS_OF_SERVICE_TEMPLATE.md
 - [x] DOCUMENTATION_INDEX.md (ce document)
@@ -259,13 +317,14 @@ Ce document liste tous les fichiers de documentation créés pour la préparatio
 - **Documents principaux**: 5
 - **Documents de contenu**: 1
 - **Documents de référence rapide**: 1
+- **Documents Google Maps**: 3
 - **Documents légaux**: 2
 - **Fichiers de configuration**: 2
-- **Total**: 11 documents
+- **Total**: 14 documents
 
 ### Nombre de Pages Estimé
-- **Total estimé**: ~80-100 pages
-- **Temps de lecture total**: ~4-5 heures
+- **Total estimé**: ~120-140 pages
+- **Temps de lecture total**: ~6-7 heures
 
 ### Couverture
 - ✅ Préparation: 100%
