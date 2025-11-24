@@ -10,10 +10,13 @@
 // - GOOGLE_MAPS_API_KEY_IOS: Clé API pour iOS (restrictions Bundle ID)
 //
 // IMPORTANT: Chaque clé doit être configurée dans Google Cloud Console avec les restrictions appropriées
+// ET ajoutée aux secrets Supabase Edge Function via le dashboard Supabase
 
 const GOOGLE_MAPS_API_KEY_WEB = Deno.env.get('GOOGLE_MAPS_API_KEY_WEB');
 const GOOGLE_MAPS_API_KEY_ANDROID = Deno.env.get('GOOGLE_MAPS_API_KEY_ANDROID');
 const GOOGLE_MAPS_API_KEY_IOS = Deno.env.get('GOOGLE_MAPS_API_KEY_IOS');
+// Fallback key for development/testing
+const GOOGLE_MAPS_API_KEY_FALLBACK = Deno.env.get('GOOGLE_MAPS_API_KEY');
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -25,16 +28,16 @@ function getApiKeyForPlatform(platform: string): string | null {
   const platformLower = platform.toLowerCase();
   
   if (platformLower === 'web') {
-    return GOOGLE_MAPS_API_KEY_WEB || null;
+    return GOOGLE_MAPS_API_KEY_WEB || GOOGLE_MAPS_API_KEY_FALLBACK || null;
   } else if (platformLower === 'android') {
-    return GOOGLE_MAPS_API_KEY_ANDROID || null;
+    return GOOGLE_MAPS_API_KEY_ANDROID || GOOGLE_MAPS_API_KEY_FALLBACK || null;
   } else if (platformLower === 'ios') {
-    return GOOGLE_MAPS_API_KEY_IOS || null;
+    return GOOGLE_MAPS_API_KEY_IOS || GOOGLE_MAPS_API_KEY_FALLBACK || null;
   }
   
   // Fallback: essayer Web si la plateforme n'est pas reconnue
   console.warn(`⚠️ Platform "${platform}" not recognized, falling back to Web key`);
-  return GOOGLE_MAPS_API_KEY_WEB || null;
+  return GOOGLE_MAPS_API_KEY_WEB || GOOGLE_MAPS_API_KEY_FALLBACK || null;
 }
 
 // Fonction pour obtenir le nom du secret manquant
@@ -72,6 +75,7 @@ Deno.serve(async (req) => {
     console.log(`   - GOOGLE_MAPS_API_KEY_WEB: ${GOOGLE_MAPS_API_KEY_WEB ? '✅ SET' : '❌ NOT SET'}`);
     console.log(`   - GOOGLE_MAPS_API_KEY_ANDROID: ${GOOGLE_MAPS_API_KEY_ANDROID ? '✅ SET' : '❌ NOT SET'}`);
     console.log(`   - GOOGLE_MAPS_API_KEY_IOS: ${GOOGLE_MAPS_API_KEY_IOS ? '✅ SET' : '❌ NOT SET'}`);
+    console.log(`   - GOOGLE_MAPS_API_KEY (fallback): ${GOOGLE_MAPS_API_KEY_FALLBACK ? '✅ SET' : '❌ NOT SET'}`);
     
     // Obtenir la clé API pour la plateforme
     const apiKey = getApiKeyForPlatform(platform);
@@ -85,7 +89,7 @@ Deno.serve(async (req) => {
       return new Response(
         JSON.stringify({
           status: 'REQUEST_DENIED',
-          error_message: `La clé API Google Maps pour ${platform} n'est pas configurée. Veuillez ajouter ${secretName} aux secrets Supabase Edge Function.`,
+          error_message: `La clé API Google Maps pour ${platform} n'est pas configurée dans les secrets Supabase Edge Function.`,
           platform: platform,
           referer: referer,
           timestamp: new Date().toISOString(),
@@ -94,23 +98,30 @@ Deno.serve(async (req) => {
               web: GOOGLE_MAPS_API_KEY_WEB ? 'SET' : 'NOT_SET',
               android: GOOGLE_MAPS_API_KEY_ANDROID ? 'SET' : 'NOT_SET',
               ios: GOOGLE_MAPS_API_KEY_IOS ? 'SET' : 'NOT_SET',
+              fallback: GOOGLE_MAPS_API_KEY_FALLBACK ? 'SET' : 'NOT_SET',
             },
             requested_platform: platform,
             missing_secret: secretName,
           },
           help: {
-            message: `Configuration requise dans Supabase pour ${platform}`,
+            message: `Configuration requise dans Supabase Dashboard pour ${platform}`,
             steps: [
-              '1. Créez une clé API dans Google Cloud Console',
-              `2. Configurez les restrictions pour ${platform}`,
-              `3. Ajoutez la clé aux secrets Supabase Edge Function avec le nom ${secretName}`,
-              '4. Redéployez cette Edge Function'
+              '1. Allez dans Supabase Dashboard > Project Settings > Edge Functions',
+              '2. Cliquez sur "Add secret" ou "Manage secrets"',
+              `3. Ajoutez le secret ${secretName} avec votre clé API Google Maps`,
+              '4. Assurez-vous que la clé est configurée dans Google Cloud Console avec les restrictions appropriées',
+              '5. Redéployez cette Edge Function pour que les changements prennent effet'
             ],
-            documentation: 'GOOGLE_MAPS_API_RESET_GUIDE.md'
+            supabase_cli_alternative: [
+              'Ou utilisez Supabase CLI:',
+              `supabase secrets set ${secretName}=YOUR_API_KEY_HERE`,
+              'Puis redéployez: supabase functions deploy google-places-proxy'
+            ],
+            documentation: 'https://supabase.com/docs/guides/functions/secrets'
           }
         }),
         {
-          status: 500,
+          status: 200,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         }
       );
@@ -254,6 +265,12 @@ Deno.serve(async (req) => {
         api_key_length: apiKey.length,
         api_key_prefix: apiKey.substring(0, 10),
         request_url_pattern: url.replace(apiKey, 'REDACTED'),
+        env_status: {
+          web: GOOGLE_MAPS_API_KEY_WEB ? 'SET' : 'NOT_SET',
+          android: GOOGLE_MAPS_API_KEY_ANDROID ? 'SET' : 'NOT_SET',
+          ios: GOOGLE_MAPS_API_KEY_IOS ? 'SET' : 'NOT_SET',
+          fallback: GOOGLE_MAPS_API_KEY_FALLBACK ? 'SET' : 'NOT_SET',
+        },
       };
       
       // Add helpful error message based on platform and error type
@@ -264,11 +281,12 @@ Deno.serve(async (req) => {
             bundle_id: 'com.yombalyoon.yombalyoonapp',
             steps: [
               '1. Allez dans Google Cloud Console > APIs & Services > Credentials',
-              '2. Sélectionnez votre clé API iOS',
+              '2. Sélectionnez votre clé API iOS (ou créez-en une nouvelle)',
               '3. Dans "Application restrictions", choisissez "iOS apps"',
               '4. Ajoutez le Bundle ID: com.yombalyoon.yombalyoonapp',
               '5. Dans "API restrictions", activez: Places API, Geocoding API, Distance Matrix API',
-              '6. Sauvegardez les modifications'
+              '6. Sauvegardez les modifications',
+              '7. Copiez la clé API et ajoutez-la aux secrets Supabase: GOOGLE_MAPS_API_KEY_IOS'
             ]
           };
         } else if (platform.toLowerCase() === 'android') {
@@ -277,34 +295,46 @@ Deno.serve(async (req) => {
             package_name: 'com.yombalyoon.app',
             steps: [
               '1. Allez dans Google Cloud Console > APIs & Services > Credentials',
-              '2. Sélectionnez votre clé API Android',
+              '2. Sélectionnez votre clé API Android (ou créez-en une nouvelle)',
               '3. Dans "Application restrictions", choisissez "Android apps"',
               '4. Ajoutez le package name: com.yombalyoon.app',
-              '5. Ajoutez le SHA-1 de votre keystore',
+              '5. Ajoutez le SHA-1 de votre keystore (obtenez-le avec: keytool -list -v -keystore your-keystore.jks)',
               '6. Dans "API restrictions", activez: Places API, Geocoding API, Distance Matrix API',
-              '7. Sauvegardez les modifications'
+              '7. Sauvegardez les modifications',
+              '8. Copiez la clé API et ajoutez-la aux secrets Supabase: GOOGLE_MAPS_API_KEY_ANDROID'
             ]
           };
         } else if (platform.toLowerCase() === 'web') {
           data.help_web = {
             message: 'Vérifiez que les HTTP referrers sont correctement configurés dans Google Cloud Console',
             current_referer: referer,
-            expected_referrers: ['https://*.natively.dev/*', 'http://localhost/*', 'http://127.0.0.1/*'],
+            expected_referrers: [
+              'https://*.natively.dev/*',
+              'http://localhost/*',
+              'http://127.0.0.1/*',
+              'https://*.exp.direct/*'
+            ],
             steps: [
               '1. Allez dans Google Cloud Console > APIs & Services > Credentials',
-              '2. Sélectionnez votre clé API Web (GOOGLE_MAPS_API_KEY_WEB)',
+              '2. Sélectionnez votre clé API Web (ou créez-en une nouvelle)',
               '3. Dans "Application restrictions", choisissez "HTTP referrers (web sites)"',
-              '4. Ajoutez les referrers: https://*.natively.dev/*, http://localhost/*, http://127.0.0.1/*',
+              '4. Ajoutez les referrers suivants:',
+              '   - https://*.natively.dev/*',
+              '   - http://localhost/*',
+              '   - http://127.0.0.1/*',
+              '   - https://*.exp.direct/* (pour Expo development)',
               '5. Dans "API restrictions", activez: Places API, Geocoding API, Distance Matrix API, Maps JavaScript API',
               '6. Sauvegardez les modifications',
-              '7. Attendez 5 minutes pour que les changements prennent effet'
+              '7. Copiez la clé API et ajoutez-la aux secrets Supabase: GOOGLE_MAPS_API_KEY_WEB',
+              '8. Attendez 5 minutes pour que les changements prennent effet'
             ],
             troubleshooting: [
               'Si le problème persiste après 5 minutes:',
               '- Vérifiez que la facturation est activée sur votre projet Google Cloud',
               '- Vérifiez que les APIs sont bien activées (Places API, Geocoding API, Distance Matrix API)',
               '- Vérifiez que la clé n\'a pas de quota dépassé',
-              `- Vérifiez que le referer actuel (${referer}) correspond aux patterns autorisés`
+              `- Vérifiez que le referer actuel (${referer}) correspond aux patterns autorisés`,
+              '- Essayez de créer une nouvelle clé API sans restrictions pour tester'
             ]
           };
         }

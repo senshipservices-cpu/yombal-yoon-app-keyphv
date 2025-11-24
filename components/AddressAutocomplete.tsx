@@ -52,12 +52,19 @@ interface DebugInfo {
       web: string;
       android: string;
       ios: string;
+      fallback?: string;
     };
     requested_platform?: string;
     missing_secret?: string;
     api_key_length?: number;
     api_key_prefix?: string;
     request_url_pattern?: string;
+  };
+  help?: {
+    message: string;
+    steps: string[];
+    supabase_cli_alternative?: string[];
+    documentation?: string;
   };
   help_web?: {
     message: string;
@@ -180,9 +187,7 @@ export default function AddressAutocomplete({
       } else if (data.status === 'REQUEST_DENIED') {
         console.error('[AddressAutocomplete] REQUEST_DENIED:', data.error_message);
         console.error('[AddressAutocomplete] Debug Info:', data.debug);
-        console.error('[AddressAutocomplete] Help:', data.help_web);
-        
-        const platformName = Platform.OS === 'web' ? 'Web' : Platform.OS === 'ios' ? 'iOS' : 'Android';
+        console.error('[AddressAutocomplete] Help:', data.help_web || data.help);
         
         setApiError('Autocomplétion momentanément indisponible. Vérifiez votre connexion internet ou réessayez plus tard.');
         setPredictions([]);
@@ -467,9 +472,53 @@ export default function AddressAutocomplete({
               <Text style={[styles.debugText, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
                 • iOS: {debugInfo.debug.env_status?.ios || 'N/A'}
               </Text>
+              {debugInfo.debug.env_status?.fallback && (
+                <Text style={[styles.debugText, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+                  • Fallback: {debugInfo.debug.env_status.fallback}
+                </Text>
+              )}
               {debugInfo.debug.missing_secret && (
                 <Text style={[styles.debugTextError, { color: '#D32F2F' }]}>
                   ⚠️ Secret manquant: {debugInfo.debug.missing_secret}
+                </Text>
+              )}
+            </View>
+          )}
+
+          {debugInfo.help && !debugInfo.help_web && (
+            <View style={styles.debugSection}>
+              <Text style={[styles.debugSectionTitle, { color: isDark ? colors.darkText : colors.text }]}>
+                Solution recommandée:
+              </Text>
+              <Text style={[styles.debugText, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+                {debugInfo.help.message}
+              </Text>
+              
+              <Text style={[styles.debugSubtitle, { color: isDark ? colors.darkText : colors.text }]}>
+                Étapes à suivre:
+              </Text>
+              {debugInfo.help.steps.map((step, index) => (
+                <Text key={index} style={[styles.debugText, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+                  {step}
+                </Text>
+              ))}
+
+              {debugInfo.help.supabase_cli_alternative && (
+                <React.Fragment>
+                  <Text style={[styles.debugSubtitle, { color: isDark ? colors.darkText : colors.text }]}>
+                    Alternative (Supabase CLI):
+                  </Text>
+                  {debugInfo.help.supabase_cli_alternative.map((item, index) => (
+                    <Text key={index} style={[styles.debugText, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+                      {item}
+                    </Text>
+                  ))}
+                </React.Fragment>
+              )}
+
+              {debugInfo.help.documentation && (
+                <Text style={[styles.debugText, { color: colors.primary, marginTop: 8 }]}>
+                  📚 Documentation: {debugInfo.help.documentation}
                 </Text>
               )}
             </View>
