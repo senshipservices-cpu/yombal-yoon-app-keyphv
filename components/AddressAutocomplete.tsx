@@ -11,6 +11,7 @@ import {
   Platform,
   Alert,
   FlatList,
+  ScrollView,
 } from 'react-native';
 import { useTheme } from '@react-navigation/native';
 import { colors } from '@/styles/commonStyles';
@@ -39,6 +40,34 @@ interface AddressAutocompleteProps {
   label: string;
 }
 
+interface DebugInfo {
+  status?: string;
+  error_message?: string;
+  platform_used?: string;
+  referer?: string;
+  http_status?: number;
+  timestamp?: string;
+  debug?: {
+    env_status?: {
+      web: string;
+      android: string;
+      ios: string;
+    };
+    requested_platform?: string;
+    missing_secret?: string;
+    api_key_length?: number;
+    api_key_prefix?: string;
+    request_url_pattern?: string;
+  };
+  help_web?: {
+    message: string;
+    current_referer: string;
+    expected_referrers: string[];
+    steps: string[];
+    troubleshooting: string[];
+  };
+}
+
 export default function AddressAutocomplete({
   value,
   onChangeText,
@@ -54,6 +83,8 @@ export default function AddressAutocomplete({
   const [apiError, setApiError] = useState<string | null>(null);
   const [showNoResults, setShowNoResults] = useState(false);
   const [hasSelectedFromAutocomplete, setHasSelectedFromAutocomplete] = useState(false);
+  const [debugInfo, setDebugInfo] = useState<DebugInfo | null>(null);
+  const [showDebugPanel, setShowDebugPanel] = useState(false);
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
@@ -70,6 +101,7 @@ export default function AddressAutocomplete({
       setShowPredictions(false);
       setShowNoResults(false);
       setApiError(null);
+      setDebugInfo(null);
     }
 
     return () => {
@@ -83,6 +115,7 @@ export default function AddressAutocomplete({
     setIsLoading(true);
     setApiError(null);
     setShowNoResults(false);
+    setDebugInfo(null);
     
     try {
       console.log(`[AddressAutocomplete] Fetching predictions for: "${input}" on platform: ${Platform.OS}`);
@@ -109,10 +142,23 @@ export default function AddressAutocomplete({
         setApiError('Autocomplétion momentanément indisponible. Vérifiez votre connexion internet ou réessayez plus tard.');
         setPredictions([]);
         setShowPredictions(false);
+        
+        // Store debug info for web platform
+        if (Platform.OS === 'web') {
+          setDebugInfo({
+            error_message: error.message,
+            timestamp: new Date().toISOString(),
+          });
+        }
         return;
       }
 
-      console.log('[AddressAutocomplete] API Response status:', data?.status);
+      console.log('[AddressAutocomplete] API Response:', data);
+
+      // Store debug info for web platform
+      if (Platform.OS === 'web' && data) {
+        setDebugInfo(data as DebugInfo);
+      }
 
       if (data.status === 'OK' && data.predictions) {
         if (data.predictions.length === 0) {
@@ -133,6 +179,8 @@ export default function AddressAutocomplete({
         setApiError(null);
       } else if (data.status === 'REQUEST_DENIED') {
         console.error('[AddressAutocomplete] REQUEST_DENIED:', data.error_message);
+        console.error('[AddressAutocomplete] Debug Info:', data.debug);
+        console.error('[AddressAutocomplete] Help:', data.help_web);
         
         const platformName = Platform.OS === 'web' ? 'Web' : Platform.OS === 'ios' ? 'iOS' : 'Android';
         
@@ -140,10 +188,9 @@ export default function AddressAutocomplete({
         setPredictions([]);
         setShowPredictions(false);
         
-        // Log detailed error for debugging
-        console.error(`[AddressAutocomplete] Configuration API ${platformName} requise:`, data.error_message);
-        if (data.help_ios) {
-          console.error('[AddressAutocomplete] iOS Help:', data.help_ios);
+        // Show debug panel on web
+        if (Platform.OS === 'web') {
+          setShowDebugPanel(true);
         }
       } else if (data.status === 'OVER_QUERY_LIMIT') {
         setApiError('Autocomplétion momentanément indisponible. Vérifiez votre connexion internet ou réessayez plus tard.');
@@ -216,6 +263,8 @@ export default function AddressAutocomplete({
     setPredictions([]);
     setShowNoResults(false);
     setApiError(null);
+    setDebugInfo(null);
+    setShowDebugPanel(false);
     setHasSelectedFromAutocomplete(true);
     Keyboard.dismiss();
 
@@ -362,8 +411,114 @@ export default function AddressAutocomplete({
             <Text style={[styles.errorHint, { color: '#856404' }]}>
               Vous pouvez continuer en saisissant l&apos;adresse manuellement.
             </Text>
+            {Platform.OS === 'web' && debugInfo && (
+              <TouchableOpacity
+                onPress={() => setShowDebugPanel(!showDebugPanel)}
+                style={styles.debugToggle}
+              >
+                <Text style={[styles.debugToggleText, { color: '#856404' }]}>
+                  {showDebugPanel ? '▼ Masquer les détails techniques' : '▶ Afficher les détails techniques'}
+                </Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
+      )}
+
+      {/* Debug Panel for Web Platform */}
+      {Platform.OS === 'web' && showDebugPanel && debugInfo && (
+        <ScrollView style={[styles.debugPanel, { backgroundColor: isDark ? colors.darkCard : '#F5F5F5' }]}>
+          <Text style={[styles.debugTitle, { color: isDark ? colors.darkText : colors.text }]}>
+            🔧 Informations de diagnostic
+          </Text>
+          
+          <View style={styles.debugSection}>
+            <Text style={[styles.debugSectionTitle, { color: isDark ? colors.darkText : colors.text }]}>
+              État de la requête:
+            </Text>
+            <Text style={[styles.debugText, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+              • Statut: {debugInfo.status || 'N/A'}
+            </Text>
+            <Text style={[styles.debugText, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+              • Plateforme: {debugInfo.platform_used || Platform.OS}
+            </Text>
+            <Text style={[styles.debugText, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+              • Referer: {debugInfo.referer || 'N/A'}
+            </Text>
+            <Text style={[styles.debugText, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+              • HTTP Status: {debugInfo.http_status || 'N/A'}
+            </Text>
+            <Text style={[styles.debugText, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+              • Timestamp: {debugInfo.timestamp || 'N/A'}
+            </Text>
+          </View>
+
+          {debugInfo.debug && (
+            <View style={styles.debugSection}>
+              <Text style={[styles.debugSectionTitle, { color: isDark ? colors.darkText : colors.text }]}>
+                Configuration des clés API:
+              </Text>
+              <Text style={[styles.debugText, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+                • Web: {debugInfo.debug.env_status?.web || 'N/A'}
+              </Text>
+              <Text style={[styles.debugText, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+                • Android: {debugInfo.debug.env_status?.android || 'N/A'}
+              </Text>
+              <Text style={[styles.debugText, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+                • iOS: {debugInfo.debug.env_status?.ios || 'N/A'}
+              </Text>
+              {debugInfo.debug.missing_secret && (
+                <Text style={[styles.debugTextError, { color: '#D32F2F' }]}>
+                  ⚠️ Secret manquant: {debugInfo.debug.missing_secret}
+                </Text>
+              )}
+            </View>
+          )}
+
+          {debugInfo.help_web && (
+            <View style={styles.debugSection}>
+              <Text style={[styles.debugSectionTitle, { color: isDark ? colors.darkText : colors.text }]}>
+                Solution recommandée:
+              </Text>
+              <Text style={[styles.debugText, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+                {debugInfo.help_web.message}
+              </Text>
+              
+              <Text style={[styles.debugSubtitle, { color: isDark ? colors.darkText : colors.text }]}>
+                Étapes à suivre:
+              </Text>
+              {debugInfo.help_web.steps.map((step, index) => (
+                <Text key={index} style={[styles.debugText, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+                  {step}
+                </Text>
+              ))}
+
+              {debugInfo.help_web.troubleshooting && (
+                <React.Fragment>
+                  <Text style={[styles.debugSubtitle, { color: isDark ? colors.darkText : colors.text }]}>
+                    Dépannage:
+                  </Text>
+                  {debugInfo.help_web.troubleshooting.map((item, index) => (
+                    <Text key={index} style={[styles.debugText, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+                      {item}
+                    </Text>
+                  ))}
+                </React.Fragment>
+              )}
+            </View>
+          )}
+
+          {debugInfo.error_message && (
+            <View style={styles.debugSection}>
+              <Text style={[styles.debugSectionTitle, { color: '#D32F2F' }]}>
+                Message d&apos;erreur:
+              </Text>
+              <Text style={[styles.debugTextError, { color: '#D32F2F' }]}>
+                {debugInfo.error_message}
+              </Text>
+            </View>
+          )}
+        </ScrollView>
       )}
 
       {showNoResults && !apiError && !isLoading && value.length > 1 && (
@@ -461,6 +616,55 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     marginTop: 4,
     fontStyle: 'italic',
+  },
+  debugToggle: {
+    marginTop: 8,
+    paddingVertical: 4,
+  },
+  debugToggleText: {
+    fontSize: 12,
+    fontWeight: '600',
+    textDecorationLine: 'underline',
+  },
+  debugPanel: {
+    marginTop: 8,
+    padding: 12,
+    borderRadius: 8,
+    maxHeight: 400,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+  },
+  debugTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    marginBottom: 12,
+  },
+  debugSection: {
+    marginBottom: 16,
+  },
+  debugSectionTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    marginBottom: 6,
+  },
+  debugSubtitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  debugText: {
+    fontSize: 11,
+    lineHeight: 16,
+    marginBottom: 2,
+    fontFamily: Platform.OS === 'web' ? 'monospace' : undefined,
+  },
+  debugTextError: {
+    fontSize: 11,
+    lineHeight: 16,
+    marginBottom: 2,
+    fontWeight: '600',
+    fontFamily: Platform.OS === 'web' ? 'monospace' : undefined,
   },
   noResultsContainer: {
     flexDirection: 'row',
