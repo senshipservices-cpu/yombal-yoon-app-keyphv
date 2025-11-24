@@ -3,7 +3,22 @@ import fr from '@/locales/fr.json';
 
 type TranslationKeys = typeof fr;
 
-// Simple i18n utility - can be extended with libraries like i18next later
+/**
+ * Legacy i18n utility
+ * 
+ * NOTE: This is the legacy i18n system using fr.json.
+ * For new code, use the centralized strings system from '@/locales/strings'.
+ * 
+ * This file is kept for backward compatibility with existing code.
+ * 
+ * Migration guide:
+ * OLD: import { useTranslation } from '@/utils/i18n';
+ *      const { t } = useTranslation();
+ *      <Text>{t('common.buttons.save')}</Text>
+ * 
+ * NEW: import { strings } from '@/locales/strings';
+ *      <Text>{strings.common.buttons.save}</Text>
+ */
 class I18n {
   private currentLocale: string = 'fr';
   private translations: { [key: string]: any } = {
@@ -59,7 +74,11 @@ class I18n {
 
 export const i18n = new I18n();
 
-// Export a hook for React components
+/**
+ * Legacy translation hook
+ * 
+ * @deprecated Use `import { strings } from '@/locales/strings'` instead
+ */
 export const useTranslation = () => {
   return {
     t: (key: string) => i18n.t(key),
