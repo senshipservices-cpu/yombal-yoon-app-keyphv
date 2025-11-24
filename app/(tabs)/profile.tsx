@@ -36,16 +36,6 @@ export default function ProfileScreen() {
     setIsDelivery(profile.roles.delivery);
   }, [profile]);
 
-  useEffect(() => {
-    // Only load wallet if profile.id is available
-    if (profile.id) {
-      loadWallet();
-    } else {
-      console.log('⏳ Waiting for profile.id to be available...');
-      setIsLoadingWallet(true);
-    }
-  }, [profile.id, loadWallet]);
-
   /**
    * BLOC 2 - Load wallet using the new utility function with retry logic
    * Handles errors gracefully and provides retry functionality
@@ -92,6 +82,16 @@ export default function ProfileScreen() {
       setIsLoadingWallet(false);
     }
   }, [profile.id]);
+
+  useEffect(() => {
+    // Only load wallet if profile.id is available
+    if (profile.id) {
+      loadWallet();
+    } else {
+      console.log('⏳ Waiting for profile.id to be available...');
+      setIsLoadingWallet(true);
+    }
+  }, [profile.id, loadWallet]);
 
   /**
    * Retry loading wallet
