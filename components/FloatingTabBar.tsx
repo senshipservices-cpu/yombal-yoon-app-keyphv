@@ -21,7 +21,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Href } from 'expo-router';
-import { colors } from '@/styles/commonStyles';
+import { YYTheme } from '@/styles/theme';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -111,7 +111,7 @@ export default function FloatingTabBar({
     blurContainer: {
       ...styles.blurContainer,
       borderWidth: 1.2,
-      borderColor: theme.dark ? colors.primary + '80' : colors.primary + '40',
+      borderColor: theme.dark ? YYTheme.colors.primary + '80' : YYTheme.colors.primary + '40',
       ...Platform.select({
         ios: {
           backgroundColor: theme.dark
@@ -137,8 +137,8 @@ export default function FloatingTabBar({
     indicator: {
       ...styles.indicator,
       backgroundColor: theme.dark
-        ? colors.primary + '30'
-        : colors.primary + '20',
+        ? YYTheme.colors.primary + '30'
+        : YYTheme.colors.primary + '20',
       width: `${tabWidthPercent}%` as `${number}%`,
     },
   };
@@ -175,13 +175,13 @@ export default function FloatingTabBar({
                         android_material_icon_name={tab.icon}
                         ios_icon_name={tab.icon}
                         size={24}
-                        color={isActive ? colors.primary : (theme.dark ? colors.darkTextSecondary : colors.textSecondary)}
+                        color={isActive ? YYTheme.colors.primary : (theme.dark ? YYTheme.colors.text.darkSecondary : YYTheme.colors.text.secondary)}
                       />
                       <Text
                         style={[
                           styles.tabLabel,
-                          { color: theme.dark ? colors.darkTextSecondary : colors.textSecondary },
-                          isActive && { color: colors.primary, fontWeight: '600' },
+                          { color: theme.dark ? YYTheme.colors.text.darkSecondary : YYTheme.colors.text.secondary },
+                          isActive && { color: YYTheme.colors.primary, fontWeight: '600' },
                         ]}
                       >
                         {tab.label}

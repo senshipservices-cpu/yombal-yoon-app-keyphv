@@ -1,139 +1,273 @@
 
-import { Platform, Dimensions } from 'react-native';
-import { PlatformUtils, ResponsiveUtils } from './platformUtils';
-
 /**
  * Visual Consistency Checker
- * Utilities to verify and test visual consistency across platforms
+ * 
+ * Utility to verify that screens use the standardized Yombal Yoon components
+ * and theme tokens instead of hardcoded values.
  */
 
-export interface VisualConsistencyReport {
-  platform: string;
-  deviceType: 'mobile' | 'tablet' | 'desktop';
-  screenSize: { width: number; height: number };
-  issues: VisualIssue[];
-  warnings: VisualWarning[];
-  timestamp: string;
+import { YYTheme } from '@/styles/theme';
+
+/**
+ * Check if a color value is hardcoded (not from theme)
+ */
+export const isHardcodedColor = (color: string): boolean => {
+  // Check if it's a hex color
+  if (/^#[0-9A-F]{6}$/i.test(color)) {
+    // Check if it exists in theme
+    const themeColors = Object.values(YYTheme.colors).flat();
+    return !themeColors.includes(color);
+  }
+  
+  // Check if it's an rgb/rgba color
+  if (color.startsWith('rgb')) {
+    return true;
+  }
+  
+  return false;
+};
+
+/**
+ * Check if a font size is hardcoded (not from theme)
+ */
+export const isHardcodedFontSize = (fontSize: number): boolean => {
+  const themeFontSizes = Object.values(YYTheme.typography).map(
+    (style: any) => style.fontSize
+  );
+  return !themeFontSizes.includes(fontSize);
+};
+
+/**
+ * Check if spacing is hardcoded (not from theme)
+ */
+export const isHardcodedSpacing = (spacing: number): boolean => {
+  const themeSpacings = Object.values(YYTheme.spacing);
+  return !themeSpacings.includes(spacing);
+};
+
+/**
+ * Screen consistency report
+ */
+export interface ConsistencyReport {
+  screenName: string;
+  issues: ConsistencyIssue[];
+  score: number; // 0-100
+  passed: boolean;
 }
 
-export interface VisualIssue {
-  severity: 'critical' | 'high' | 'medium' | 'low';
-  category: 'layout' | 'typography' | 'color' | 'spacing' | 'shadow' | 'accessibility';
+export interface ConsistencyIssue {
+  type: 'color' | 'fontSize' | 'spacing' | 'component';
+  severity: 'error' | 'warning';
   message: string;
-  recommendation: string;
-}
-
-export interface VisualWarning {
-  category: 'layout' | 'typography' | 'color' | 'spacing' | 'shadow' | 'accessibility';
-  message: string;
+  location?: string;
 }
 
 /**
- * Check visual consistency and generate report
+ * Generate a consistency report for a screen
  */
-export const checkVisualConsistency = (): VisualConsistencyReport => {
-  const issues: VisualIssue[] = [];
-  const warnings: VisualWarning[] = [];
+export const generateConsistencyReport = (
+  screenName: string,
+  issues: ConsistencyIssue[]
+): ConsistencyReport => {
+  const errorCount = issues.filter(i => i.severity === 'error').length;
+  const warningCount = issues.filter(i => i.severity === 'warning').length;
   
-  // Check platform
-  const platform = Platform.OS;
-  const deviceType = ResponsiveUtils.getDeviceType();
-  const screenSize = ResponsiveUtils.getScreenDimensions();
-  
-  // Check for common issues
-  
-  // 1. Check minimum touch target size
-  if (PlatformUtils.isNative) {
-    warnings.push({
-      category: 'accessibility',
-      message: 'Ensure all touchable elements have minimum size of 44x44 (iOS) or 48x48 (Android)',
-    });
-  }
-  
-  // 2. Check for platform-specific shadow usage
-  if (PlatformUtils.isWeb) {
-    warnings.push({
-      category: 'shadow',
-      message: 'Use boxShadow for web instead of React Native shadow props',
-    });
-  } else {
-    warnings.push({
-      category: 'shadow',
-      message: 'Use shadowColor, shadowOffset, shadowOpacity, shadowRadius, and elevation for native',
-    });
-  }
-  
-  // 3. Check responsive design
-  if (screenSize.width < 375) {
-    warnings.push({
-      category: 'layout',
-      message: 'Screen width is below recommended minimum (375px). Test layout carefully.',
-    });
-  }
-  
-  // 4. Check for proper spacing
-  warnings.push({
-    category: 'spacing',
-    message: 'Use LayoutUtils.getSpacing() for consistent spacing across platforms',
-  });
-  
-  // 5. Check typography
-  warnings.push({
-    category: 'typography',
-    message: 'Use typography presets from designSystem.ts for consistent text rendering',
-  });
+  // Calculate score (errors are -10 points, warnings are -5 points)
+  const score = Math.max(0, 100 - (errorCount * 10) - (warningCount * 5));
   
   return {
-    platform,
-    deviceType,
-    screenSize,
+    screenName,
     issues,
-    warnings,
-    timestamp: new Date().toISOString(),
+    score,
+    passed: score >= 80, // 80% is passing grade
   };
 };
 
 /**
- * Log visual consistency report to console
+ * Checklist for screen migration
  */
-export const logVisualConsistencyReport = () => {
-  const report = checkVisualConsistency();
-  
-  console.log('=== Visual Consistency Report ===');
-  console.log(`Platform: ${report.platform}`);
-  console.log(`Device Type: ${report.deviceType}`);
-  console.log(`Screen Size: ${report.screenSize.width}x${report.screenSize.height}`);
-  console.log(`Timestamp: ${report.timestamp}`);
-  console.log('');
-  
-  if (report.issues.length > 0) {
-    console.log('Issues:');
-    report.issues.forEach((issue, index) => {
-      console.log(`${index + 1}. [${issue.severity.toUpperCase()}] ${issue.category}: ${issue.message}`);
-      console.log(`   Recommendation: ${issue.recommendation}`);
-    });
-    console.log('');
-  }
-  
-  if (report.warnings.length > 0) {
-    console.log('Warnings:');
-    report.warnings.forEach((warning, index) => {
-      console.log(`${index + 1}. ${warning.category}: ${warning.message}`);
-    });
-    console.log('');
-  }
-  
-  console.log('=================================');
-  
-  return report;
+export interface MigrationChecklist {
+  usesYYScreenContainer: boolean;
+  usesYYButton: boolean;
+  usesYYCard: boolean;
+  usesYYFormField: boolean;
+  usesThemeColors: boolean;
+  usesThemeTypography: boolean;
+  usesThemeSpacing: boolean;
+  noHardcodedColors: boolean;
+  noHardcodedFontSizes: boolean;
+  noHardcodedSpacing: boolean;
+  noPlatformSpecificDesign: boolean;
+  testedOnWeb: boolean;
+  testedOnIOS: boolean;
+  testedOnAndroid: boolean;
+}
+
+/**
+ * Calculate migration progress
+ */
+export const calculateMigrationProgress = (
+  checklist: MigrationChecklist
+): number => {
+  const items = Object.values(checklist);
+  const completed = items.filter(Boolean).length;
+  return Math.round((completed / items.length) * 100);
 };
 
 /**
- * Test component for visual consistency
- * Add this to any screen to verify visual consistency
+ * Get migration status
  */
-export const testVisualConsistency = () => {
-  if (__DEV__) {
-    logVisualConsistencyReport();
-  }
+export const getMigrationStatus = (
+  progress: number
+): 'not-started' | 'in-progress' | 'completed' => {
+  if (progress === 0) return 'not-started';
+  if (progress === 100) return 'completed';
+  return 'in-progress';
 };
+
+/**
+ * Common hardcoded colors to check for
+ */
+export const COMMON_HARDCODED_COLORS = [
+  '#008000', // Should use YYTheme.colors.primary
+  '#FFFF00', // Should use YYTheme.colors.secondary
+  '#FF0000', // Should use YYTheme.colors.accent
+  '#F5F5F5', // Should use YYTheme.colors.background.light
+  '#FFFFFF', // Should use YYTheme.colors.background.white
+  '#333333', // Should use YYTheme.colors.text.primary
+  '#666666', // Should use YYTheme.colors.text.secondary
+  '#E0E0E0', // Should use YYTheme.colors.border
+];
+
+/**
+ * Validate screen consistency
+ */
+export const validateScreenConsistency = (
+  screenName: string,
+  checklist: MigrationChecklist
+): ConsistencyReport => {
+  const issues: ConsistencyIssue[] = [];
+  
+  if (!checklist.usesYYScreenContainer) {
+    issues.push({
+      type: 'component',
+      severity: 'error',
+      message: 'Screen should use YYScreenContainer instead of SafeAreaView + ScrollView',
+    });
+  }
+  
+  if (!checklist.usesThemeColors) {
+    issues.push({
+      type: 'color',
+      severity: 'error',
+      message: 'Screen should use YYTheme.colors instead of hardcoded colors',
+    });
+  }
+  
+  if (!checklist.usesThemeTypography) {
+    issues.push({
+      type: 'fontSize',
+      severity: 'error',
+      message: 'Screen should use YYTheme.typography instead of hardcoded font sizes',
+    });
+  }
+  
+  if (!checklist.usesThemeSpacing) {
+    issues.push({
+      type: 'spacing',
+      severity: 'error',
+      message: 'Screen should use YYTheme.spacing instead of hardcoded spacing values',
+    });
+  }
+  
+  if (!checklist.noHardcodedColors) {
+    issues.push({
+      type: 'color',
+      severity: 'error',
+      message: 'Found hardcoded colors. Replace with YYTheme.colors',
+    });
+  }
+  
+  if (!checklist.noHardcodedFontSizes) {
+    issues.push({
+      type: 'fontSize',
+      severity: 'warning',
+      message: 'Found hardcoded font sizes. Replace with YYTheme.typography',
+    });
+  }
+  
+  if (!checklist.noHardcodedSpacing) {
+    issues.push({
+      type: 'spacing',
+      severity: 'warning',
+      message: 'Found hardcoded spacing. Replace with YYTheme.spacing',
+    });
+  }
+  
+  if (!checklist.noPlatformSpecificDesign) {
+    issues.push({
+      type: 'component',
+      severity: 'error',
+      message: 'Found Platform.OS checks for design. Remove platform-specific design logic',
+    });
+  }
+  
+  if (!checklist.testedOnWeb || !checklist.testedOnIOS || !checklist.testedOnAndroid) {
+    issues.push({
+      type: 'component',
+      severity: 'warning',
+      message: 'Screen not tested on all platforms (Web, iOS, Android)',
+    });
+  }
+  
+  return generateConsistencyReport(screenName, issues);
+};
+
+/**
+ * Print consistency report to console
+ */
+export const printConsistencyReport = (report: ConsistencyReport): void => {
+  console.log('\n========================================');
+  console.log(`Visual Consistency Report: ${report.screenName}`);
+  console.log('========================================');
+  console.log(`Score: ${report.score}/100`);
+  console.log(`Status: ${report.passed ? '✅ PASSED' : '❌ FAILED'}`);
+  console.log(`Issues: ${report.issues.length}`);
+  
+  if (report.issues.length > 0) {
+    console.log('\nIssues:');
+    report.issues.forEach((issue, index) => {
+      const icon = issue.severity === 'error' ? '❌' : '⚠️';
+      console.log(`${index + 1}. ${icon} [${issue.type}] ${issue.message}`);
+      if (issue.location) {
+        console.log(`   Location: ${issue.location}`);
+      }
+    });
+  }
+  
+  console.log('========================================\n');
+};
+
+/**
+ * Example usage:
+ * 
+ * const checklist: MigrationChecklist = {
+ *   usesYYScreenContainer: true,
+ *   usesYYButton: true,
+ *   usesYYCard: true,
+ *   usesYYFormField: false,
+ *   usesThemeColors: true,
+ *   usesThemeTypography: true,
+ *   usesThemeSpacing: true,
+ *   noHardcodedColors: true,
+ *   noHardcodedFontSizes: true,
+ *   noHardcodedSpacing: true,
+ *   noPlatformSpecificDesign: true,
+ *   testedOnWeb: true,
+ *   testedOnIOS: true,
+ *   testedOnAndroid: false,
+ * };
+ * 
+ * const report = validateScreenConsistency('HomeScreen', checklist);
+ * printConsistencyReport(report);
+ */
