@@ -46,13 +46,11 @@ interface DebugInfo {
   platform_used?: string;
   referer?: string;
   http_status?: number;
+  http_status_text?: string;
   timestamp?: string;
   debug?: {
     env_status?: {
-      web: string;
-      android: string;
-      ios: string;
-      fallback?: string;
+      server?: string;
     };
     requested_platform?: string;
     missing_secret?: string;
@@ -62,16 +60,10 @@ interface DebugInfo {
   };
   help?: {
     message: string;
+    causes?: string[];
     steps: string[];
     supabase_cli_alternative?: string[];
     documentation?: string;
-  };
-  help_web?: {
-    message: string;
-    current_referer: string;
-    expected_referrers: string[];
-    steps: string[];
-    troubleshooting: string[];
   };
 }
 
@@ -187,7 +179,7 @@ export default function AddressAutocomplete({
       } else if (data.status === 'REQUEST_DENIED') {
         console.error('[AddressAutocomplete] REQUEST_DENIED:', data.error_message);
         console.error('[AddressAutocomplete] Debug Info:', data.debug);
-        console.error('[AddressAutocomplete] Help:', data.help_web || data.help);
+        console.error('[AddressAutocomplete] Help:', data.help);
         
         setApiError('Autocomplétion momentanément indisponible. Vérifiez votre connexion internet ou réessayez plus tard.');
         setPredictions([]);
@@ -451,7 +443,7 @@ export default function AddressAutocomplete({
               • Referer: {debugInfo.referer || 'N/A'}
             </Text>
             <Text style={[styles.debugText, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-              • HTTP Status: {debugInfo.http_status || 'N/A'}
+              • HTTP Status: {debugInfo.http_status || 'N/A'} {debugInfo.http_status_text || ''}
             </Text>
             <Text style={[styles.debugText, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
               • Timestamp: {debugInfo.timestamp || 'N/A'}
@@ -464,19 +456,8 @@ export default function AddressAutocomplete({
                 Configuration des clés API:
               </Text>
               <Text style={[styles.debugText, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-                • Web: {debugInfo.debug.env_status?.web || 'N/A'}
+                • Server: {debugInfo.debug.env_status?.server || 'N/A'}
               </Text>
-              <Text style={[styles.debugText, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-                • Android: {debugInfo.debug.env_status?.android || 'N/A'}
-              </Text>
-              <Text style={[styles.debugText, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-                • iOS: {debugInfo.debug.env_status?.ios || 'N/A'}
-              </Text>
-              {debugInfo.debug.env_status?.fallback && (
-                <Text style={[styles.debugText, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-                  • Fallback: {debugInfo.debug.env_status.fallback}
-                </Text>
-              )}
               {debugInfo.debug.missing_secret && (
                 <Text style={[styles.debugTextError, { color: '#D32F2F' }]}>
                   ⚠️ Secret manquant: {debugInfo.debug.missing_secret}
@@ -485,7 +466,7 @@ export default function AddressAutocomplete({
             </View>
           )}
 
-          {debugInfo.help && !debugInfo.help_web && (
+          {debugInfo.help && (
             <View style={styles.debugSection}>
               <Text style={[styles.debugSectionTitle, { color: isDark ? colors.darkText : colors.text }]}>
                 Solution recommandée:
@@ -494,6 +475,19 @@ export default function AddressAutocomplete({
                 {debugInfo.help.message}
               </Text>
               
+              {debugInfo.help.causes && (
+                <React.Fragment>
+                  <Text style={[styles.debugSubtitle, { color: isDark ? colors.darkText : colors.text }]}>
+                    Causes possibles:
+                  </Text>
+                  {debugInfo.help.causes.map((cause, index) => (
+                    <Text key={index} style={[styles.debugText, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+                      • {cause}
+                    </Text>
+                  ))}
+                </React.Fragment>
+              )}
+
               <Text style={[styles.debugSubtitle, { color: isDark ? colors.darkText : colors.text }]}>
                 Étapes à suivre:
               </Text>
@@ -520,39 +514,6 @@ export default function AddressAutocomplete({
                 <Text style={[styles.debugText, { color: colors.primary, marginTop: 8 }]}>
                   📚 Documentation: {debugInfo.help.documentation}
                 </Text>
-              )}
-            </View>
-          )}
-
-          {debugInfo.help_web && (
-            <View style={styles.debugSection}>
-              <Text style={[styles.debugSectionTitle, { color: isDark ? colors.darkText : colors.text }]}>
-                Solution recommandée:
-              </Text>
-              <Text style={[styles.debugText, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-                {debugInfo.help_web.message}
-              </Text>
-              
-              <Text style={[styles.debugSubtitle, { color: isDark ? colors.darkText : colors.text }]}>
-                Étapes à suivre:
-              </Text>
-              {debugInfo.help_web.steps.map((step, index) => (
-                <Text key={index} style={[styles.debugText, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-                  {step}
-                </Text>
-              ))}
-
-              {debugInfo.help_web.troubleshooting && (
-                <React.Fragment>
-                  <Text style={[styles.debugSubtitle, { color: isDark ? colors.darkText : colors.text }]}>
-                    Dépannage:
-                  </Text>
-                  {debugInfo.help_web.troubleshooting.map((item, index) => (
-                    <Text key={index} style={[styles.debugText, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-                      {item}
-                    </Text>
-                  ))}
-                </React.Fragment>
               )}
             </View>
           )}
