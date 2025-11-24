@@ -1,5 +1,9 @@
 
-import { StyleSheet, ViewStyle, TextStyle } from 'react-native';
+import { StyleSheet } from 'react-native';
+
+// Import platform utilities for consistent styling
+// Note: ShadowUtils and LayoutUtils are available but not used here to maintain backward compatibility
+// For new code, prefer using the design system from styles/designSystem.ts
 
 // Yombal Yoon - Senegal Flag Colors
 export const colors = {

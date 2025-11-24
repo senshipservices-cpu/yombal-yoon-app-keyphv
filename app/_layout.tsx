@@ -94,6 +94,7 @@ export default function RootLayout() {
                       <Stack.Screen name="wallet" />
                       <Stack.Screen name="notifications" />
                       <Stack.Screen name="feedback" />
+                      <Stack.Screen name="test-visual-consistency" />
                     </Stack>
                   </DeliveryProvider>
                 </LivraisonProvider>
