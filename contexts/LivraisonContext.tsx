@@ -1,5 +1,5 @@
 
-import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '@/app/integrations/supabase/client';
 import type { TablesInsert } from '@/app/integrations/supabase/types';
@@ -46,7 +46,7 @@ export function LivraisonProvider({ children }: { children: ReactNode }) {
     loadData();
   }, []);
 
-  const loadData = useCallback(async () => {
+  const loadData = async () => {
     try {
       // Try to load from Supabase first
       const { data, error } = await supabase
@@ -90,14 +90,14 @@ export function LivraisonProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  };
 
-  const refreshRequests = useCallback(async () => {
+  const refreshRequests = async () => {
     setIsLoading(true);
     await loadData();
-  }, [loadData]);
+  };
 
-  const sendNotifications = useCallback(async (requestData: Omit<InterRegionalRequest, 'id' | 'status' | 'createdAt'>) => {
+  const sendNotifications = async (requestData: Omit<InterRegionalRequest, 'id' | 'status' | 'createdAt'>) => {
     try {
       console.log('📧 Sending notifications to Yombal Yoon team...');
       
@@ -126,9 +126,9 @@ export function LivraisonProvider({ children }: { children: ReactNode }) {
       console.error('❌ Exception sending notifications:', error);
       return { success: false, error: error.message };
     }
-  }, []);
+  };
 
-  const addInterRegionalRequest = useCallback(async (
+  const addInterRegionalRequest = async (
     requestData: Omit<InterRegionalRequest, 'id' | 'status' | 'createdAt'>
   ): Promise<{ success: boolean; requestId?: string; error?: string }> => {
     try {
@@ -246,9 +246,9 @@ export function LivraisonProvider({ children }: { children: ReactNode }) {
         error: 'Impossible d\'enregistrer la demande. Vérifiez votre connexion et réessayez.'
       };
     }
-  }, [interRegionalRequests, sendNotifications]);
+  };
 
-  const updateRequestStatus = useCallback(async (
+  const updateRequestStatus = async (
     requestId: string,
     status: InterRegionalRequest['status']
   ) => {
@@ -284,38 +284,30 @@ export function LivraisonProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error('Error updating request status:', error);
     }
-  }, [interRegionalRequests]);
+  };
 
-  const getRequestsByPhone = useCallback((phone: string): InterRegionalRequest[] => {
+  const getRequestsByPhone = (phone: string): InterRegionalRequest[] => {
     return interRegionalRequests.filter(
       request => request.senderPhone === phone || request.recipientPhone === phone
     );
-  }, [interRegionalRequests]);
+  };
 
-  const getRequestById = useCallback((requestId: string): InterRegionalRequest | undefined => {
+  const getRequestById = (requestId: string): InterRegionalRequest | undefined => {
     return interRegionalRequests.find(request => request.id === requestId);
-  }, [interRegionalRequests]);
-
-  const contextValue = useMemo(() => ({
-    interRegionalRequests,
-    addInterRegionalRequest,
-    updateRequestStatus,
-    getRequestsByPhone,
-    getRequestById,
-    isLoading,
-    refreshRequests,
-  }), [
-    interRegionalRequests,
-    addInterRegionalRequest,
-    updateRequestStatus,
-    getRequestsByPhone,
-    getRequestById,
-    isLoading,
-    refreshRequests,
-  ]);
+  };
 
   return (
-    <LivraisonContext.Provider value={contextValue}>
+    <LivraisonContext.Provider
+      value={{
+        interRegionalRequests,
+        addInterRegionalRequest,
+        updateRequestStatus,
+        getRequestsByPhone,
+        getRequestById,
+        isLoading,
+        refreshRequests,
+      }}
+    >
       {children}
     </LivraisonContext.Provider>
   );

@@ -1,5 +1,5 @@
 
-import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { calculateDistance } from '@/utils/distance';
 import { useNotifications } from './NotificationContext';
@@ -186,7 +186,7 @@ export function DeliveryProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const findNearbyDeliveryPersons = useCallback((location: Location, radiusKm: number): DeliveryPerson[] => {
+  const findNearbyDeliveryPersons = (location: Location, radiusKm: number): DeliveryPerson[] => {
     return deliveryPersons.filter(dp => {
       if (dp.status !== 'available') return false;
       
@@ -204,9 +204,9 @@ export function DeliveryProvider({ children }: { children: ReactNode }) {
       const distB = calculateDistance(location.lat, location.lng, b.currentLocation.lat, b.currentLocation.lng);
       return distA - distB;
     });
-  }, [deliveryPersons]);
+  };
 
-  const assignParcelToNearbyDeliveryPersons = useCallback(async (
+  const assignParcelToNearbyDeliveryPersons = async (
     parcelId: string,
     pickupLocation: Location,
     pickupAddress: string
@@ -290,7 +290,7 @@ export function DeliveryProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const acceptAssignment = useCallback(async (
+  const acceptAssignment = async (
     assignmentId: string,
     deliveryPersonId: string
   ): Promise<boolean> => {
@@ -400,9 +400,9 @@ export function DeliveryProvider({ children }: { children: ReactNode }) {
       console.error('Error accepting assignment:', error);
       return false;
     }
-  }, [assignments, deliveryPersons, sendLocalNotification]);
+  };
 
-  const refuseAssignment = useCallback(async (
+  const refuseAssignment = async (
     assignmentId: string,
     deliveryPersonId: string,
     reason?: string
@@ -449,9 +449,9 @@ export function DeliveryProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error('Error refusing assignment:', error);
     }
-  }, [assignments]);
+  };
 
-  const updateAssignmentStatus = useCallback(async (
+  const updateAssignmentStatus = async (
     assignmentId: string,
     status: ParcelAssignment['status']
   ) => {
@@ -515,9 +515,9 @@ export function DeliveryProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error('Error updating assignment status:', error);
     }
-  }, [assignments, deliveryPersons]);
+  };
 
-  const updateDeliveryPersonLocation = useCallback(async (
+  const updateDeliveryPersonLocation = async (
     deliveryPersonId: string,
     location: Location
   ) => {
@@ -533,9 +533,9 @@ export function DeliveryProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error('Error updating delivery person location:', error);
     }
-  }, [deliveryPersons]);
+  };
 
-  const updateDeliveryPersonStatus = useCallback(async (
+  const updateDeliveryPersonStatus = async (
     deliveryPersonId: string,
     status: 'available' | 'busy' | 'offline'
   ) => {
@@ -567,56 +567,42 @@ export function DeliveryProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error('Error updating delivery person status:', error);
     }
-  }, [deliveryPersons]);
+  };
 
-  const getAssignmentByParcelId = useCallback((parcelId: string): ParcelAssignment | undefined => {
+  const getAssignmentByParcelId = (parcelId: string): ParcelAssignment | undefined => {
     return assignments.find(
       a => a.parcelId === parcelId && (a.status === 'accepted' || a.status === 'en_route_pickup' || a.status === 'picked_up' || a.status === 'en_route_delivery' || a.status === 'delivered')
     );
-  }, [assignments]);
+  };
 
-  const getDeliveryPersonById = useCallback((deliveryPersonId: string): DeliveryPerson | undefined => {
+  const getDeliveryPersonById = (deliveryPersonId: string): DeliveryPerson | undefined => {
     return deliveryPersons.find(dp => dp.id === deliveryPersonId);
-  }, [deliveryPersons]);
+  };
 
-  const getPendingAssignmentsForDeliveryPerson = useCallback((deliveryPersonId: string): ParcelAssignment[] => {
+  const getPendingAssignmentsForDeliveryPerson = (deliveryPersonId: string): ParcelAssignment[] => {
     return assignments.filter(
       a => a.deliveryPersonId === deliveryPersonId && a.status === 'pending'
     );
-  }, [assignments]);
-
-  const contextValue = useMemo(() => ({
-    deliveryPersons,
-    assignments,
-    findNearbyDeliveryPersons,
-    assignParcelToNearbyDeliveryPersons,
-    acceptAssignment,
-    refuseAssignment,
-    updateAssignmentStatus,
-    updateDeliveryPersonLocation,
-    updateDeliveryPersonStatus,
-    getAssignmentByParcelId,
-    getDeliveryPersonById,
-    getPendingAssignmentsForDeliveryPerson,
-    isLoading,
-  }), [
-    deliveryPersons,
-    assignments,
-    findNearbyDeliveryPersons,
-    assignParcelToNearbyDeliveryPersons,
-    acceptAssignment,
-    refuseAssignment,
-    updateAssignmentStatus,
-    updateDeliveryPersonLocation,
-    updateDeliveryPersonStatus,
-    getAssignmentByParcelId,
-    getDeliveryPersonById,
-    getPendingAssignmentsForDeliveryPerson,
-    isLoading,
-  ]);
+  };
 
   return (
-    <DeliveryContext.Provider value={contextValue}>
+    <DeliveryContext.Provider
+      value={{
+        deliveryPersons,
+        assignments,
+        findNearbyDeliveryPersons,
+        assignParcelToNearbyDeliveryPersons,
+        acceptAssignment,
+        refuseAssignment,
+        updateAssignmentStatus,
+        updateDeliveryPersonLocation,
+        updateDeliveryPersonStatus,
+        getAssignmentByParcelId,
+        getDeliveryPersonById,
+        getPendingAssignmentsForDeliveryPerson,
+        isLoading,
+      }}
+    >
       {children}
     </DeliveryContext.Provider>
   );

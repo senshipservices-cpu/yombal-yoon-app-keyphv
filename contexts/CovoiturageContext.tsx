@@ -1,5 +1,5 @@
 
-import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '@/app/integrations/supabase/client';
 import type { Tables, TablesInsert } from '@/app/integrations/supabase/types';
@@ -298,10 +298,8 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
       };
 
       // Update local state
-      setRides(prevRides => [newRide, ...prevRides]);
-      
-      // Save to AsyncStorage
       const updatedRides = [newRide, ...rides];
+      setRides(updatedRides);
       await AsyncStorage.setItem(RIDES_STORAGE_KEY, JSON.stringify(updatedRides));
       console.log('Ride added to Supabase:', newRide);
     } catch (error) {
@@ -366,19 +364,6 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
       };
 
       // Update available seats (optimistically reserve)
-      setRides(prevRides => prevRides.map(r => {
-        if (r && r.id === reservationData.rideId) {
-          return {
-            ...r,
-            availableSeats: r.availableSeats - reservationData.numberOfPassengers,
-          };
-        }
-        return r;
-      }));
-
-      setReservations(prevReservations => [...prevReservations, newReservation]);
-
-      // Save to AsyncStorage
       const updatedRides = rides.map(r => {
         if (r && r.id === reservationData.rideId) {
           return {
@@ -388,8 +373,11 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
         }
         return r;
       });
+
       const updatedReservations = [...reservations, newReservation];
-      
+      setRides(updatedRides);
+      setReservations(updatedReservations);
+
       await Promise.all([
         AsyncStorage.setItem(RIDES_STORAGE_KEY, JSON.stringify(updatedRides)),
         AsyncStorage.setItem(RESERVATIONS_STORAGE_KEY, JSON.stringify(updatedReservations)),
@@ -487,34 +475,17 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      setReservations(prevReservations => prevReservations.map(r => {
+      const updatedReservations = reservations.map(r => {
         if (r && r.id === reservationId) {
           return { ...r, status };
         }
         return r;
-      }));
+      });
 
       // If refused, restore available seats
+      let updatedRides = rides;
       if (status === 'refused') {
-        setRides(prevRides => prevRides.map(r => {
-          if (r && r.id === reservation.rideId) {
-            return {
-              ...r,
-              availableSeats: r.availableSeats + reservation.numberOfPassengers,
-            };
-          }
-          return r;
-        }));
-
-        // Update seats in Supabase
-        const newSeatsAvailable = ride.availableSeats + reservation.numberOfPassengers;
-        await supabase
-          .from('carpool_rides')
-          .update({ seats_available: newSeatsAvailable })
-          .eq('id', ride.id);
-
-        // Save to AsyncStorage
-        const updatedRides = rides.map(r => {
+        updatedRides = rides.map(r => {
           if (r && r.id === reservation.rideId) {
             return {
               ...r,
@@ -523,16 +494,19 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
           }
           return r;
         });
+
+        // Update seats in Supabase
+        const newSeatsAvailable = ride.availableSeats + reservation.numberOfPassengers;
+        await supabase
+          .from('carpool_rides')
+          .update({ seats_available: newSeatsAvailable })
+          .eq('id', ride.id);
+
+        setRides(updatedRides);
         await AsyncStorage.setItem(RIDES_STORAGE_KEY, JSON.stringify(updatedRides));
       }
 
-      // Save reservations to AsyncStorage
-      const updatedReservations = reservations.map(r => {
-        if (r && r.id === reservationId) {
-          return { ...r, status };
-        }
-        return r;
-      });
+      setReservations(updatedReservations);
       await AsyncStorage.setItem(RESERVATIONS_STORAGE_KEY, JSON.stringify(updatedReservations));
       
       console.log('Reservation status updated:', reservationId, status);
@@ -585,17 +559,6 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
             .update({ seats_available: newSeatsAvailable })
             .eq('id', ride.id);
 
-          setRides(prevRides => prevRides.map(r => {
-            if (r && r.id === reservation.rideId) {
-              return {
-                ...r,
-                availableSeats: newSeatsAvailable,
-              };
-            }
-            return r;
-          }));
-
-          // Save to AsyncStorage
           const updatedRides = rides.map(r => {
             if (r && r.id === reservation.rideId) {
               return {
@@ -605,14 +568,15 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
             }
             return r;
           });
+
+          setRides(updatedRides);
           await AsyncStorage.setItem(RIDES_STORAGE_KEY, JSON.stringify(updatedRides));
         }
       }
 
-      setReservations(prevReservations => prevReservations.filter(r => r && r.id !== reservationId));
-
-      // Save to AsyncStorage
       const updatedReservations = reservations.filter(r => r && r.id !== reservationId);
+
+      setReservations(updatedReservations);
       await AsyncStorage.setItem(RESERVATIONS_STORAGE_KEY, JSON.stringify(updatedReservations));
 
       console.log('Reservation cancelled:', reservationId);
@@ -688,36 +652,28 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
 
       // Update ride status locally
       console.log('Updating local state...');
-      setRides(prevRides => prevRides.map(r => {
-        if (r && r.id === rideId) {
-          return { ...r, status: 'cancelled' as const, availableSeats: 0 };
-        }
-        return r;
-      }));
-
-      // Set all reservations to refused locally
-      setReservations(prevReservations => prevReservations.map(r => {
-        if (r && r.rideId === rideId && r.status !== 'refused') {
-          return { ...r, status: 'refused' as const };
-        }
-        return r;
-      }));
-
-      // Save to AsyncStorage
-      console.log('Saving to AsyncStorage...');
       const updatedRides = rides.map(r => {
         if (r && r.id === rideId) {
           return { ...r, status: 'cancelled' as const, availableSeats: 0 };
         }
         return r;
       });
+
+      // Set all reservations to refused locally
       const updatedReservations = reservations.map(r => {
         if (r && r.rideId === rideId && r.status !== 'refused') {
           return { ...r, status: 'refused' as const };
         }
         return r;
       });
-      
+
+      // Update state immediately
+      console.log('Setting state with updated data...');
+      setRides(updatedRides);
+      setReservations(updatedReservations);
+
+      // Save to AsyncStorage
+      console.log('Saving to AsyncStorage...');
       await Promise.all([
         AsyncStorage.setItem(RIDES_STORAGE_KEY, JSON.stringify(updatedRides)),
         AsyncStorage.setItem(RESERVATIONS_STORAGE_KEY, JSON.stringify(updatedReservations)),
@@ -747,40 +703,25 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
     }
   }, [rides, reservations]);
 
-  const contextValue = useMemo(() => ({
-    rides,
-    reservations,
-    addRide,
-    getRidesByDriver,
-    searchRides,
-    addReservation,
-    getReservationsByPassenger,
-    getReservationsByRide,
-    updateReservationStatus,
-    cancelReservation,
-    cancelRide,
-    refreshData,
-    isLoading,
-    error,
-  }), [
-    rides,
-    reservations,
-    addRide,
-    getRidesByDriver,
-    searchRides,
-    addReservation,
-    getReservationsByPassenger,
-    getReservationsByRide,
-    updateReservationStatus,
-    cancelReservation,
-    cancelRide,
-    refreshData,
-    isLoading,
-    error,
-  ]);
-
   return (
-    <CovoiturageContext.Provider value={contextValue}>
+    <CovoiturageContext.Provider
+      value={{
+        rides,
+        reservations,
+        addRide,
+        getRidesByDriver,
+        searchRides,
+        addReservation,
+        getReservationsByPassenger,
+        getReservationsByRide,
+        updateReservationStatus,
+        cancelReservation,
+        cancelRide,
+        refreshData,
+        isLoading,
+        error,
+      }}
+    >
       {children}
     </CovoiturageContext.Provider>
   );
