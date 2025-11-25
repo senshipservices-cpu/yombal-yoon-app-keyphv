@@ -1,5 +1,5 @@
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '@/app/integrations/supabase/client';
 import type { Tables, TablesInsert } from '@/app/integrations/supabase/types';
@@ -75,11 +75,7 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       console.log('Loading data from Supabase...');
       
@@ -174,12 +170,16 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
-  const refreshData = async () => {
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  const refreshData = useCallback(async () => {
     console.log('Refreshing data...');
     await loadData();
-  };
+  }, [loadData]);
 
   const getUserId = async (): Promise<string> => {
     const USER_ID_KEY = '@yombal_yoon_user_id';
@@ -296,11 +296,11 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const getRidesByDriver = (driverId: string): Ride[] => {
+  const getRidesByDriver = useCallback((driverId: string): Ride[] => {
     return rides.filter(ride => ride.driverId === driverId);
-  };
+  }, [rides]);
 
-  const searchRides = (departureCity: string, arrivalCity: string, date: string, passengers: number): Ride[] => {
+  const searchRides = useCallback((departureCity: string, arrivalCity: string, date: string, passengers: number): Ride[] => {
     return rides.filter(ride => {
       const matchesDeparture = ride.departureCity.toLowerCase().includes(departureCity.toLowerCase());
       const matchesArrival = ride.arrivalCity.toLowerCase().includes(arrivalCity.toLowerCase());
@@ -310,7 +310,7 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
 
       return matchesDeparture && matchesArrival && matchesDate && hasEnoughSeats && isActive;
     });
-  };
+  }, [rides]);
 
   const addReservation = async (
     reservationData: Omit<Reservation, 'id' | 'createdAt' | 'status'>,
@@ -386,18 +386,18 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const getReservationsByPassenger = (passengerId: string): Reservation[] => {
+  const getReservationsByPassenger = useCallback((passengerId: string): Reservation[] => {
     return reservations
       .filter(reservation => reservation.passengerId === passengerId)
       .map(reservation => ({
         ...reservation,
         ride: rides.find(ride => ride.id === reservation.rideId),
       }));
-  };
+  }, [reservations, rides]);
 
-  const getReservationsByRide = (rideId: string): Reservation[] => {
+  const getReservationsByRide = useCallback((rideId: string): Reservation[] => {
     return reservations.filter(reservation => reservation.rideId === rideId);
-  };
+  }, [reservations]);
 
   const updateReservationStatus = async (
     reservationId: string,
