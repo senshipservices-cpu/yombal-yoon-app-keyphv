@@ -375,52 +375,85 @@ export function ColisProvider({ children }: { children: ReactNode }) {
     requestData: Omit<ParcelRequest, 'id' | 'status' | 'createdAt'>
   ): Promise<{ success: boolean; requestId?: string; error?: string }> => {
     try {
-      console.log('📦 Adding parcel request...');
-      console.log('   - Departure address:', requestData.departureAddress);
-      console.log('   - Arrival address:', requestData.arrivalAddress);
-      console.log('   - Has departure location:', !!requestData.departureLocation);
-      console.log('   - Has arrival location:', !!requestData.arrivalLocation);
+      console.log('═══════════════════════════════════════════════════════');
+      console.log('📦 ADDING PARCEL REQUEST - START');
+      console.log('═══════════════════════════════════════════════════════');
+      console.log('📋 Request Data:');
+      console.log('   - Sender Name:', requestData.senderName);
+      console.log('   - Sender Phone:', requestData.senderPhone);
+      console.log('   - Recipient Name:', requestData.recipientName);
+      console.log('   - Recipient Phone:', requestData.recipientPhone);
+      console.log('   - Departure Address:', requestData.departureAddress);
+      console.log('   - Arrival Address:', requestData.arrivalAddress);
+      console.log('   - Description:', requestData.description);
+      console.log('   - Has Departure Location:', !!requestData.departureLocation);
+      console.log('   - Has Arrival Location:', !!requestData.arrivalLocation);
+      
+      if (requestData.departureLocation) {
+        console.log('   - Departure Coordinates:', requestData.departureLocation);
+      }
+      if (requestData.arrivalLocation) {
+        console.log('   - Arrival Coordinates:', requestData.arrivalLocation);
+      }
+      if (requestData.pricing) {
+        console.log('   - Pricing:', requestData.pricing);
+      }
       
       // ✅ VALIDATION STRICTE - PARTIE 2
       // Vérifier que tous les champs obligatoires sont remplis
+      console.log('🔍 VALIDATION STEP 1: Checking required fields...');
       if (!requestData.senderName || !requestData.senderPhone || 
           !requestData.recipientName || !requestData.recipientPhone ||
           !requestData.departureAddress || !requestData.arrivalAddress ||
           !requestData.description) {
-        console.error('❌ Missing required fields');
+        console.error('❌ VALIDATION FAILED: Missing required fields');
+        console.error('   - Sender Name:', !!requestData.senderName);
+        console.error('   - Sender Phone:', !!requestData.senderPhone);
+        console.error('   - Recipient Name:', !!requestData.recipientName);
+        console.error('   - Recipient Phone:', !!requestData.recipientPhone);
+        console.error('   - Departure Address:', !!requestData.departureAddress);
+        console.error('   - Arrival Address:', !!requestData.arrivalAddress);
+        console.error('   - Description:', !!requestData.description);
         return { 
           success: false, 
           error: 'Veuillez remplir tous les champs obligatoires' 
         };
       }
+      console.log('✅ VALIDATION STEP 1: All required fields present');
 
       // ✅ VALIDATION STRICTE DES COORDONNÉES
       // Vérifier que les adresses ont été sélectionnées dans l'autocomplétion (avec lat/lng)
+      console.log('🔍 VALIDATION STEP 2: Checking departure coordinates...');
       if (!requestData.departureLocation || 
           !requestData.departureLocation.lat || 
           !requestData.departureLocation.lng) {
-        console.error('❌ Missing departure coordinates - user did not select from autocomplete');
+        console.error('❌ VALIDATION FAILED: Missing departure coordinates');
+        console.error('   - Departure Location:', requestData.departureLocation);
         return { 
           success: false, 
-          error: 'Veuillez sélectionner une adresse dans la liste d\'autocomplétion pour Départ et Arrivée.' 
+          error: 'Veuillez sélectionner l\'adresse de départ dans la liste d\'autocomplétion.' 
         };
       }
+      console.log('✅ VALIDATION STEP 2: Departure coordinates valid');
 
+      console.log('🔍 VALIDATION STEP 3: Checking arrival coordinates...');
       if (!requestData.arrivalLocation || 
           !requestData.arrivalLocation.lat || 
           !requestData.arrivalLocation.lng) {
-        console.error('❌ Missing arrival coordinates - user did not select from autocomplete');
+        console.error('❌ VALIDATION FAILED: Missing arrival coordinates');
+        console.error('   - Arrival Location:', requestData.arrivalLocation);
         return { 
           success: false, 
-          error: 'Veuillez sélectionner une adresse dans la liste d\'autocomplétion pour Départ et Arrivée.' 
+          error: 'Veuillez sélectionner l\'adresse d\'arrivée dans la liste d\'autocomplétion.' 
         };
       }
+      console.log('✅ VALIDATION STEP 3: Arrival coordinates valid');
 
-      console.log('✅ All validations passed - proceeding with submission');
+      console.log('✅ ALL VALIDATIONS PASSED - Proceeding with submission');
 
       // If Supabase is configured and not in demo mode, insert to Supabase
       if (isSupabaseConfigured() && !demoMode) {
-        console.log('Inserting parcel to Supabase...');
+        console.log('🔄 Inserting parcel to Supabase...');
         const result = await insertToSupabase(requestData);
         
         // Create internal log if successful
@@ -428,14 +461,33 @@ export function ColisProvider({ children }: { children: ReactNode }) {
           await createInternalLog(result.requestId, requestData);
         }
         
+        console.log('═══════════════════════════════════════════════════════');
+        console.log('📦 ADDING PARCEL REQUEST - END');
+        console.log('   Result:', result.success ? 'SUCCESS' : 'FAILED');
+        if (result.error) {
+          console.log('   Error:', result.error);
+        }
+        console.log('═══════════════════════════════════════════════════════');
+        
         return result;
       } else {
         // Otherwise, save to AsyncStorage (local mode)
-        console.log('Saving parcel to AsyncStorage (local mode)...');
-        return await saveToAsyncStorage(requestData);
+        console.log('💾 Saving parcel to AsyncStorage (local mode)...');
+        const result = await saveToAsyncStorage(requestData);
+        
+        console.log('═══════════════════════════════════════════════════════');
+        console.log('📦 ADDING PARCEL REQUEST - END');
+        console.log('   Result:', result.success ? 'SUCCESS' : 'FAILED');
+        console.log('═══════════════════════════════════════════════════════');
+        
+        return result;
       }
     } catch (error) {
-      console.error('❌ Error adding parcel request:', error);
+      console.error('═══════════════════════════════════════════════════════');
+      console.error('❌ EXCEPTION IN addParcelRequest');
+      console.error('   Error:', error);
+      console.error('   Stack:', error.stack);
+      console.error('═══════════════════════════════════════════════════════');
       return { 
         success: false, 
         error: 'Une erreur est survenue lors de l\'enregistrement du colis' 
@@ -465,11 +517,15 @@ export function ColisProvider({ children }: { children: ReactNode }) {
         price_fcfa: requestData.pricing?.total || null,
       };
 
-      console.log('📤 Inserting to Supabase:', {
+      console.log('═══════════════════════════════════════════════════════');
+      console.log('📤 SUPABASE INSERT - START');
+      console.log('═══════════════════════════════════════════════════════');
+      console.log('📋 Data to insert:');
+      console.log(JSON.stringify({
         ...parcelRow,
-        sender_phone: '***',
-        recipient_phone: '***',
-      });
+        sender_phone: '***MASKED***',
+        recipient_phone: '***MASKED***',
+      }, null, 2));
 
       const { data, error } = await supabase
         .from('parcels')
@@ -478,23 +534,69 @@ export function ColisProvider({ children }: { children: ReactNode }) {
         .single();
 
       if (error) {
-        console.error('❌ Supabase insert error:', error);
+        console.error('═══════════════════════════════════════════════════════');
+        console.error('❌ SUPABASE INSERT ERROR');
+        console.error('═══════════════════════════════════════════════════════');
+        console.error('📋 Error Details:');
+        console.error('   - Code:', error.code);
+        console.error('   - Message:', error.message);
+        console.error('   - Details:', error.details);
+        console.error('   - Hint:', error.hint);
+        console.error('   - Full Error:', JSON.stringify(error, null, 2));
+        console.error('═══════════════════════════════════════════════════════');
+        
+        // Provide more specific error messages based on error code
+        let userMessage = 'Impossible d\'enregistrer le colis. Vérifiez votre connexion internet et réessayez.';
+        
+        if (error.code === '23502') {
+          // NOT NULL violation
+          userMessage = 'Certaines informations obligatoires sont manquantes. Veuillez vérifier tous les champs.';
+          console.error('⚠️ NOT NULL VIOLATION - Missing required field');
+        } else if (error.code === '23503') {
+          // Foreign key violation
+          userMessage = 'Erreur de référence dans la base de données. Veuillez contacter le support.';
+          console.error('⚠️ FOREIGN KEY VIOLATION');
+        } else if (error.code === '23505') {
+          // Unique violation
+          userMessage = 'Ce colis existe déjà dans le système.';
+          console.error('⚠️ UNIQUE VIOLATION');
+        } else if (error.code === '42501') {
+          // Insufficient privilege
+          userMessage = 'Vous n\'avez pas les permissions nécessaires pour créer un colis.';
+          console.error('⚠️ PERMISSION DENIED');
+        }
+        
         return { 
           success: false, 
-          error: 'Impossible d\'enregistrer le colis. Vérifiez votre connexion internet et réessayez.' 
+          error: userMessage
         };
       }
 
       if (data) {
         const newParcel = convertSupabaseRowToParcel(data as ParcelRow);
         setParcelRequests(prev => [newParcel, ...prev]);
-        console.log('✅ Parcel inserted to Supabase:', data.id);
+        
+        console.log('═══════════════════════════════════════════════════════');
+        console.log('✅ SUPABASE INSERT SUCCESS');
+        console.log('═══════════════════════════════════════════════════════');
+        console.log('   - Parcel ID:', data.id);
+        console.log('   - Status:', data.status);
+        console.log('   - Created At:', data.created_at);
+        console.log('═══════════════════════════════════════════════════════');
+        
         return { success: true, requestId: data.id };
       }
 
+      console.error('❌ SUPABASE INSERT: No data returned');
       return { success: false, error: 'Erreur inconnue' };
     } catch (error) {
-      console.error('❌ Error inserting to Supabase:', error);
+      console.error('═══════════════════════════════════════════════════════');
+      console.error('❌ EXCEPTION IN insertToSupabase');
+      console.error('═══════════════════════════════════════════════════════');
+      console.error('   Error:', error);
+      console.error('   Message:', error.message);
+      console.error('   Stack:', error.stack);
+      console.error('═══════════════════════════════════════════════════════');
       return { 
         success: false, 
         error: 'Impossible d\'enregistrer le colis. Vérifiez votre connexion internet et réessayez.' 
