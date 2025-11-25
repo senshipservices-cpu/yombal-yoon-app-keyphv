@@ -832,6 +832,30 @@ export default function ProfileScreen() {
           </View>
 
           <TouchableOpacity
+            style={styles.settingItem}
+            activeOpacity={0.7}
+            onPress={() => router.push('/test-platform-consistency')}
+          >
+            <View style={styles.settingLeft}>
+              <IconSymbol
+                ios_icon_name="checkmark.circle.fill"
+                android_material_icon_name="check-circle"
+                size={20}
+                color={colors.primary}
+              />
+              <Text style={[styles.settingItemText, { color: isDark ? colors.darkText : colors.text }]}>
+                Tests de Cohérence
+              </Text>
+            </View>
+            <IconSymbol
+              ios_icon_name="chevron.right"
+              android_material_icon_name="chevron-right"
+              size={20}
+              color={isDark ? colors.darkTextSecondary : colors.textSecondary}
+            />
+          </TouchableOpacity>
+
+          <TouchableOpacity
             style={[styles.settingItem, styles.settingItemLast]}
             activeOpacity={0.7}
             onPress={() => Alert.alert("Déconnexion", "Êtes-vous sûr de vouloir vous déconnecter ?", [
