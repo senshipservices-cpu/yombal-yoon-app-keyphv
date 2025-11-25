@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -333,6 +333,23 @@ export default function PublishRideScreen() {
     return `${mins} min`;
   };
 
+  // Calculate form validity using useMemo to avoid infinite loops
+  const isButtonEnabled = useMemo(() => {
+    // Check all required fields
+    const hasValidDepartureCity = departureCity.trim() !== '' && departureLat !== null && departureLng !== null;
+    const hasValidArrivalCity = arrivalCity.trim() !== '' && arrivalLat !== null && arrivalLng !== null;
+    const hasValidDate = departureDate !== null;
+    const hasValidTime = departureTime !== null;
+    
+    const seats = parseInt(availableSeats);
+    const hasValidSeats = availableSeats.trim() !== '' && !isNaN(seats) && seats >= 1 && seats <= 8;
+    
+    const price = parseInt(pricePerPassenger);
+    const hasValidPrice = pricePerPassenger.trim() !== '' && !isNaN(price) && price > 0;
+
+    return hasValidDepartureCity && hasValidArrivalCity && hasValidDate && hasValidTime && hasValidSeats && hasValidPrice;
+  }, [departureCity, departureLat, departureLng, arrivalCity, arrivalLat, arrivalLng, departureDate, departureTime, availableSeats, pricePerPassenger]);
+
   const validateForm = (): { isValid: boolean; errors: string[] } => {
     const errors: string[] = [];
 
@@ -384,11 +401,6 @@ export default function PublishRideScreen() {
       isValid: errors.length === 0,
       errors,
     };
-  };
-
-  const canSubmit = (): boolean => {
-    const validation = validateForm();
-    return validation.isValid;
   };
 
   const showSuccessMessage = () => {
@@ -859,8 +871,6 @@ export default function PublishRideScreen() {
       </Modal>
     );
   };
-
-  const isButtonEnabled = canSubmit();
 
   return (
     <View style={[styles.container, { backgroundColor: isDark ? colors.darkBackground : colors.background }]}>
