@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -81,69 +81,71 @@ export default function PublishRideScreen() {
   const [showDebtModal, setShowDebtModal] = useState(false);
   const [debtAmount, setDebtAmount] = useState(0);
 
-  // Load initial data
+  const calculateDistanceAndDuration = useCallback(async () => {
+    if (!departureLat || !departureLng || !arrivalLat || !arrivalLng) {
+      return;
+    }
+
+    setIsCalculatingDistance(true);
+
+    try {
+      console.log('Calculating distance and duration...');
+
+      const { data, error } = await supabase.functions.invoke('google-places-proxy', {
+        body: {
+          action: 'distance_matrix',
+          originLat: departureLat,
+          originLng: departureLng,
+          destLat: arrivalLat,
+          destLng: arrivalLng,
+        },
+      });
+
+      if (error) {
+        console.error('Error calculating distance:', error);
+        return;
+      }
+
+      if (data.status === 'OK' && data.rows?.[0]?.elements?.[0]) {
+        const element = data.rows[0].elements[0];
+
+        if (element.status === 'OK') {
+          const distanceMeters = element.distance.value;
+          const durationSeconds = element.duration.value;
+
+          const distanceKm = Math.round((distanceMeters / 1000) * 10) / 10;
+          const durationMinutes = Math.round(durationSeconds / 60);
+
+          setRideDistanceKm(distanceKm);
+          setRideDurationMinutes(durationMinutes);
+
+          console.log('Distance and duration calculated:', {
+            distanceKm,
+            durationMinutes,
+          });
+        } else {
+          console.error('Distance Matrix element error:', element.status);
+        }
+      } else {
+        console.error('Distance Matrix API error:', data.status);
+      }
+    } catch (error) {
+      console.error('Error calculating distance and duration:', error);
+    } finally {
+      setIsCalculatingDistance(false);
+    }
+  }, [departureLat, departureLng, arrivalLat, arrivalLng]);
+
   useEffect(() => {
     loadFavoriteRoute();
     loadVerificationStatus();
   }, [loadVerificationStatus]);
 
-  // Calculate distance when coordinates change
   useEffect(() => {
     if (departureLat && departureLng && arrivalLat && arrivalLng) {
-      const calculateDistance = async () => {
-        setIsCalculatingDistance(true);
-
-        try {
-          console.log('Calculating distance and duration...');
-
-          const { data, error } = await supabase.functions.invoke('google-places-proxy', {
-            body: {
-              action: 'distance_matrix',
-              originLat: departureLat,
-              originLng: departureLng,
-              destLat: arrivalLat,
-              destLng: arrivalLng,
-            },
-          });
-
-          if (error) {
-            console.error('Error calculating distance:', error);
-            return;
-          }
-
-          if (data.status === 'OK' && data.rows?.[0]?.elements?.[0]) {
-            const element = data.rows[0].elements[0];
-
-            if (element.status === 'OK') {
-              const distanceMeters = element.distance.value;
-              const durationSeconds = element.duration.value;
-
-              const distanceKm = Math.round((distanceMeters / 1000) * 10) / 10;
-              const durationMinutes = Math.round(durationSeconds / 60);
-
-              setRideDistanceKm(distanceKm);
-              setRideDurationMinutes(durationMinutes);
-
-              console.log('Distance and duration calculated:', {
-                distanceKm,
-                durationMinutes,
-              });
-            } else {
-              console.error('Distance Matrix element error:', element.status);
-            }
-          } else {
-            console.error('Distance Matrix API error:', data.status);
-          }
-        } catch (error) {
-          console.error('Error calculating distance and duration:', error);
-        } finally {
-          setIsCalculatingDistance(false);
-        }
-      };
-
-      calculateDistance();
+      calculateDistanceAndDuration();
     }
-  }, [departureLat, departureLng, arrivalLat, arrivalLng]);
+  }, [departureLat, departureLng, arrivalLat, arrivalLng, calculateDistanceAndDuration]);
 
   const loadFavoriteRoute = async () => {
     try {
@@ -177,7 +179,7 @@ export default function PublishRideScreen() {
     }
   };
 
-  const handleUseUsualRoute = useCallback(() => {
+  const handleUseUsualRoute = () => {
     if (!favoriteRoute) {
       setShowNoFavoriteMessage(true);
       setTimeout(() => setShowNoFavoriteMessage(false), 4000);
@@ -206,27 +208,27 @@ export default function PublishRideScreen() {
     );
 
     console.log('Usual route loaded into form');
-  }, [favoriteRoute]);
+  };
 
-  const handleSelectDepartureCity = useCallback((city: string, placeId: string, lat: number, lng: number) => {
+  const handleSelectDepartureCity = (city: string, placeId: string, lat: number, lng: number) => {
     console.log('Departure city selected:', { city, placeId, lat, lng });
     setDepartureCity(city);
     setDeparturePlaceId(placeId);
     setDepartureLat(lat);
     setDepartureLng(lng);
     setDepartureCityError('');
-  }, []);
+  };
 
-  const handleSelectArrivalCity = useCallback((city: string, placeId: string, lat: number, lng: number) => {
+  const handleSelectArrivalCity = (city: string, placeId: string, lat: number, lng: number) => {
     console.log('Arrival city selected:', { city, placeId, lat, lng });
     setArrivalCity(city);
     setArrivalPlaceId(placeId);
     setArrivalLat(lat);
     setArrivalLng(lng);
     setArrivalCityError('');
-  }, []);
+  };
 
-  const handleDateChange = useCallback((event: any, selectedDate?: Date) => {
+  const handleDateChange = (event: any, selectedDate?: Date) => {
     console.log('Date picker event:', event.type, selectedDate);
     
     if (Platform.OS === 'android') {
@@ -242,9 +244,9 @@ export default function PublishRideScreen() {
         console.log('Date updated (iOS):', selectedDate);
       }
     }
-  }, []);
+  };
 
-  const handleTimeChange = useCallback((event: any, selectedTime?: Date) => {
+  const handleTimeChange = (event: any, selectedTime?: Date) => {
     console.log('Time picker event:', event.type, selectedTime);
     
     if (Platform.OS === 'android') {
@@ -260,18 +262,18 @@ export default function PublishRideScreen() {
         console.log('Time updated (iOS):', selectedTime);
       }
     }
-  }, []);
+  };
 
-  const handleWebDateChange = useCallback((e: any) => {
+  const handleWebDateChange = (e: any) => {
     const dateValue = e.target.value;
     if (dateValue) {
       const date = new Date(dateValue + 'T00:00:00');
       setDepartureDate(date);
       console.log('Web date selected:', date);
     }
-  }, []);
+  };
 
-  const handleWebTimeChange = useCallback((e: any) => {
+  const handleWebTimeChange = (e: any) => {
     const timeValue = e.target.value;
     if (timeValue) {
       const [hours, minutes] = timeValue.split(':');
@@ -281,17 +283,17 @@ export default function PublishRideScreen() {
       setDepartureTime(time);
       console.log('Web time selected:', time);
     }
-  }, []);
+  };
 
-  const confirmDateSelection = useCallback(() => {
+  const confirmDateSelection = () => {
     setShowDatePicker(false);
     console.log('Date confirmed:', departureDate);
-  }, [departureDate]);
+  };
 
-  const confirmTimeSelection = useCallback(() => {
+  const confirmTimeSelection = () => {
     setShowTimePicker(false);
     console.log('Time confirmed:', departureTime);
-  }, [departureTime]);
+  };
 
   const formatDate = (date: Date): string => {
     return date.toLocaleDateString('fr-FR', {
@@ -331,24 +333,25 @@ export default function PublishRideScreen() {
     return `${mins} min`;
   };
 
-  // Memoize validation logic to prevent infinite loops
-  const validationResult = useMemo(() => {
+  const validateForm = (): { isValid: boolean; errors: string[] } => {
     const errors: string[] = [];
-    let depError = '';
-    let arrError = '';
+
+    // Reset city errors
+    setDepartureCityError('');
+    setArrivalCityError('');
 
     if (departureCity.trim() === '') {
       errors.push('Ville de départ requise');
     } else if (!departureLat || !departureLng) {
       errors.push('Veuillez sélectionner la ville de départ dans la liste');
-      depError = 'Veuillez sélectionner la ville dans la liste proposée';
+      setDepartureCityError('Veuillez sélectionner la ville dans la liste proposée');
     }
 
     if (arrivalCity.trim() === '') {
       errors.push('Ville d\'arrivée requise');
     } else if (!arrivalLat || !arrivalLng) {
       errors.push('Veuillez sélectionner la ville d\'arrivée dans la liste');
-      arrError = 'Veuillez sélectionner la ville dans la liste proposée';
+      setArrivalCityError('Veuillez sélectionner la ville dans la liste proposée');
     }
 
     if (!departureDate) {
@@ -380,14 +383,15 @@ export default function PublishRideScreen() {
     return {
       isValid: errors.length === 0,
       errors,
-      departureCityError: depError,
-      arrivalCityError: arrError,
     };
-  }, [departureCity, arrivalCity, departureDate, departureTime, availableSeats, pricePerPassenger, departureLat, departureLng, arrivalLat, arrivalLng]);
+  };
 
-  const canSubmit = validationResult.isValid;
+  const canSubmit = (): boolean => {
+    const validation = validateForm();
+    return validation.isValid;
+  };
 
-  const showSuccessMessage = useCallback(() => {
+  const showSuccessMessage = () => {
     setShowSuccessModal(true);
 
     if (Platform.OS !== 'web') {
@@ -410,9 +414,9 @@ export default function PublishRideScreen() {
       setShowSuccessModal(false);
       router.push('/covoiturage/my-rides');
     });
-  }, [successAnimation, router]);
+  };
 
-  const handleSubmit = useCallback(async () => {
+  const handleSubmit = async () => {
     console.log('Submit button pressed');
 
     console.log('Form state:', {
@@ -428,12 +432,11 @@ export default function PublishRideScreen() {
       arrivalLng,
     });
 
-    // Use the memoized validation result
-    if (!validationResult.isValid) {
-      console.log('Validation errors:', validationResult.errors);
-      setValidationErrors(validationResult.errors);
-      setDepartureCityError(validationResult.departureCityError);
-      setArrivalCityError(validationResult.arrivalCityError);
+    const validation = validateForm();
+    
+    if (!validation.isValid) {
+      console.log('Validation errors:', validation.errors);
+      setValidationErrors(validation.errors);
       
       if (Platform.OS !== 'web') {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
@@ -441,7 +444,7 @@ export default function PublishRideScreen() {
       
       Alert.alert(
         'Formulaire incomplet',
-        'Veuillez corriger les erreurs suivantes :\n\n' + validationResult.errors.map((e, i) => `${i + 1}. ${e}`).join('\n'),
+        'Veuillez corriger les erreurs suivantes :\n\n' + validation.errors.map((e, i) => `${i + 1}. ${e}`).join('\n'),
         [{ text: 'OK' }]
       );
       return;
@@ -477,8 +480,6 @@ export default function PublishRideScreen() {
     }
 
     setValidationErrors([]);
-    setDepartureCityError('');
-    setArrivalCityError('');
 
     try {
       const seats = parseInt(availableSeats);
@@ -537,27 +538,7 @@ export default function PublishRideScreen() {
       
       Alert.alert('Erreur', 'Erreur lors de la publication du trajet. Veuillez réessayer.');
     }
-  }, [
-    departureCity,
-    arrivalCity,
-    departureDate,
-    departureTime,
-    availableSeats,
-    pricePerPassenger,
-    vehicleType,
-    intermediateStops,
-    departureLat,
-    departureLng,
-    arrivalLat,
-    arrivalLng,
-    rideDistanceKm,
-    rideDurationMinutes,
-    validationResult,
-    isPhoneVerified,
-    profile.fullName,
-    addRide,
-    showSuccessMessage,
-  ]);
+  };
 
   const renderDatePicker = () => {
     if (!showDatePicker) return null;
@@ -879,7 +860,7 @@ export default function PublishRideScreen() {
     );
   };
 
-  const isButtonEnabled = canSubmit;
+  const isButtonEnabled = canSubmit();
 
   return (
     <View style={[styles.container, { backgroundColor: isDark ? colors.darkBackground : colors.background }]}>

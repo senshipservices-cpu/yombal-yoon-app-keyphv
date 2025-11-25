@@ -1,19 +1,17 @@
 
 import React from "react";
-import { View, Text, StyleSheet, ScrollView, Platform, TouchableOpacity, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Platform, TouchableOpacity } from "react-native";
 import { useTheme } from "@react-navigation/native";
 import { useRouter } from "expo-router";
 import { colors } from "@/styles/commonStyles";
 import { IconSymbol } from "@/components/IconSymbol";
 import { useProfile } from "@/contexts/ProfileContext";
-import { useCovoiturage } from "@/contexts/CovoiturageContext";
 
 export default function CovoiturageScreen() {
   const theme = useTheme();
   const isDark = theme.dark;
   const router = useRouter();
-  const { profile, isLoading: profileLoading } = useProfile();
-  const { isLoading: covoiturageLoading, error } = useCovoiturage();
+  const { profile } = useProfile();
 
   const handlePublishRide = () => {
     router.push('/covoiturage/publish-ride');
@@ -30,66 +28,6 @@ export default function CovoiturageScreen() {
   const handleMyReservations = () => {
     router.push('/covoiturage/my-reservations');
   };
-
-  // Show loading state
-  if (profileLoading || covoiturageLoading) {
-    return (
-      <View style={[styles.container, styles.centerContent, { backgroundColor: isDark ? colors.darkBackground : colors.background }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={[styles.loadingText, { color: isDark ? colors.darkText : colors.text }]}>
-          Chargement...
-        </Text>
-      </View>
-    );
-  }
-
-  // Show error state
-  if (error) {
-    return (
-      <View style={[styles.container, { backgroundColor: isDark ? colors.darkBackground : colors.background }]}>
-        <ScrollView
-          style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-        >
-          {/* Header */}
-          <View style={[styles.header, { backgroundColor: '#FF8C00' }]}>
-            <Text style={styles.headerEmoji}>🇸🇳</Text>
-            <View style={styles.headerTextContainer}>
-              <Text style={styles.headerTitle}>Covoiturage</Text>
-              <Text style={styles.headerSubtitle}>Partagez vos trajets et économisez</Text>
-            </View>
-          </View>
-
-          {/* Error Message */}
-          <View style={styles.content}>
-            <View style={[styles.card, { backgroundColor: isDark ? colors.darkCard : colors.card }]}>
-              <View style={styles.errorContainer}>
-                <IconSymbol
-                  ios_icon_name="exclamationmark.triangle.fill"
-                  android_material_icon_name="warning"
-                  size={48}
-                  color={colors.accent}
-                />
-                <Text style={[styles.errorTitle, { color: isDark ? colors.darkText : colors.text }]}>
-                  Erreur de chargement
-                </Text>
-                <Text style={[styles.errorMessage, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-                  {error}
-                </Text>
-                <Text style={[styles.errorHint, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-                  Vérifiez votre connexion internet et réessayez.
-                </Text>
-              </View>
-            </View>
-          </View>
-        </ScrollView>
-      </View>
-    );
-  }
-
-  // Safely access profile roles with fallback
-  const roles = profile?.roles || { driver: false, passenger: false, delivery: false, sender: false };
 
   return (
     <View style={[styles.container, { backgroundColor: isDark ? colors.darkBackground : colors.background }]}>
@@ -110,7 +48,7 @@ export default function CovoiturageScreen() {
         {/* Content */}
         <View style={styles.content}>
           {/* Driver Section */}
-          {roles.driver && (
+          {profile.roles.driver && (
             <View style={styles.section}>
               <Text style={[styles.sectionTitle, { color: isDark ? colors.darkText : colors.text }]}>
                 Espace Conducteur
@@ -181,7 +119,7 @@ export default function CovoiturageScreen() {
           )}
 
           {/* Passenger Section */}
-          {roles.passenger && (
+          {profile.roles.passenger && (
             <View style={styles.section}>
               <Text style={[styles.sectionTitle, { color: isDark ? colors.darkText : colors.text }]}>
                 Espace Passager
@@ -252,7 +190,7 @@ export default function CovoiturageScreen() {
           )}
 
           {/* No roles selected */}
-          {!roles.driver && !roles.passenger && (
+          {!profile.roles.driver && !profile.roles.passenger && (
             <View style={[styles.card, { backgroundColor: isDark ? colors.darkCard : colors.card }]}>
               <Text style={[styles.infoText, { color: isDark ? colors.darkText : colors.text }]}>
                 Veuillez sélectionner un rôle (Conducteur ou Passager) dans votre profil pour accéder aux fonctionnalités de covoiturage.
@@ -268,10 +206,6 @@ export default function CovoiturageScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  centerContent: {
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   scrollView: {
     flex: 1,
@@ -348,29 +282,5 @@ const styles = StyleSheet.create({
     fontSize: 16,
     textAlign: 'center',
     lineHeight: 24,
-  },
-  loadingText: {
-    marginTop: 16,
-    fontSize: 16,
-  },
-  errorContainer: {
-    alignItems: 'center',
-    padding: 20,
-  },
-  errorTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    marginTop: 16,
-    marginBottom: 8,
-  },
-  errorMessage: {
-    fontSize: 16,
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  errorHint: {
-    fontSize: 14,
-    textAlign: 'center',
-    fontStyle: 'italic',
   },
 });
