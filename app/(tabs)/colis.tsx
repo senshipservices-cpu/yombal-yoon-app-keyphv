@@ -60,17 +60,21 @@ export default function ColisScreen() {
     loadVerificationStatus();
   }, [loadVerificationStatus]);
 
+  // ✅ IMPROVED canSubmit - Now includes location validation
   const canSubmit = 
     senderName.trim() !== '' &&
     senderPhone.trim() !== '' &&
     recipientName.trim() !== '' &&
     recipientPhone.trim() !== '' &&
     departureAddress.trim() !== '' &&
+    departureLocation !== null &&  // ✅ Must have departure location
     arrivalAddress.trim() !== '' &&
+    arrivalLocation !== null &&    // ✅ Must have arrival location
     description.trim() !== '' &&
     !isSubmitting;
 
   const validateAddresses = (): boolean => {
+    console.log('🔍 VALIDATING ADDRESSES...');
     let isValid = true;
     
     // Reset errors
@@ -79,27 +83,68 @@ export default function ColisScreen() {
     
     // Check if departure address was selected from autocomplete
     if (departureAddress.trim() !== '' && !departureLocation) {
+      console.log('❌ Departure address not selected from autocomplete');
       setDepartureAddressError('Veuillez sélectionner l\'adresse de départ dans la liste proposée');
       isValid = false;
+    } else {
+      console.log('✅ Departure address valid:', departureLocation);
     }
     
     // Check if arrival address was selected from autocomplete
     if (arrivalAddress.trim() !== '' && !arrivalLocation) {
+      console.log('❌ Arrival address not selected from autocomplete');
       setArrivalAddressError('Veuillez sélectionner l\'adresse d\'arrivée dans la liste proposée');
       isValid = false;
+    } else {
+      console.log('✅ Arrival address valid:', arrivalLocation);
     }
     
+    console.log('🔍 Validation result:', isValid);
     return isValid;
   };
 
   const handleSubmitClick = () => {
+    console.log('═══════════════════════════════════════════════════════');
+    console.log('🚀 SUBMIT_PARCEL_CLICKED');
+    console.log('═══════════════════════════════════════════════════════');
+    console.log('📱 Platform:', Platform.OS);
+    console.log('📋 Form State:');
+    console.log('   - Sender Name:', senderName);
+    console.log('   - Sender Phone:', senderPhone);
+    console.log('   - Recipient Name:', recipientName);
+    console.log('   - Recipient Phone:', recipientPhone);
+    console.log('   - Departure Address:', departureAddress);
+    console.log('   - Departure Location:', departureLocation);
+    console.log('   - Arrival Address:', arrivalAddress);
+    console.log('   - Arrival Location:', arrivalLocation);
+    console.log('   - Description:', description);
+    console.log('   - Distance:', distanceKm, 'km');
+    console.log('   - Price:', calculatedPrice, 'FCFA');
+    console.log('   - canSubmit:', canSubmit);
+    console.log('   - isSubmitting:', isSubmitting);
+    console.log('═══════════════════════════════════════════════════════');
+
     if (!canSubmit) {
-      Alert.alert('Erreur', 'Veuillez remplir tous les champs obligatoires');
+      console.log('❌ SUBMIT_PARCEL_VALIDATION_FAILED - canSubmit is false');
+      
+      // Provide specific error message
+      if (!departureLocation || !arrivalLocation) {
+        console.log('❌ Missing location data');
+        Alert.alert(
+          'Adresses non valides',
+          'Veuillez sélectionner vos adresses dans la liste proposée pour Départ et Arrivée.',
+          [{ text: 'OK' }]
+        );
+      } else {
+        console.log('❌ Missing required fields');
+        Alert.alert('Erreur', 'Veuillez remplir tous les champs obligatoires');
+      }
       return;
     }
 
     // Validate addresses were selected from autocomplete
     if (!validateAddresses()) {
+      console.log('❌ SUBMIT_PARCEL_VALIDATION_FAILED - Address validation failed');
       Alert.alert(
         'Adresses non valides',
         'Veuillez sélectionner vos adresses dans la liste proposée pour Départ et Arrivée.',
@@ -108,17 +153,25 @@ export default function ColisScreen() {
       return;
     }
 
+    console.log('✅ SUBMIT_PARCEL_VALIDATION_OK');
+
     // Check if phone is verified
     if (!isPhoneVerified) {
+      console.log('⚠️ Phone not verified, showing verification modal');
       setShowVerificationModal(true);
       return;
     }
 
     // Show security reminder before final submission
+    console.log('✅ Showing security reminder');
     setShowSecurityReminder(true);
   };
 
   const handleConfirmSubmit = async () => {
+    console.log('═══════════════════════════════════════════════════════');
+    console.log('📤 SUBMIT_PARCEL_SEND_REQUEST');
+    console.log('═══════════════════════════════════════════════════════');
+    
     setShowSecurityReminder(false);
     setIsSubmitting(true);
 
@@ -130,6 +183,13 @@ export default function ColisScreen() {
         kmFee: calculatedPrice - PRICING_CONFIG.baseFee,
         total: calculatedPrice,
       } : undefined;
+
+      console.log('📦 Calling addParcelRequest with data:');
+      console.log('   - Sender:', senderName, senderPhone);
+      console.log('   - Recipient:', recipientName, recipientPhone);
+      console.log('   - Departure:', departureAddress, departureLocation);
+      console.log('   - Arrival:', arrivalAddress, arrivalLocation);
+      console.log('   - Pricing:', pricingData);
 
       const result = await addParcelRequest({
         senderName: senderName.trim(),
@@ -145,8 +205,13 @@ export default function ColisScreen() {
         pricing: pricingData,
       });
 
+      console.log('📬 addParcelRequest result:', result);
+
       if (result.success && result.requestId) {
-        console.log('✅ Parcel request created successfully:', result.requestId);
+        console.log('═══════════════════════════════════════════════════════');
+        console.log('✅ SUBMIT_PARCEL_SUCCESS');
+        console.log('   - Request ID:', result.requestId);
+        console.log('═══════════════════════════════════════════════════════');
         
         // ALWAYS assign to nearby delivery persons (not just in demo mode)
         // This is a core feature of the app
@@ -163,6 +228,7 @@ export default function ColisScreen() {
         }
 
         // Clear form
+        console.log('🧹 Clearing form...');
         setSenderName('');
         setSenderPhone('');
         setRecipientName('');
@@ -179,6 +245,7 @@ export default function ColisScreen() {
         setArrivalAddressError('');
         
         // Show success message
+        console.log('✅ Showing success message');
         setShowSuccess(true);
         
         // Hide success message after 8 seconds
@@ -186,16 +253,29 @@ export default function ColisScreen() {
           setShowSuccess(false);
         }, 8000);
       } else {
+        console.log('═══════════════════════════════════════════════════════');
+        console.log('❌ SUBMIT_PARCEL_ERROR');
+        console.log('   - Error:', result.error);
+        console.log('═══════════════════════════════════════════════════════');
+        
         Alert.alert(
           'Erreur', 
-          result.error || 'Une erreur est survenue lors de l\'envoi de votre demande'
+          result.error || 'Une erreur est survenue lors de l\'envoi de votre demande. Veuillez réessayer.'
         );
       }
     } catch (error) {
+      console.log('═══════════════════════════════════════════════════════');
+      console.log('❌ SUBMIT_PARCEL_EXCEPTION');
+      console.log('   - Error:', error);
+      console.log('   - Message:', error.message);
+      console.log('   - Stack:', error.stack);
+      console.log('═══════════════════════════════════════════════════════');
+      
       console.error('Error submitting parcel request:', error);
       Alert.alert('Erreur', 'Une erreur est survenue. Veuillez réessayer.');
     } finally {
       setIsSubmitting(false);
+      console.log('🏁 SUBMIT_PARCEL_COMPLETE');
     }
   };
 
@@ -417,13 +497,22 @@ export default function ColisScreen() {
               onChangeText={(text) => {
                 setDepartureAddress(text);
                 setDepartureAddressError('');
+                // Reset location when user types (not selecting from autocomplete)
+                if (departureLocation) {
+                  console.log('⚠️ User is typing, resetting departure location');
+                  setDepartureLocation(null);
+                  setPickupCoordinates(null, null);
+                }
               }}
               onSelectAddress={(address, location, placeId) => {
+                console.log('✅ Departure address selected from autocomplete');
                 setDepartureAddress(address);
                 setDepartureLocation(location);
                 setPickupCoordinates(location.lat, location.lng, placeId);
                 setDepartureAddressError('');
-                console.log('Adresse de départ sélectionnée:', { address, location, placeId });
+                console.log('   - Address:', address);
+                console.log('   - Location:', location);
+                console.log('   - Place ID:', placeId);
               }}
               placeholder="Rechercher une adresse à Dakar..."
               label="Adresse de départ *"
@@ -435,13 +524,22 @@ export default function ColisScreen() {
               onChangeText={(text) => {
                 setArrivalAddress(text);
                 setArrivalAddressError('');
+                // Reset location when user types (not selecting from autocomplete)
+                if (arrivalLocation) {
+                  console.log('⚠️ User is typing, resetting arrival location');
+                  setArrivalLocation(null);
+                  setDropoffCoordinates(null, null);
+                }
               }}
               onSelectAddress={(address, location, placeId) => {
+                console.log('✅ Arrival address selected from autocomplete');
                 setArrivalAddress(address);
                 setArrivalLocation(location);
                 setDropoffCoordinates(location.lat, location.lng, placeId);
                 setArrivalAddressError('');
-                console.log('Adresse d\'arrivée sélectionnée:', { address, location, placeId });
+                console.log('   - Address:', address);
+                console.log('   - Location:', location);
+                console.log('   - Place ID:', placeId);
               }}
               placeholder="Rechercher une adresse à Dakar..."
               label="Adresse d'arrivée *"
@@ -570,8 +668,24 @@ export default function ColisScreen() {
                   Demande envoyée en toute sécurité !
                 </Text>
                 <Text style={[styles.successText, { color: isDark ? colors.darkText : colors.text }]}>
-                  Votre demande a été envoyée en toute sécurité. Vous pouvez contacter l&apos;équipe Yombal Yoon à tout moment.
+                  Votre demande a été envoyée en toute sécurité. Vous pouvez la suivre dans &quot;Mes colis&quot; ou contacter l&apos;équipe Yombal Yoon à tout moment.
                 </Text>
+                
+                {/* Quick link to My Parcels */}
+                <TouchableOpacity
+                  style={[styles.viewParcelsButton, { backgroundColor: colors.primary }]}
+                  onPress={() => router.push('/colis/my-parcels')}
+                >
+                  <IconSymbol
+                    ios_icon_name="list.bullet"
+                    android_material_icon_name="list"
+                    size={18}
+                    color="#FFFFFF"
+                  />
+                  <Text style={styles.viewParcelsButtonText}>
+                    Voir mes colis
+                  </Text>
+                </TouchableOpacity>
                 
                 {/* Contact Buttons in Success Banner */}
                 <View style={styles.successContactButtons}>
@@ -592,6 +706,17 @@ export default function ColisScreen() {
                 {isSubmitting ? 'ENVOI EN COURS...' : 'ENVOYER MON COLIS'}
               </Text>
             </TouchableOpacity>
+
+            {/* Helper text below button */}
+            {!canSubmit && (
+              <View style={styles.helperTextContainer}>
+                <Text style={[styles.helperText, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+                  {!departureLocation || !arrivalLocation
+                    ? '⚠️ Veuillez sélectionner vos adresses dans la liste proposée'
+                    : '⚠️ Veuillez remplir tous les champs obligatoires'}
+                </Text>
+              </View>
+            )}
           </View>
 
           {/* Demo Parcels Section */}
@@ -790,6 +915,20 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     marginBottom: 16,
   },
+  viewParcelsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 12,
+    marginBottom: 12,
+  },
+  viewParcelsButtonText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
+  },
   successContactButtons: {
     width: '100%',
     marginTop: 8,
@@ -907,6 +1046,15 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '700',
+  },
+  helperTextContainer: {
+    marginTop: 12,
+    paddingHorizontal: 4,
+  },
+  helperText: {
+    fontSize: 13,
+    textAlign: 'center',
+    fontStyle: 'italic',
   },
   demoSection: {
     borderRadius: 16,

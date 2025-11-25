@@ -2,50 +2,170 @@
 import React, { useState, useEffect } from "react";
 import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Alert } from "react-native";
 import { useTheme } from "@react-navigation/native";
+import { useRouter } from "expo-router";
 import { colors } from "@/styles/commonStyles";
 import { IconSymbol } from "@/components/IconSymbol";
-import { useColis, PRICING_CONFIG } from "@/contexts/ColisContext";
+import { useColis, Location, PRICING_CONFIG } from "@/contexts/ColisContext";
+import { useDelivery } from "@/contexts/DeliveryContext";
+import { useOTP } from "@/contexts/OTPContext";
+import AddressAutocomplete from "@/components/AddressAutocomplete";
+import PhoneVerificationModal from "@/components/PhoneVerificationModal";
+import SecurityReminderModal from "@/components/SecurityReminderModal";
+import VerifiedDriverBadge from "@/components/VerifiedDriverBadge";
+import ContactButtons from "@/components/ContactButtons";
+
+const YOMBAL_YOON_PHONE = "+221765676486";
 
 export default function ColisScreen() {
   const theme = useTheme();
   const isDark = theme.dark;
+  const router = useRouter();
   const { 
     addParcelRequest,
     distanceKm,
     calculatedPrice,
-    setDistanceKm,
+    setPickupCoordinates,
+    setDropoffCoordinates,
     resetCalculations,
   } = useColis();
+  const { assignParcelToNearbyDeliveryPersons } = useDelivery();
+  const { isPhoneVerified, loadVerificationStatus } = useOTP();
 
   const [senderName, setSenderName] = useState('');
   const [senderPhone, setSenderPhone] = useState('');
   const [recipientName, setRecipientName] = useState('');
   const [recipientPhone, setRecipientPhone] = useState('');
   const [departureAddress, setDepartureAddress] = useState('');
+  const [departureLocation, setDepartureLocation] = useState<Location | null>(null);
   const [arrivalAddress, setArrivalAddress] = useState('');
+  const [arrivalLocation, setArrivalLocation] = useState<Location | null>(null);
   const [description, setDescription] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [showVerificationModal, setShowVerificationModal] = useState(false);
+  const [showSecurityReminder, setShowSecurityReminder] = useState(false);
+  
+  // Validation errors
+  const [departureAddressError, setDepartureAddressError] = useState('');
+  const [arrivalAddressError, setArrivalAddressError] = useState('');
 
-  // Pour tester : champ manuel pour la distance (en attendant Google Maps)
-  const [manualDistance, setManualDistance] = useState('');
+  // Load verification status on mount
+  useEffect(() => {
+    loadVerificationStatus();
+  }, [loadVerificationStatus]);
 
+  // ✅ IMPROVED canSubmit - Now includes location validation
   const canSubmit = 
     senderName.trim() !== '' &&
     senderPhone.trim() !== '' &&
     recipientName.trim() !== '' &&
     recipientPhone.trim() !== '' &&
     departureAddress.trim() !== '' &&
+    departureLocation !== null &&  // ✅ Must have departure location
     arrivalAddress.trim() !== '' &&
+    arrivalLocation !== null &&    // ✅ Must have arrival location
     description.trim() !== '' &&
     !isSubmitting;
 
-  const handleSubmit = async () => {
+  const validateAddresses = (): boolean => {
+    console.log('🔍 VALIDATING ADDRESSES (iOS)...');
+    let isValid = true;
+    
+    // Reset errors
+    setDepartureAddressError('');
+    setArrivalAddressError('');
+    
+    // Check if departure address was selected from autocomplete
+    if (departureAddress.trim() !== '' && !departureLocation) {
+      console.log('❌ Departure address not selected from autocomplete');
+      setDepartureAddressError('Veuillez sélectionner l\'adresse de départ dans la liste proposée');
+      isValid = false;
+    } else {
+      console.log('✅ Departure address valid:', departureLocation);
+    }
+    
+    // Check if arrival address was selected from autocomplete
+    if (arrivalAddress.trim() !== '' && !arrivalLocation) {
+      console.log('❌ Arrival address not selected from autocomplete');
+      setArrivalAddressError('Veuillez sélectionner l\'adresse d\'arrivée dans la liste proposée');
+      isValid = false;
+    } else {
+      console.log('✅ Arrival address valid:', arrivalLocation);
+    }
+    
+    console.log('🔍 Validation result (iOS):', isValid);
+    return isValid;
+  };
+
+  const handleSubmitClick = () => {
+    console.log('═══════════════════════════════════════════════════════');
+    console.log('🚀 SUBMIT_PARCEL_CLICKED (iOS)');
+    console.log('═══════════════════════════════════════════════════════');
+    console.log('📋 Form State:');
+    console.log('   - Sender Name:', senderName);
+    console.log('   - Sender Phone:', senderPhone);
+    console.log('   - Recipient Name:', recipientName);
+    console.log('   - Recipient Phone:', recipientPhone);
+    console.log('   - Departure Address:', departureAddress);
+    console.log('   - Departure Location:', departureLocation);
+    console.log('   - Arrival Address:', arrivalAddress);
+    console.log('   - Arrival Location:', arrivalLocation);
+    console.log('   - Description:', description);
+    console.log('   - Distance:', distanceKm, 'km');
+    console.log('   - Price:', calculatedPrice, 'FCFA');
+    console.log('   - canSubmit:', canSubmit);
+    console.log('   - isSubmitting:', isSubmitting);
+    console.log('═══════════════════════════════════════════════════════');
+
     if (!canSubmit) {
-      Alert.alert('Erreur', 'Veuillez remplir tous les champs');
+      console.log('❌ SUBMIT_PARCEL_VALIDATION_FAILED - canSubmit is false');
+      
+      // Provide specific error message
+      if (!departureLocation || !arrivalLocation) {
+        console.log('❌ Missing location data');
+        Alert.alert(
+          'Adresses non valides',
+          'Veuillez sélectionner vos adresses dans la liste proposée pour Départ et Arrivée.',
+          [{ text: 'OK' }]
+        );
+      } else {
+        console.log('❌ Missing required fields');
+        Alert.alert('Erreur', 'Veuillez remplir tous les champs obligatoires');
+      }
       return;
     }
 
+    // Validate addresses were selected from autocomplete
+    if (!validateAddresses()) {
+      console.log('❌ SUBMIT_PARCEL_VALIDATION_FAILED - Address validation failed');
+      Alert.alert(
+        'Adresses non valides',
+        'Veuillez sélectionner vos adresses dans la liste proposée pour Départ et Arrivée.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
+    console.log('✅ SUBMIT_PARCEL_VALIDATION_OK');
+
+    // Check if phone is verified
+    if (!isPhoneVerified) {
+      console.log('⚠️ Phone not verified, showing verification modal');
+      setShowVerificationModal(true);
+      return;
+    }
+
+    // Show security reminder before final submission
+    console.log('✅ Showing security reminder');
+    setShowSecurityReminder(true);
+  };
+
+  const handleConfirmSubmit = async () => {
+    console.log('═══════════════════════════════════════════════════════');
+    console.log('📤 SUBMIT_PARCEL_SEND_REQUEST (iOS)');
+    console.log('═══════════════════════════════════════════════════════');
+    
+    setShowSecurityReminder(false);
     setIsSubmitting(true);
 
     try {
@@ -57,58 +177,97 @@ export default function ColisScreen() {
         total: calculatedPrice,
       } : undefined;
 
+      console.log('📦 Calling addParcelRequest with data:');
+      console.log('   - Sender:', senderName, senderPhone);
+      console.log('   - Recipient:', recipientName, recipientPhone);
+      console.log('   - Departure:', departureAddress, departureLocation);
+      console.log('   - Arrival:', arrivalAddress, arrivalLocation);
+      console.log('   - Pricing:', pricingData);
+
       const result = await addParcelRequest({
         senderName: senderName.trim(),
         senderPhone: senderPhone.trim(),
         recipientName: recipientName.trim(),
         recipientPhone: recipientPhone.trim(),
         departureAddress: departureAddress.trim(),
+        departureLocation: departureLocation || undefined,
         arrivalAddress: arrivalAddress.trim(),
+        arrivalLocation: arrivalLocation || undefined,
         description: description.trim(),
         deliveryOption: 'standard',
         pricing: pricingData,
       });
 
-      if (result.success) {
+      console.log('📬 addParcelRequest result:', result);
+
+      if (result.success && result.requestId) {
+        console.log('═══════════════════════════════════════════════════════');
+        console.log('✅ SUBMIT_PARCEL_SUCCESS (iOS)');
+        console.log('   - Request ID:', result.requestId);
+        console.log('═══════════════════════════════════════════════════════');
+        
+        // ALWAYS assign to nearby delivery persons
+        if (departureLocation) {
+          console.log('📍 Assigning parcel to nearby delivery persons...');
+          await assignParcelToNearbyDeliveryPersons(
+            result.requestId,
+            departureLocation,
+            departureAddress.trim()
+          );
+          console.log('✅ Parcel assigned to nearby delivery persons');
+        } else {
+          console.log('⚠️ No departure location available, skipping assignment');
+        }
+
         // Clear form
+        console.log('🧹 Clearing form...');
         setSenderName('');
         setSenderPhone('');
         setRecipientName('');
         setRecipientPhone('');
         setDepartureAddress('');
+        setDepartureLocation(null);
         setArrivalAddress('');
+        setArrivalLocation(null);
         setDescription('');
-        setManualDistance('');
         
-        // Reset calculations
+        // Reset calculations and errors
         resetCalculations();
+        setDepartureAddressError('');
+        setArrivalAddressError('');
         
         // Show success message
+        console.log('✅ Showing success message');
         setShowSuccess(true);
         
-        // Hide success message after 5 seconds
+        // Hide success message after 8 seconds
         setTimeout(() => {
           setShowSuccess(false);
-        }, 5000);
+        }, 8000);
       } else {
-        Alert.alert('Erreur', 'Une erreur est survenue lors de l\'envoi de votre demande');
+        console.log('═══════════════════════════════════════════════════════');
+        console.log('❌ SUBMIT_PARCEL_ERROR (iOS)');
+        console.log('   - Error:', result.error);
+        console.log('═══════════════════════════════════════════════════════');
+        
+        Alert.alert(
+          'Erreur', 
+          result.error || 'Une erreur est survenue lors de l\'envoi de votre demande. Veuillez réessayer.'
+        );
       }
     } catch (error) {
+      console.log('═══════════════════════════════════════════════════════');
+      console.log('❌ SUBMIT_PARCEL_EXCEPTION (iOS)');
+      console.log('   - Error:', error);
+      console.log('   - Message:', error.message);
+      console.log('   - Stack:', error.stack);
+      console.log('═══════════════════════════════════════════════════════');
+      
       console.error('Error submitting parcel request:', error);
-      Alert.alert('Erreur', 'Une erreur est survenue');
+      Alert.alert('Erreur', 'Une erreur est survenue. Veuillez réessayer.');
     } finally {
       setIsSubmitting(false);
-    }
-  };
-
-  // Handler pour le champ de distance manuel (test)
-  const handleManualDistanceChange = (text: string) => {
-    setManualDistance(text);
-    const distance = parseFloat(text);
-    if (!isNaN(distance) && distance >= 0) {
-      setDistanceKm(distance);
-    } else {
-      setDistanceKm(0);
+      console.log('🏁 SUBMIT_PARCEL_COMPLETE (iOS)');
     }
   };
 
@@ -144,20 +303,47 @@ export default function ColisScreen() {
             <Text style={[styles.title, { color: isDark ? colors.darkText : colors.text }]}>
               Envoyer un colis
             </Text>
-          </View>
-
-          {/* Success Message */}
-          {showSuccess && (
-            <View style={[styles.successCard, { backgroundColor: colors.primary + '20' }]}>
-              <Text style={[styles.successIcon]}>✅</Text>
-              <Text style={[styles.successTitle, { color: colors.primary }]}>
-                Demande enregistrée !
-              </Text>
-              <Text style={[styles.successText, { color: isDark ? colors.darkText : colors.text }]}>
-                Votre demande a été prise en compte.
-              </Text>
+            
+            {/* Verified Badge */}
+            {isPhoneVerified && (
+              <View style={styles.verifiedBadgeContainer}>
+                <VerifiedDriverBadge isVerified={true} compact={true} type="sender" />
+              </View>
+            )}
+            
+            {/* Quick Actions */}
+            <View style={styles.quickActions}>
+              <TouchableOpacity
+                style={[styles.quickActionButton, { backgroundColor: isDark ? colors.darkBackground : colors.background }]}
+                onPress={() => router.push('/colis/my-parcels')}
+              >
+                <IconSymbol
+                  ios_icon_name="list.bullet"
+                  android_material_icon_name="list"
+                  size={20}
+                  color={colors.primary}
+                />
+                <Text style={[styles.quickActionText, { color: isDark ? colors.darkText : colors.text }]}>
+                  Mes colis
+                </Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[styles.quickActionButton, { backgroundColor: isDark ? colors.darkBackground : colors.background }]}
+                onPress={() => router.push('/colis/driver-my-deliveries')}
+              >
+                <IconSymbol
+                  ios_icon_name="shippingbox.fill"
+                  android_material_icon_name="local-shipping"
+                  size={20}
+                  color={colors.accent}
+                />
+                <Text style={[styles.quickActionText, { color: isDark ? colors.darkText : colors.text }]}>
+                  Mes livraisons
+                </Text>
+              </TouchableOpacity>
             </View>
-          )}
+          </View>
 
           {/* Form */}
           <View style={[styles.formCard, { backgroundColor: isDark ? colors.darkCard : colors.card }]}>
@@ -167,7 +353,7 @@ export default function ColisScreen() {
             
             <View style={styles.inputGroup}>
               <Text style={[styles.label, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-                Nom complet
+                Nom complet *
               </Text>
               <TextInput
                 style={[
@@ -187,7 +373,7 @@ export default function ColisScreen() {
 
             <View style={styles.inputGroup}>
               <Text style={[styles.label, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-                Téléphone
+                Téléphone *
               </Text>
               <TextInput
                 style={[
@@ -214,7 +400,7 @@ export default function ColisScreen() {
 
             <View style={styles.inputGroup}>
               <Text style={[styles.label, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-                Nom complet
+                Nom complet *
               </Text>
               <TextInput
                 style={[
@@ -234,7 +420,7 @@ export default function ColisScreen() {
 
             <View style={styles.inputGroup}>
               <Text style={[styles.label, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-                Téléphone
+                Téléphone *
               </Text>
               <TextInput
                 style={[
@@ -259,108 +445,99 @@ export default function ColisScreen() {
               Détails du Colis
             </Text>
 
-            <View style={styles.inputGroup}>
-              <Text style={[styles.label, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-                Adresse de départ
-              </Text>
-              <TextInput
-                style={[
-                  styles.input,
-                  {
-                    backgroundColor: isDark ? colors.darkBackground : colors.background,
-                    color: isDark ? colors.darkText : colors.text,
-                    borderColor: isDark ? colors.darkCard : colors.border,
-                  }
-                ]}
-                placeholder="Ville, quartier, rue..."
-                placeholderTextColor={isDark ? colors.darkTextSecondary : colors.textSecondary}
-                value={departureAddress}
-                onChangeText={setDepartureAddress}
-              />
-            </View>
+            {/* Address Autocomplete Fields with Validation */}
+            <AddressAutocomplete
+              value={departureAddress}
+              onChangeText={(text) => {
+                setDepartureAddress(text);
+                setDepartureAddressError('');
+                // Reset location when user types (not selecting from autocomplete)
+                if (departureLocation) {
+                  console.log('⚠️ User is typing, resetting departure location');
+                  setDepartureLocation(null);
+                  setPickupCoordinates(null, null);
+                }
+              }}
+              onSelectAddress={(address, location, placeId) => {
+                console.log('✅ Departure address selected from autocomplete (iOS)');
+                setDepartureAddress(address);
+                setDepartureLocation(location);
+                setPickupCoordinates(location.lat, location.lng, placeId);
+                setDepartureAddressError('');
+                console.log('   - Address:', address);
+                console.log('   - Location:', location);
+                console.log('   - Place ID:', placeId);
+              }}
+              placeholder="Rechercher une adresse à Dakar..."
+              label="Adresse de départ *"
+              error={departureAddressError}
+            />
 
-            <View style={styles.inputGroup}>
-              <Text style={[styles.label, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-                Adresse d&apos;arrivée
-              </Text>
-              <TextInput
-                style={[
-                  styles.input,
-                  {
-                    backgroundColor: isDark ? colors.darkBackground : colors.background,
-                    color: isDark ? colors.darkText : colors.text,
-                    borderColor: isDark ? colors.darkCard : colors.border,
-                  }
-                ]}
-                placeholder="Ville, quartier, rue..."
-                placeholderTextColor={isDark ? colors.darkTextSecondary : colors.textSecondary}
-                value={arrivalAddress}
-                onChangeText={setArrivalAddress}
-              />
-            </View>
+            <AddressAutocomplete
+              value={arrivalAddress}
+              onChangeText={(text) => {
+                setArrivalAddress(text);
+                setArrivalAddressError('');
+                // Reset location when user types (not selecting from autocomplete)
+                if (arrivalLocation) {
+                  console.log('⚠️ User is typing, resetting arrival location');
+                  setArrivalLocation(null);
+                  setDropoffCoordinates(null, null);
+                }
+              }}
+              onSelectAddress={(address, location, placeId) => {
+                console.log('✅ Arrival address selected from autocomplete (iOS)');
+                setArrivalAddress(address);
+                setArrivalLocation(location);
+                setDropoffCoordinates(location.lat, location.lng, placeId);
+                setArrivalAddressError('');
+                console.log('   - Address:', address);
+                console.log('   - Location:', location);
+                console.log('   - Place ID:', placeId);
+              }}
+              placeholder="Rechercher une adresse à Dakar..."
+              label="Adresse d'arrivée *"
+              error={arrivalAddressError}
+            />
 
             {/* Distance et Prix estimés */}
-            <View style={[styles.estimationCard, { backgroundColor: isDark ? colors.darkBackground : colors.background }]}>
-              <View style={styles.estimationRow}>
-                <IconSymbol
-                  ios_icon_name="location.fill"
-                  android_material_icon_name="place"
-                  size={20}
-                  color={colors.primary}
-                />
-                <Text style={[styles.estimationLabel, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-                  Distance estimée :
-                </Text>
-                <Text style={[styles.estimationValue, { color: isDark ? colors.darkText : colors.text }]}>
-                  {distanceKm > 0 ? `${distanceKm.toFixed(1)} km` : '-- km'}
-                </Text>
-              </View>
+            {(departureLocation && arrivalLocation) && (
+              <View style={[styles.estimationCard, { backgroundColor: isDark ? colors.darkBackground : colors.background }]}>
+                <View style={styles.estimationRow}>
+                  <IconSymbol
+                    ios_icon_name="location.fill"
+                    android_material_icon_name="place"
+                    size={20}
+                    color={colors.primary}
+                  />
+                  <Text style={[styles.estimationLabel, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+                    Distance estimée :
+                  </Text>
+                  <Text style={[styles.estimationValue, { color: isDark ? colors.darkText : colors.text }]}>
+                    {distanceKm > 0 ? `${distanceKm.toFixed(1)} km` : '-- km'}
+                  </Text>
+                </View>
 
-              <View style={styles.estimationRow}>
-                <IconSymbol
-                  ios_icon_name="creditcard.fill"
-                  android_material_icon_name="payments"
-                  size={20}
-                  color={colors.accent}
-                />
-                <Text style={[styles.estimationLabel, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-                  Prix estimé :
-                </Text>
-                <Text style={[styles.estimationValue, { color: colors.accent, fontWeight: '700' }]}>
-                  {calculatedPrice > 0 ? `${calculatedPrice} FCFA` : '-- FCFA'}
-                </Text>
+                <View style={styles.estimationRow}>
+                  <IconSymbol
+                    ios_icon_name="creditcard.fill"
+                    android_material_icon_name="payments"
+                    size={20}
+                    color={colors.accent}
+                  />
+                  <Text style={[styles.estimationLabel, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+                    Prix estimé :
+                  </Text>
+                  <Text style={[styles.estimationValue, { color: colors.accent, fontWeight: '700' }]}>
+                    {calculatedPrice > 0 ? `${calculatedPrice} FCFA` : '-- FCFA'}
+                  </Text>
+                </View>
               </View>
-            </View>
-
-            {/* Champ de test pour la distance (temporaire) */}
-            <View style={[styles.testCard, { backgroundColor: '#FFF3CD', borderColor: '#FFC107' }]}>
-              <Text style={[styles.testTitle, { color: '#856404' }]}>
-                🧪 Test - Distance manuelle
-              </Text>
-              <Text style={[styles.testDescription, { color: '#856404' }]}>
-                En attendant Google Maps, saisissez une distance en km pour tester le calcul du prix :
-              </Text>
-              <TextInput
-                style={[
-                  styles.input,
-                  {
-                    backgroundColor: '#FFFFFF',
-                    color: '#000000',
-                    borderColor: '#FFC107',
-                    marginTop: 8,
-                  }
-                ]}
-                placeholder="Ex: 5.5"
-                placeholderTextColor="#999999"
-                value={manualDistance}
-                onChangeText={handleManualDistanceChange}
-                keyboardType="decimal-pad"
-              />
-            </View>
+            )}
 
             <View style={styles.inputGroup}>
               <Text style={[styles.label, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-                Description du colis
+                Description du colis *
               </Text>
               <TextInput
                 style={[
@@ -382,21 +559,85 @@ export default function ColisScreen() {
               />
             </View>
 
+            {/* Success Message - Positioned just above the button */}
+            {showSuccess && (
+              <View style={[styles.successCard, { backgroundColor: colors.primary + '20' }]}>
+                <Text style={[styles.successIcon]}>✅</Text>
+                <Text style={[styles.successTitle, { color: colors.primary }]}>
+                  Demande envoyée en toute sécurité !
+                </Text>
+                <Text style={[styles.successText, { color: isDark ? colors.darkText : colors.text }]}>
+                  Votre demande a été envoyée en toute sécurité. Vous pouvez la suivre dans &quot;Mes colis&quot; ou contacter l&apos;équipe Yombal Yoon à tout moment.
+                </Text>
+                
+                {/* Quick link to My Parcels */}
+                <TouchableOpacity
+                  style={[styles.viewParcelsButton, { backgroundColor: colors.primary }]}
+                  onPress={() => router.push('/colis/my-parcels')}
+                >
+                  <IconSymbol
+                    ios_icon_name="list.bullet"
+                    android_material_icon_name="list"
+                    size={18}
+                    color="#FFFFFF"
+                  />
+                  <Text style={styles.viewParcelsButtonText}>
+                    Voir mes colis
+                  </Text>
+                </TouchableOpacity>
+                
+                {/* Contact Buttons in Success Banner */}
+                <View style={styles.successContactButtons}>
+                  <ContactButtons phoneNumber={YOMBAL_YOON_PHONE} compact={false} />
+                </View>
+              </View>
+            )}
+
             <TouchableOpacity
               style={[
                 styles.submitButton,
                 { backgroundColor: canSubmit ? colors.accent : colors.border }
               ]}
-              onPress={handleSubmit}
+              onPress={handleSubmitClick}
               disabled={!canSubmit}
             >
               <Text style={styles.submitButtonText}>
                 {isSubmitting ? 'ENVOI EN COURS...' : 'ENVOYER MON COLIS'}
               </Text>
             </TouchableOpacity>
+
+            {/* Helper text below button */}
+            {!canSubmit && (
+              <View style={styles.helperTextContainer}>
+                <Text style={[styles.helperText, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+                  {!departureLocation || !arrivalLocation
+                    ? '⚠️ Veuillez sélectionner vos adresses dans la liste proposée'
+                    : '⚠️ Veuillez remplir tous les champs obligatoires'}
+                </Text>
+              </View>
+            )}
           </View>
         </View>
       </ScrollView>
+
+      {/* Phone Verification Modal */}
+      <PhoneVerificationModal
+        visible={showVerificationModal}
+        onClose={() => setShowVerificationModal(false)}
+        onSuccess={() => {
+          setShowVerificationModal(false);
+          // After verification, show security reminder
+          setShowSecurityReminder(true);
+        }}
+      />
+
+      {/* Security Reminder Modal */}
+      <SecurityReminderModal
+        visible={showSecurityReminder}
+        onConfirm={handleConfirmSubmit}
+        onCancel={() => setShowSecurityReminder(false)}
+        type="parcel"
+      />
     </View>
   );
 }
@@ -460,6 +701,29 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     textAlign: 'center',
   },
+  verifiedBadgeContainer: {
+    marginBottom: 12,
+  },
+  quickActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    justifyContent: 'center',
+  },
+  quickActionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  quickActionText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
   successCard: {
     borderRadius: 16,
     padding: 24,
@@ -482,6 +746,25 @@ const styles = StyleSheet.create({
     fontSize: 16,
     textAlign: 'center',
     lineHeight: 24,
+    marginBottom: 16,
+  },
+  viewParcelsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 12,
+    marginBottom: 12,
+  },
+  viewParcelsButtonText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  successContactButtons: {
+    width: '100%',
+    marginTop: 8,
   },
   formCard: {
     borderRadius: 16,
@@ -538,21 +821,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
   },
-  testCard: {
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    borderWidth: 2,
-  },
-  testTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    marginBottom: 4,
-  },
-  testDescription: {
-    fontSize: 13,
-    lineHeight: 18,
-  },
   submitButton: {
     borderRadius: 12,
     padding: 16,
@@ -565,5 +833,14 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '700',
+  },
+  helperTextContainer: {
+    marginTop: 12,
+    paddingHorizontal: 4,
+  },
+  helperText: {
+    fontSize: 13,
+    textAlign: 'center',
+    fontStyle: 'italic',
   },
 });
