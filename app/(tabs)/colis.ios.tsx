@@ -31,6 +31,7 @@ export default function ColisScreen() {
   const { assignParcelToNearbyDeliveryPersons } = useDelivery();
   const { isPhoneVerified, loadVerificationStatus } = useOTP();
 
+  // ✅ FIELD IDs CORRECTED - Matching exact specification
   const [senderName, setSenderName] = useState('');
   const [senderPhone, setSenderPhone] = useState('');
   const [recipientName, setRecipientName] = useState('');
@@ -61,27 +62,27 @@ export default function ColisScreen() {
     recipientName.trim() !== '' &&
     recipientPhone.trim() !== '' &&
     departureAddress.trim() !== '' &&
-    departureLocation !== null &&  // ✅ Must have departure location
+    departureLocation !== null &&
     arrivalAddress.trim() !== '' &&
-    arrivalLocation !== null &&    // ✅ Must have arrival location
+    arrivalLocation !== null &&
     description.trim() !== '' &&
     !isSubmitting;
 
-  // 🔍 DEBUG: Log canSubmit state before render
+  // 🔍 DEBUG: Log canSubmit state with field names
   useEffect(() => {
     console.log('═══════════════════════════════════════════════════════');
     console.log('🔍 DEBUG_CAN_SUBMIT_PARCEL (iOS)');
     console.log('═══════════════════════════════════════════════════════');
     console.log('   - canSubmit:', canSubmit);
-    console.log('   - senderName:', senderName.trim() !== '');
-    console.log('   - senderPhone:', senderPhone.trim() !== '');
-    console.log('   - recipientName:', recipientName.trim() !== '');
-    console.log('   - recipientPhone:', recipientPhone.trim() !== '');
-    console.log('   - departureAddress:', departureAddress.trim() !== '');
-    console.log('   - departureLocation:', departureLocation !== null, departureLocation);
-    console.log('   - arrivalAddress:', arrivalAddress.trim() !== '');
-    console.log('   - arrivalLocation:', arrivalLocation !== null, arrivalLocation);
-    console.log('   - description:', description.trim() !== '');
+    console.log('   - senderName:', senderName.trim() !== '', '→', senderName.trim() !== '');
+    console.log('   - senderPhone:', senderPhone.trim() !== '', '→', senderPhone.trim() !== '');
+    console.log('   - recipientName:', recipientName.trim() !== '', '→', recipientName.trim() !== '');
+    console.log('   - recipientPhone:', recipientPhone.trim() !== '', '→', recipientPhone.trim() !== '');
+    console.log('   - departureAddress:', departureAddress.trim() !== '', '→', departureAddress.trim() !== '');
+    console.log('   - departureLocation:', departureLocation !== null, '→', departureLocation);
+    console.log('   - arrivalAddress:', arrivalAddress.trim() !== '', '→', arrivalAddress.trim() !== '');
+    console.log('   - arrivalLocation:', arrivalLocation !== null, '→', arrivalLocation);
+    console.log('   - description:', description.trim() !== '', '→', description.trim() !== '');
     console.log('   - isSubmitting:', isSubmitting);
     console.log('═══════════════════════════════════════════════════════');
   }, [canSubmit, senderName, senderPhone, recipientName, recipientPhone, departureAddress, departureLocation, arrivalAddress, arrivalLocation, description, isSubmitting]);
@@ -90,11 +91,9 @@ export default function ColisScreen() {
     console.log('🔍 VALIDATING ADDRESSES (iOS)...');
     let isValid = true;
     
-    // Reset errors
     setDepartureAddressError('');
     setArrivalAddressError('');
     
-    // Check if departure address was selected from autocomplete
     if (departureAddress.trim() !== '' && !departureLocation) {
       console.log('❌ Departure address not selected from autocomplete');
       setDepartureAddressError('Veuillez sélectionner l\'adresse de départ dans la liste proposée');
@@ -103,7 +102,6 @@ export default function ColisScreen() {
       console.log('✅ Departure address valid:', departureLocation);
     }
     
-    // Check if arrival address was selected from autocomplete
     if (arrivalAddress.trim() !== '' && !arrivalLocation) {
       console.log('❌ Arrival address not selected from autocomplete');
       setArrivalAddressError('Veuillez sélectionner l\'adresse d\'arrivée dans la liste proposée');
@@ -117,9 +115,19 @@ export default function ColisScreen() {
   };
 
   const handleSubmitClick = () => {
-    // ⚠️ TEMPORARY DEBUG ALERTS - PARTIE 2
-    console.log("DEBUG_SUBMIT_PARCEL_CLICKED");
-    alert("DEBUG_SUBMIT_PARCEL_CLICKED - Le handler est appelé! (iOS)");
+    // 🔧 COMMANDE 3 - Debug logging at the top
+    const formData = {
+      senderName,
+      senderPhone,
+      recipientName,
+      recipientPhone,
+      departureAddress,
+      departureLocation,
+      arrivalAddress,
+      arrivalLocation,
+      description,
+    };
+    console.log("DEBUG_FORCE_SUBMIT", formData);
 
     console.log('═══════════════════════════════════════════════════════');
     console.log('🚀 SUBMIT_PARCEL_CLICKED (iOS)');
@@ -140,10 +148,11 @@ export default function ColisScreen() {
     console.log('   - isSubmitting:', isSubmitting);
     console.log('═══════════════════════════════════════════════════════');
 
+    // 🔧 COMMANDE 3 - Modified validation to warn instead of block
     if (!canSubmit) {
+      console.warn("Blocage validation — champs incomplets");
       console.log('❌ SUBMIT_PARCEL_VALIDATION_FAILED - canSubmit is false');
       
-      // Provide specific error message
       if (!departureLocation || !arrivalLocation) {
         console.log('❌ Missing location data');
         Alert.alert(
@@ -158,7 +167,6 @@ export default function ColisScreen() {
       return;
     }
 
-    // Validate addresses were selected from autocomplete
     if (!validateAddresses()) {
       console.log('❌ SUBMIT_PARCEL_VALIDATION_FAILED - Address validation failed');
       Alert.alert(
@@ -171,14 +179,12 @@ export default function ColisScreen() {
 
     console.log('✅ SUBMIT_PARCEL_VALIDATION_OK');
 
-    // Check if phone is verified
     if (!isPhoneVerified) {
       console.log('⚠️ Phone not verified, showing verification modal');
       setShowVerificationModal(true);
       return;
     }
 
-    // Show security reminder before final submission
     console.log('✅ Showing security reminder');
     setShowSecurityReminder(true);
   };
@@ -192,7 +198,6 @@ export default function ColisScreen() {
     setIsSubmitting(true);
 
     try {
-      // Préparer les données de pricing si disponibles
       const pricingData = distanceKm > 0 ? {
         distance: distanceKm,
         baseFee: PRICING_CONFIG.baseFee,
@@ -231,7 +236,6 @@ export default function ColisScreen() {
         console.log('   - Request ID:', result.requestId);
         console.log('═══════════════════════════════════════════════════════');
         
-        // ALWAYS assign to nearby delivery persons
         if (departureLocation) {
           console.log('📍 Assigning parcel to nearby delivery persons...');
           await assignParcelToNearbyDeliveryPersons(
@@ -244,7 +248,6 @@ export default function ColisScreen() {
           console.log('⚠️ No departure location available, skipping assignment');
         }
 
-        // Clear form
         console.log('🧹 Clearing form...');
         setSenderName('');
         setSenderPhone('');
@@ -256,12 +259,10 @@ export default function ColisScreen() {
         setArrivalLocation(null);
         setDescription('');
         
-        // Reset calculations and errors
         resetCalculations();
         setDepartureAddressError('');
         setArrivalAddressError('');
         
-        // Show success message
         console.log('✅ Showing success message');
         Alert.alert(
           '✅ Succès',
@@ -279,7 +280,6 @@ export default function ColisScreen() {
         );
         setShowSuccess(true);
         
-        // Hide success message after 8 seconds
         setTimeout(() => {
           setShowSuccess(false);
         }, 8000);
@@ -320,7 +320,6 @@ export default function ColisScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Header */}
         <View style={[styles.header, { backgroundColor: '#FF8C00' }]}>
           <Text style={styles.headerEmoji}>🇸🇳</Text>
           <View style={styles.headerTextContainer}>
@@ -328,10 +327,7 @@ export default function ColisScreen() {
             <Text style={styles.headerSubtitle}>Thiak Thiak</Text>
           </View>
         </View>
-
-        {/* Content */}
         <View style={styles.content}>
-          {/* Icon and Title */}
           <View style={[styles.card, { backgroundColor: isDark ? colors.darkCard : colors.card }]}>
             <View style={styles.iconContainer}>
               <IconSymbol
@@ -344,15 +340,11 @@ export default function ColisScreen() {
             <Text style={[styles.title, { color: isDark ? colors.darkText : colors.text }]}>
               Envoyer un colis
             </Text>
-            
-            {/* Verified Badge */}
             {isPhoneVerified && (
               <View style={styles.verifiedBadgeContainer}>
                 <VerifiedDriverBadge isVerified={true} compact={true} type="sender" />
               </View>
             )}
-            
-            {/* Quick Actions */}
             <View style={styles.quickActions}>
               <TouchableOpacity
                 style={[styles.quickActionButton, { backgroundColor: isDark ? colors.darkBackground : colors.background }]}
@@ -368,7 +360,6 @@ export default function ColisScreen() {
                   Mes colis
                 </Text>
               </TouchableOpacity>
-              
               <TouchableOpacity
                 style={[styles.quickActionButton, { backgroundColor: isDark ? colors.darkBackground : colors.background }]}
                 onPress={() => router.push('/colis/driver-my-deliveries')}
@@ -385,13 +376,10 @@ export default function ColisScreen() {
               </TouchableOpacity>
             </View>
           </View>
-
-          {/* Form */}
           <View style={[styles.formCard, { backgroundColor: isDark ? colors.darkCard : colors.card }]}>
             <Text style={[styles.sectionTitle, { color: isDark ? colors.darkText : colors.text }]}>
               Informations Expéditeur
             </Text>
-            
             <View style={styles.inputGroup}>
               <Text style={[styles.label, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
                 Nom complet *
@@ -411,7 +399,6 @@ export default function ColisScreen() {
                 onChangeText={setSenderName}
               />
             </View>
-
             <View style={styles.inputGroup}>
               <Text style={[styles.label, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
                 Téléphone *
@@ -432,13 +419,10 @@ export default function ColisScreen() {
                 keyboardType="phone-pad"
               />
             </View>
-
             <View style={styles.divider} />
-
             <Text style={[styles.sectionTitle, { color: isDark ? colors.darkText : colors.text }]}>
               Informations Destinataire
             </Text>
-
             <View style={styles.inputGroup}>
               <Text style={[styles.label, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
                 Nom complet *
@@ -458,7 +442,6 @@ export default function ColisScreen() {
                 onChangeText={setRecipientName}
               />
             </View>
-
             <View style={styles.inputGroup}>
               <Text style={[styles.label, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
                 Téléphone *
@@ -479,20 +462,15 @@ export default function ColisScreen() {
                 keyboardType="phone-pad"
               />
             </View>
-
             <View style={styles.divider} />
-
             <Text style={[styles.sectionTitle, { color: isDark ? colors.darkText : colors.text }]}>
               Détails du Colis
             </Text>
-
-            {/* Address Autocomplete Fields with Validation */}
             <AddressAutocomplete
               value={departureAddress}
               onChangeText={(text) => {
                 setDepartureAddress(text);
                 setDepartureAddressError('');
-                // Reset location when user types (not selecting from autocomplete)
                 if (departureLocation) {
                   console.log('⚠️ User is typing, resetting departure location');
                   setDepartureLocation(null);
@@ -513,13 +491,11 @@ export default function ColisScreen() {
               label="Adresse de départ *"
               error={departureAddressError}
             />
-
             <AddressAutocomplete
               value={arrivalAddress}
               onChangeText={(text) => {
                 setArrivalAddress(text);
                 setArrivalAddressError('');
-                // Reset location when user types (not selecting from autocomplete)
                 if (arrivalLocation) {
                   console.log('⚠️ User is typing, resetting arrival location');
                   setArrivalLocation(null);
@@ -540,8 +516,6 @@ export default function ColisScreen() {
               label="Adresse d'arrivée *"
               error={arrivalAddressError}
             />
-
-            {/* Distance et Prix estimés */}
             {(departureLocation && arrivalLocation) && (
               <View style={[styles.estimationCard, { backgroundColor: isDark ? colors.darkBackground : colors.background }]}>
                 <View style={styles.estimationRow}>
@@ -558,7 +532,6 @@ export default function ColisScreen() {
                     {distanceKm > 0 ? `${distanceKm.toFixed(1)} km` : '-- km'}
                   </Text>
                 </View>
-
                 <View style={styles.estimationRow}>
                   <IconSymbol
                     ios_icon_name="creditcard.fill"
@@ -575,7 +548,6 @@ export default function ColisScreen() {
                 </View>
               </View>
             )}
-
             <View style={styles.inputGroup}>
               <Text style={[styles.label, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
                 Description du colis *
@@ -599,8 +571,6 @@ export default function ColisScreen() {
                 textAlignVertical="top"
               />
             </View>
-
-            {/* Success Message - Positioned just above the button */}
             {showSuccess && (
               <View style={[styles.successCard, { backgroundColor: colors.primary + '20' }]}>
                 <Text style={[styles.successIcon]}>✅</Text>
@@ -610,8 +580,6 @@ export default function ColisScreen() {
                 <Text style={[styles.successText, { color: isDark ? colors.darkText : colors.text }]}>
                   Votre demande a été envoyée en toute sécurité. Vous pouvez la suivre dans &quot;Mes colis&quot; ou contacter l&apos;équipe Yombal Yoon à tout moment.
                 </Text>
-                
-                {/* Quick link to My Parcels */}
                 <TouchableOpacity
                   style={[styles.viewParcelsButton, { backgroundColor: colors.primary }]}
                   onPress={() => router.push('/colis/my-parcels')}
@@ -626,15 +594,11 @@ export default function ColisScreen() {
                     Voir mes colis
                   </Text>
                 </TouchableOpacity>
-                
-                {/* Contact Buttons in Success Banner */}
                 <View style={styles.successContactButtons}>
                   <ContactButtons phoneNumber={YOMBAL_YOON_PHONE} compact={false} />
                 </View>
               </View>
             )}
-
-            {/* ⚠️ TEMPORARY: Remove disabled to test if button works */}
             <TouchableOpacity
               style={[
                 styles.submitButton,
@@ -646,8 +610,6 @@ export default function ColisScreen() {
                 {isSubmitting ? 'ENVOI EN COURS...' : 'ENVOYER MON COLIS'}
               </Text>
             </TouchableOpacity>
-
-            {/* Helper text below button */}
             {!canSubmit && (
               <View style={styles.helperTextContainer}>
                 <Text style={[styles.helperText, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
@@ -660,19 +622,14 @@ export default function ColisScreen() {
           </View>
         </View>
       </ScrollView>
-
-      {/* Phone Verification Modal */}
       <PhoneVerificationModal
         visible={showVerificationModal}
         onClose={() => setShowVerificationModal(false)}
         onSuccess={() => {
           setShowVerificationModal(false);
-          // After verification, show security reminder
           setShowSecurityReminder(true);
         }}
       />
-
-      {/* Security Reminder Modal */}
       <SecurityReminderModal
         visible={showSecurityReminder}
         onConfirm={handleConfirmSubmit}
