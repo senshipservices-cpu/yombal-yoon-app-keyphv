@@ -234,8 +234,18 @@ export default function ColisScreen() {
         pricing: pricingData,
       });
 
-      console.log('DEBUG_SUBMIT_PARCEL_RESPONSE', result);
-      console.log('📬 addParcelRequest result:', result);
+      // 🔍 PARTIE 1 - ACTION 1: Enhanced response logging
+      console.log('═══════════════════════════════════════════════════════');
+      console.log('📬 DEBUG_SUBMIT_PARCEL_RESPONSE');
+      console.log('═══════════════════════════════════════════════════════');
+      console.log(JSON.stringify(result, null, 2));
+      console.log('═══════════════════════════════════════════════════════');
+      console.log('🔍 Response Analysis:');
+      console.log('   - success:', result.success);
+      console.log('   - requestId:', result.requestId);
+      console.log('   - error:', result.error);
+      console.log('   - error type:', typeof result.error);
+      console.log('═══════════════════════════════════════════════════════');
 
       if (result.success && result.requestId) {
         console.log('═══════════════════════════════════════════════════════');
@@ -294,6 +304,7 @@ export default function ColisScreen() {
         console.log('═══════════════════════════════════════════════════════');
         console.log('❌ SUBMIT_PARCEL_ERROR');
         console.log('   - Error:', result.error);
+        console.log('   - Full result:', JSON.stringify(result, null, 2));
         console.log('═══════════════════════════════════════════════════════');
         console.log('DEBUG_SUBMIT_PARCEL_ERROR', result.error);
         
@@ -308,6 +319,8 @@ export default function ColisScreen() {
       console.log('   - Error:', error);
       console.log('   - Message:', error?.message);
       console.log('   - Stack:', error?.stack);
+      console.log('   - Error Type:', error?.constructor?.name);
+      console.log('   - Full Error Object:', JSON.stringify(error, null, 2));
       console.log('═══════════════════════════════════════════════════════');
       console.log('DEBUG_SUBMIT_PARCEL_ERROR', error);
       
