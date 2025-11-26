@@ -121,20 +121,6 @@ export default function ColisScreen() {
   };
 
   const handleSubmitClick = () => {
-    // 🔧 COMMANDE 3 - Debug logging at the top
-    const formData = {
-      senderName,
-      senderPhone,
-      recipientName,
-      recipientPhone,
-      departureAddress,
-      departureLocation,
-      arrivalAddress,
-      arrivalLocation,
-      description,
-    };
-    console.log("DEBUG_FORCE_SUBMIT", formData);
-
     console.log('═══════════════════════════════════════════════════════');
     console.log('🚀 SUBMIT_PARCEL_CLICKED');
     console.log('═══════════════════════════════════════════════════════');
@@ -155,9 +141,7 @@ export default function ColisScreen() {
     console.log('   - isSubmitting:', isSubmitting);
     console.log('═══════════════════════════════════════════════════════');
 
-    // 🔧 COMMANDE 3 - Modified validation to warn instead of block
     if (!canSubmit) {
-      console.warn("Blocage validation — champs incomplets");
       console.log('❌ SUBMIT_PARCEL_VALIDATION_FAILED - canSubmit is false');
       
       if (!departureLocation || !arrivalLocation) {
@@ -219,7 +203,6 @@ export default function ColisScreen() {
       console.log('   - Arrival:', arrivalAddress, arrivalLocation);
       console.log('   - Pricing:', pricingData);
 
-      console.log('DEBUG_SUBMIT_PARCEL_BEFORE_CALL');
       const result = await addParcelRequest({
         senderName: senderName.trim(),
         senderPhone: senderPhone.trim(),
@@ -234,7 +217,7 @@ export default function ColisScreen() {
         pricing: pricingData,
       });
 
-      // 🔍 PARTIE 1 - ACTION 1: Enhanced response logging
+      // 🔍 PARTIE 2 - ACTION 4: Enhanced response logging
       console.log('═══════════════════════════════════════════════════════');
       console.log('📬 DEBUG_SUBMIT_PARCEL_RESPONSE');
       console.log('═══════════════════════════════════════════════════════');
@@ -244,7 +227,6 @@ export default function ColisScreen() {
       console.log('   - success:', result.success);
       console.log('   - requestId:', result.requestId);
       console.log('   - error:', result.error);
-      console.log('   - error type:', typeof result.error);
       console.log('═══════════════════════════════════════════════════════');
 
       if (result.success && result.requestId) {
@@ -280,10 +262,11 @@ export default function ColisScreen() {
         setDepartureAddressError('');
         setArrivalAddressError('');
         
+        // 🔍 PARTIE 2 - ACTION 5: Show success message as specified
         console.log('✅ Showing success message');
         Alert.alert(
           '✅ Succès',
-          'Votre demande de colis a été enregistrée. Vous pouvez la retrouver dans "Mes colis".',
+          'Votre demande a été enregistrée. Vous pouvez la retrouver dans "Mes colis".',
           [
             {
               text: 'Voir mes colis',
@@ -301,13 +284,15 @@ export default function ColisScreen() {
           setShowSuccess(false);
         }, 8000);
       } else {
+        // 🔍 PARTIE 2 - ACTION 4: Log backend error and show user-friendly message
         console.log('═══════════════════════════════════════════════════════');
         console.log('❌ SUBMIT_PARCEL_ERROR');
-        console.log('   - Error:', result.error);
+        console.log('═══════════════════════════════════════════════════════');
+        console.log('📋 SUBMIT_PARCEL_BACKEND_ERROR:', result.error);
         console.log('   - Full result:', JSON.stringify(result, null, 2));
         console.log('═══════════════════════════════════════════════════════');
-        console.log('DEBUG_SUBMIT_PARCEL_ERROR', result.error);
         
+        // Show generic user message but log detailed error
         Alert.alert(
           '❌ Erreur', 
           result.error || 'Impossible d\'enregistrer votre colis. Veuillez réessayer.'
@@ -316,13 +301,12 @@ export default function ColisScreen() {
     } catch (error: any) {
       console.log('═══════════════════════════════════════════════════════');
       console.log('❌ SUBMIT_PARCEL_EXCEPTION');
+      console.log('═══════════════════════════════════════════════════════');
+      console.log('📋 SUBMIT_PARCEL_BACKEND_ERROR:', error);
       console.log('   - Error:', error);
       console.log('   - Message:', error?.message);
       console.log('   - Stack:', error?.stack);
-      console.log('   - Error Type:', error?.constructor?.name);
-      console.log('   - Full Error Object:', JSON.stringify(error, null, 2));
       console.log('═══════════════════════════════════════════════════════');
-      console.log('DEBUG_SUBMIT_PARCEL_ERROR', error);
       
       console.error('Error submitting parcel request:', error);
       Alert.alert('❌ Erreur', 'Une erreur est survenue. Veuillez réessayer.');
@@ -680,10 +664,10 @@ export default function ColisScreen() {
               <View style={[styles.successCard, { backgroundColor: colors.primary + '20' }]}>
                 <Text style={[styles.successIcon]}>✅</Text>
                 <Text style={[styles.successTitle, { color: colors.primary }]}>
-                  Demande envoyée en toute sécurité !
+                  Votre demande a été enregistrée !
                 </Text>
                 <Text style={[styles.successText, { color: isDark ? colors.darkText : colors.text }]}>
-                  Votre demande a été envoyée en toute sécurité. Vous pouvez la suivre dans &quot;Mes colis&quot; ou contacter l&apos;équipe Yombal Yoon à tout moment.
+                  Vous pouvez la retrouver dans &quot;Mes colis&quot;.
                 </Text>
                 <TouchableOpacity
                   style={[styles.viewParcelsButton, { backgroundColor: colors.primary }]}
@@ -710,6 +694,7 @@ export default function ColisScreen() {
                 { backgroundColor: canSubmit ? colors.accent : colors.border }
               ]}
               onPress={handleSubmitClick}
+              disabled={!canSubmit || isSubmitting}
             >
               <Text style={styles.submitButtonText}>
                 {isSubmitting ? 'ENVOI EN COURS...' : 'ENVOYER MON COLIS'}

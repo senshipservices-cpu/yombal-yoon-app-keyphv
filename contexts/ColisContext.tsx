@@ -482,11 +482,11 @@ export function ColisProvider({ children }: { children: ReactNode }) {
         
         return result;
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('═══════════════════════════════════════════════════════');
       console.error('❌ EXCEPTION IN addParcelRequest');
       console.error('   Error:', error);
-      console.error('   Stack:', error.stack);
+      console.error('   Stack:', error?.stack);
       console.error('═══════════════════════════════════════════════════════');
       return { 
         success: false, 
@@ -499,7 +499,7 @@ export function ColisProvider({ children }: { children: ReactNode }) {
     requestData: Omit<ParcelRequest, 'id' | 'status' | 'createdAt'>
   ): Promise<{ success: boolean; requestId?: string; error?: string }> => {
     try {
-      // 🔍 PARTIE 1 - ACTION 1: Prepare payload
+      // 🔍 PARTIE 2 - ACTION 4: Prepare payload with proper error handling
       const parcelRow = {
         sender_name: requestData.senderName,
         sender_phone: requestData.senderPhone,
@@ -524,44 +524,6 @@ export function ColisProvider({ children }: { children: ReactNode }) {
       console.log('📋 Payload to be sent to Supabase:');
       console.log(JSON.stringify(parcelRow, null, 2));
       console.log('═══════════════════════════════════════════════════════');
-      console.log('🔍 Field-by-field validation:');
-      console.log('   - sender_name:', typeof parcelRow.sender_name, '→', parcelRow.sender_name);
-      console.log('   - sender_phone:', typeof parcelRow.sender_phone, '→', parcelRow.sender_phone);
-      console.log('   - sender_id:', typeof parcelRow.sender_id, '→', parcelRow.sender_id);
-      console.log('   - recipient_name:', typeof parcelRow.recipient_name, '→', parcelRow.recipient_name);
-      console.log('   - recipient_phone:', typeof parcelRow.recipient_phone, '→', parcelRow.recipient_phone);
-      console.log('   - pickup_address:', typeof parcelRow.pickup_address, '→', parcelRow.pickup_address);
-      console.log('   - dropoff_address:', typeof parcelRow.dropoff_address, '→', parcelRow.dropoff_address);
-      console.log('   - description:', typeof parcelRow.description, '→', parcelRow.description);
-      console.log('   - status:', typeof parcelRow.status, '→', parcelRow.status);
-      console.log('   - pickup_lat:', typeof parcelRow.pickup_lat, '→', parcelRow.pickup_lat);
-      console.log('   - pickup_lng:', typeof parcelRow.pickup_lng, '→', parcelRow.pickup_lng);
-      console.log('   - dropoff_lat:', typeof parcelRow.dropoff_lat, '→', parcelRow.dropoff_lat);
-      console.log('   - dropoff_lng:', typeof parcelRow.dropoff_lng, '→', parcelRow.dropoff_lng);
-      console.log('   - distance_km:', typeof parcelRow.distance_km, '→', parcelRow.distance_km);
-      console.log('   - price_fcfa:', typeof parcelRow.price_fcfa, '→', parcelRow.price_fcfa);
-      console.log('═══════════════════════════════════════════════════════');
-
-      // 🔍 PARTIE 1 - ACTION 2: Verify table structure expectations
-      console.log('📊 Expected table structure (parcels):');
-      console.log('   Required columns (NOT NULL):');
-      console.log('   - sender_name: text');
-      console.log('   - sender_phone: text');
-      console.log('   - recipient_name: text');
-      console.log('   - recipient_phone: text');
-      console.log('   - pickup_address: text');
-      console.log('   - dropoff_address: text');
-      console.log('   Optional columns (nullable):');
-      console.log('   - sender_id: text');
-      console.log('   - description: text');
-      console.log('   - status: text (default: pending)');
-      console.log('   - pickup_lat: double precision');
-      console.log('   - pickup_lng: double precision');
-      console.log('   - dropoff_lat: double precision');
-      console.log('   - dropoff_lng: double precision');
-      console.log('   - distance_km: double precision');
-      console.log('   - price_fcfa: integer');
-      console.log('═══════════════════════════════════════════════════════');
 
       console.log('🚀 Calling Supabase insert...');
       const { data, error } = await supabase
@@ -570,9 +532,9 @@ export function ColisProvider({ children }: { children: ReactNode }) {
         .select()
         .single();
 
-      // 🔍 PARTIE 1 - ACTION 1: Log complete result
+      // 🔍 PARTIE 2 - ACTION 4: Enhanced error logging
       console.log('═══════════════════════════════════════════════════════');
-      console.log('📬 ADD_PARCEL_REQUEST_RESULT');
+      console.log('📬 DEBUG_SUBMIT_PARCEL_RESPONSE');
       console.log('═══════════════════════════════════════════════════════');
       console.log('📊 Supabase Response:');
       console.log('   - data:', data ? JSON.stringify(data, null, 2) : 'null');
@@ -580,8 +542,9 @@ export function ColisProvider({ children }: { children: ReactNode }) {
       console.log('═══════════════════════════════════════════════════════');
 
       if (error) {
+        // 🔍 PARTIE 2 - ACTION 4: Log backend error details
         console.error('═══════════════════════════════════════════════════════');
-        console.error('❌ SUPABASE INSERT ERROR - DETAILED ANALYSIS');
+        console.error('❌ SUBMIT_PARCEL_BACKEND_ERROR');
         console.error('═══════════════════════════════════════════════════════');
         console.error('📋 Error Details:');
         console.error('   - Code:', error.code);
@@ -590,58 +553,36 @@ export function ColisProvider({ children }: { children: ReactNode }) {
         console.error('   - Hint:', error.hint);
         console.error('   - Full Error Object:', JSON.stringify(error, null, 2));
         console.error('═══════════════════════════════════════════════════════');
-        console.error('🔍 Error Analysis:');
         
         // Provide more specific error messages based on error code
-        let userMessage = 'Impossible d\'enregistrer le colis. Vérifiez votre connexion internet et réessayez.';
+        let userMessage = 'Impossible d\'enregistrer votre colis. Veuillez réessayer.';
         
         if (error.code === '23502') {
           // NOT NULL violation
           console.error('⚠️ ERROR TYPE: NOT NULL VIOLATION');
-          console.error('   A required field is missing or null');
-          console.error('   Check which field is mentioned in error.details or error.message');
           userMessage = 'Certaines informations obligatoires sont manquantes. Veuillez vérifier tous les champs.';
         } else if (error.code === '23503') {
           // Foreign key violation
           console.error('⚠️ ERROR TYPE: FOREIGN KEY VIOLATION');
-          console.error('   A referenced record does not exist');
           userMessage = 'Erreur de référence dans la base de données. Veuillez contacter le support.';
         } else if (error.code === '23505') {
           // Unique violation
           console.error('⚠️ ERROR TYPE: UNIQUE VIOLATION');
-          console.error('   A unique constraint is violated');
           userMessage = 'Ce colis existe déjà dans le système.';
         } else if (error.code === '42501') {
-          // Insufficient privilege
+          // Insufficient privilege (RLS)
           console.error('⚠️ ERROR TYPE: PERMISSION DENIED (RLS)');
           console.error('   Row Level Security policy is blocking the insert');
-          console.error('   Check RLS policies on the parcels table');
           userMessage = 'Vous n\'avez pas les permissions nécessaires pour créer un colis.';
         } else if (error.code === '42703') {
           // Undefined column
           console.error('⚠️ ERROR TYPE: UNDEFINED COLUMN');
-          console.error('   A column name in the payload does not exist in the table');
-          console.error('   Check for typos in column names');
           userMessage = 'Erreur de configuration de la base de données. Veuillez contacter le support.';
         } else if (error.code === '22P02') {
           // Invalid text representation
           console.error('⚠️ ERROR TYPE: INVALID DATA TYPE');
-          console.error('   A value has the wrong data type');
-          console.error('   Check that numbers are numbers, strings are strings, etc.');
           userMessage = 'Format de données invalide. Veuillez vérifier vos informations.';
-        } else {
-          console.error('⚠️ ERROR TYPE: UNKNOWN ERROR CODE:', error.code);
-          console.error('   This is an unexpected error');
         }
-        
-        console.error('═══════════════════════════════════════════════════════');
-        console.error('🔧 DIAGNOSTIC RECOMMENDATIONS:');
-        console.error('   1. Check the error.message for specific field names');
-        console.error('   2. Verify all NOT NULL columns are provided');
-        console.error('   3. Check data types match the table schema');
-        console.error('   4. Verify RLS policies allow insert for anonymous users');
-        console.error('   5. Check for typos in column names');
-        console.error('═══════════════════════════════════════════════════════');
         
         return { 
           success: false, 
@@ -667,19 +608,19 @@ export function ColisProvider({ children }: { children: ReactNode }) {
 
       console.error('❌ SUPABASE INSERT: No data returned (unexpected)');
       return { success: false, error: 'Erreur inconnue' };
-    } catch (error) {
+    } catch (error: any) {
       console.error('═══════════════════════════════════════════════════════');
       console.error('❌ EXCEPTION IN insertToSupabase');
       console.error('═══════════════════════════════════════════════════════');
       console.error('   Error:', error);
-      console.error('   Message:', error.message);
-      console.error('   Stack:', error.stack);
-      console.error('   Error Type:', error.constructor.name);
+      console.error('   Message:', error?.message);
+      console.error('   Stack:', error?.stack);
+      console.error('   Error Type:', error?.constructor?.name);
       console.error('   Full Error Object:', JSON.stringify(error, null, 2));
       console.error('═══════════════════════════════════════════════════════');
       return { 
         success: false, 
-        error: 'Impossible d\'enregistrer le colis. Vérifiez votre connexion internet et réessayez.' 
+        error: 'Impossible d\'enregistrer votre colis. Vérifiez votre connexion internet et réessayez.' 
       };
     }
   };
