@@ -623,7 +623,7 @@ export default function ColisScreen() {
             )}
             <View style={{ paddingHorizontal: 16, paddingVertical: 24 }}>
               <TouchableOpacity
-                onPress={submitParcel}
+                onPress={handleSubmitClick}
                 disabled={isSubmitting}
                 style={{
                   backgroundColor: isSubmitting ? "#999" : "#E30613",
