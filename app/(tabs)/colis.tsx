@@ -621,27 +621,24 @@ export default function ColisScreen() {
                 </View>
               </View>
             )}
-            <TouchableOpacity
-              style={[
-                styles.submitButton,
-                { backgroundColor: canSubmit ? colors.accent : colors.border }
-              ]}
-              onPress={handleSubmitClick}
-              disabled={!canSubmit || isSubmitting}
-            >
-              <Text style={styles.submitButtonText}>
-                {isSubmitting ? 'ENVOI EN COURS...' : 'ENVOYER MON COLIS (TEST)'}
-              </Text>
-            </TouchableOpacity>
-            {!canSubmit && (
-              <View style={styles.helperTextContainer}>
-                <Text style={[styles.helperText, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-                  {!departureLocation || !arrivalLocation
-                    ? '⚠️ Veuillez sélectionner vos adresses dans la liste proposée'
-                    : '⚠️ Veuillez remplir tous les champs obligatoires'}
+            <View style={{ paddingHorizontal: 16, paddingVertical: 24 }}>
+              <TouchableOpacity
+                onPress={() => {
+                  console.log("DEBUG_RAW_BUTTON_PRESS");
+                  alert("TEST : le bouton ENVOYER MON COLIS (TEST) répond bien au clic.");
+                }}
+                style={{
+                  backgroundColor: "#E30613",
+                  borderRadius: 8,
+                  paddingVertical: 14,
+                  alignItems: "center",
+                }}
+              >
+                <Text style={{ color: "#FFFFFF", fontWeight: "bold", fontSize: 16 }}>
+                  ENVOYER MON COLIS (TEST)
                 </Text>
-              </View>
-            )}
+              </TouchableOpacity>
+            </View>
           </View>
           {demoMode && demoParcels.length > 0 && (
             <View style={[styles.demoSection, { backgroundColor: isDark ? colors.darkCard : colors.card }]}>
