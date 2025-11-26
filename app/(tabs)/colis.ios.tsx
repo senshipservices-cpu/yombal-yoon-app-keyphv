@@ -66,25 +66,6 @@ export default function ColisScreen() {
     description.trim() !== '' &&
     !isSubmitting;
 
-  // 🔍 DEBUG: Log canSubmit state with field names
-  useEffect(() => {
-    console.log('═══════════════════════════════════════════════════════');
-    console.log('🔍 DEBUG_CAN_SUBMIT_PARCEL (iOS)');
-    console.log('═══════════════════════════════════════════════════════');
-    console.log('   - canSubmit:', canSubmit);
-    console.log('   - senderName:', senderName.trim() !== '', '→', senderName.trim() !== '');
-    console.log('   - senderPhone:', senderPhone.trim() !== '', '→', senderPhone.trim() !== '');
-    console.log('   - recipientName:', recipientName.trim() !== '', '→', recipientName.trim() !== '');
-    console.log('   - recipientPhone:', recipientPhone.trim() !== '', '→', recipientPhone.trim() !== '');
-    console.log('   - departureAddress:', departureAddress.trim() !== '', '→', departureAddress.trim() !== '');
-    console.log('   - departureLocation:', departureLocation !== null, '→', departureLocation);
-    console.log('   - arrivalAddress:', arrivalAddress.trim() !== '', '→', arrivalAddress.trim() !== '');
-    console.log('   - arrivalLocation:', arrivalLocation !== null, '→', arrivalLocation);
-    console.log('   - description:', description.trim() !== '', '→', description.trim() !== '');
-    console.log('   - isSubmitting:', isSubmitting);
-    console.log('═══════════════════════════════════════════════════════');
-  }, [canSubmit, senderName, senderPhone, recipientName, recipientPhone, departureAddress, departureLocation, arrivalAddress, arrivalLocation, description, isSubmitting]);
-
   const validateAddresses = (): boolean => {
     console.log('🔍 VALIDATING ADDRESSES (iOS)...');
     let isValid = true;
@@ -112,41 +93,118 @@ export default function ColisScreen() {
     return isValid;
   };
 
-  const handleSubmitClick = async () => {
-    const formData = {
-      senderName,
-      senderPhone,
-      recipientName,
-      recipientPhone,
-      departureAddress,
-      departureLocation,
-      arrivalAddress,
-      arrivalLocation,
-      description,
-    };
-    console.log("DEBUG_FORCE_SUBMIT", formData);
+  const submitParcel = async () => {
+    console.log("DEBUG_SUBMIT_PARCEL_CLICKED");
+    
+    try {
+      setIsSubmitting(true);
+      
+      const pricingData = distanceKm > 0 ? {
+        distance: distanceKm,
+        baseFee: PRICING_CONFIG.baseFee,
+        kmFee: calculatedPrice - PRICING_CONFIG.baseFee,
+        total: calculatedPrice,
+      } : undefined;
 
-    console.log('═══════════════════════════════════════════════════════');
+      const payload = {
+        senderName: senderName.trim(),
+        senderPhone: senderPhone.trim(),
+        recipientName: recipientName.trim(),
+        recipientPhone: recipientPhone.trim(),
+        departureAddress: departureAddress.trim(),
+        departureLocation: departureLocation || undefined,
+        arrivalAddress: arrivalAddress.trim(),
+        arrivalLocation: arrivalLocation || undefined,
+        description: description.trim(),
+        deliveryOption: 'standard',
+        pricing: pricingData,
+      };
+
+      console.log("DEBUG_SUBMIT_PARCEL_BEFORE_CALL", payload);
+
+      const result = await addParcelRequest(payload);
+      
+      console.log("DEBUG_SUBMIT_PARCEL_RESPONSE", result);
+
+      if (result.error) {
+        console.log("SUBMIT_PARCEL_BACKEND_ERROR", result.error);
+        Alert.alert(
+          "Erreur",
+          "Impossible d'enregistrer votre colis. Veuillez réessayer."
+        );
+        return;
+      }
+
+      // Succès
+      if (result.success && result.requestId) {
+        console.log('✅ SUBMIT_PARCEL_SUCCESS - Request ID:', result.requestId);
+        
+        if (departureLocation) {
+          console.log('📍 Assigning parcel to nearby delivery persons...');
+          await assignParcelToNearbyDeliveryPersons(
+            result.requestId,
+            departureLocation,
+            departureAddress.trim()
+          );
+          console.log('✅ Parcel assigned to nearby delivery persons');
+        }
+
+        console.log('🧹 Clearing form...');
+        setSenderName('');
+        setSenderPhone('');
+        setRecipientName('');
+        setRecipientPhone('');
+        setDepartureAddress('');
+        setDepartureLocation(null);
+        setArrivalAddress('');
+        setArrivalLocation(null);
+        setDescription('');
+        
+        resetCalculations();
+        setDepartureAddressError('');
+        setArrivalAddressError('');
+        
+        Alert.alert(
+          "Succès",
+          "Votre demande de colis a été enregistrée. Vous pouvez la retrouver dans 'Mes colis'.",
+          [
+            {
+              text: 'Voir mes colis',
+              onPress: () => router.push('/colis/my-parcels')
+            },
+            {
+              text: 'OK',
+              style: 'cancel'
+            }
+          ]
+        );
+        
+        setShowSuccess(true);
+        setTimeout(() => {
+          setShowSuccess(false);
+        }, 8000);
+      } else {
+        console.log("SUBMIT_PARCEL_BACKEND_ERROR", result.error || "Unknown error");
+        Alert.alert(
+          "Erreur",
+          "Impossible d'enregistrer votre colis. Veuillez réessayer."
+        );
+      }
+    } catch (e: any) {
+      console.log("SUBMIT_PARCEL_EXCEPTION", e);
+      Alert.alert(
+        "Erreur",
+        "Une erreur inattendue est survenue. Veuillez réessayer."
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleSubmitClick = async () => {
     console.log('🚀 SUBMIT_PARCEL_CLICKED (iOS)');
-    console.log('═══════════════════════════════════════════════════════');
-    console.log('📋 Form State:');
-    console.log('   - Sender Name:', senderName);
-    console.log('   - Sender Phone:', senderPhone);
-    console.log('   - Recipient Name:', recipientName);
-    console.log('   - Recipient Phone:', recipientPhone);
-    console.log('   - Departure Address:', departureAddress);
-    console.log('   - Departure Location:', departureLocation);
-    console.log('   - Arrival Address:', arrivalAddress);
-    console.log('   - Arrival Location:', arrivalLocation);
-    console.log('   - Description:', description);
-    console.log('   - Distance:', distanceKm, 'km');
-    console.log('   - Price:', calculatedPrice, 'FCFA');
-    console.log('   - canSubmit:', canSubmit);
-    console.log('   - isSubmitting:', isSubmitting);
-    console.log('═══════════════════════════════════════════════════════');
 
     if (!canSubmit) {
-      console.warn("Blocage validation — champs incomplets");
       console.log('❌ SUBMIT_PARCEL_VALIDATION_FAILED - canSubmit is false');
       
       if (!departureLocation || !arrivalLocation) {
@@ -181,126 +239,8 @@ export default function ColisScreen() {
       return;
     }
 
-    // ✅ DIRECT SUBMISSION - No more security reminder modal
-    console.log('═══════════════════════════════════════════════════════');
-    console.log('📤 SUBMIT_PARCEL_SEND_REQUEST (iOS)');
-    console.log('═══════════════════════════════════════════════════════');
-    
-    setIsSubmitting(true);
-
-    try {
-      const pricingData = distanceKm > 0 ? {
-        distance: distanceKm,
-        baseFee: PRICING_CONFIG.baseFee,
-        kmFee: calculatedPrice - PRICING_CONFIG.baseFee,
-        total: calculatedPrice,
-      } : undefined;
-
-      console.log('📦 Calling addParcelRequest with data:');
-      console.log('   - Sender:', senderName, senderPhone);
-      console.log('   - Recipient:', recipientName, recipientPhone);
-      console.log('   - Departure:', departureAddress, departureLocation);
-      console.log('   - Arrival:', arrivalAddress, arrivalLocation);
-      console.log('   - Pricing:', pricingData);
-
-      console.log('DEBUG_SUBMIT_PARCEL_BEFORE_CALL');
-      const result = await addParcelRequest({
-        senderName: senderName.trim(),
-        senderPhone: senderPhone.trim(),
-        recipientName: recipientName.trim(),
-        recipientPhone: recipientPhone.trim(),
-        departureAddress: departureAddress.trim(),
-        departureLocation: departureLocation || undefined,
-        arrivalAddress: arrivalAddress.trim(),
-        arrivalLocation: arrivalLocation || undefined,
-        description: description.trim(),
-        deliveryOption: 'standard',
-        pricing: pricingData,
-      });
-
-      console.log('DEBUG_SUBMIT_PARCEL_RESPONSE', result);
-      console.log('📬 addParcelRequest result:', result);
-
-      if (result.success && result.requestId) {
-        console.log('═══════════════════════════════════════════════════════');
-        console.log('✅ SUBMIT_PARCEL_SUCCESS (iOS)');
-        console.log('   - Request ID:', result.requestId);
-        console.log('═══════════════════════════════════════════════════════');
-        
-        if (departureLocation) {
-          console.log('📍 Assigning parcel to nearby delivery persons...');
-          await assignParcelToNearbyDeliveryPersons(
-            result.requestId,
-            departureLocation,
-            departureAddress.trim()
-          );
-          console.log('✅ Parcel assigned to nearby delivery persons');
-        } else {
-          console.log('⚠️ No departure location available, skipping assignment');
-        }
-
-        console.log('🧹 Clearing form...');
-        setSenderName('');
-        setSenderPhone('');
-        setRecipientName('');
-        setRecipientPhone('');
-        setDepartureAddress('');
-        setDepartureLocation(null);
-        setArrivalAddress('');
-        setArrivalLocation(null);
-        setDescription('');
-        
-        resetCalculations();
-        setDepartureAddressError('');
-        setArrivalAddressError('');
-        
-        console.log('✅ Showing success message');
-        Alert.alert(
-          '✅ Succès',
-          'Votre demande de colis a été enregistrée. Vous pouvez la retrouver dans "Mes colis".',
-          [
-            {
-              text: 'Voir mes colis',
-              onPress: () => router.push('/colis/my-parcels')
-            },
-            {
-              text: 'OK',
-              style: 'cancel'
-            }
-          ]
-        );
-        setShowSuccess(true);
-        
-        setTimeout(() => {
-          setShowSuccess(false);
-        }, 8000);
-      } else {
-        console.log('═══════════════════════════════════════════════════════');
-        console.log('❌ SUBMIT_PARCEL_ERROR (iOS)');
-        console.log('   - Error:', result.error);
-        console.log('═══════════════════════════════════════════════════════');
-        console.log('DEBUG_SUBMIT_PARCEL_ERROR', result.error);
-        
-        Alert.alert(
-          '❌ Erreur', 
-          result.error || 'Impossible d\'enregistrer votre colis. Veuillez réessayer.'
-        );
-      }
-    } catch (error: any) {
-      console.log('═══════════════════════════════════════════════════════');
-      console.log('❌ SUBMIT_PARCEL_EXCEPTION (iOS)');
-      console.log('   - Error:', error);
-      console.log('   - Message:', error?.message);
-      console.log('   - Stack:', error?.stack);
-      console.log('═══════════════════════════════════════════════════════');
-      console.log('DEBUG_SUBMIT_PARCEL_ERROR', error);
-      
-      console.error('Error submitting parcel request:', error);
-      Alert.alert('❌ Erreur', 'Une erreur est survenue. Veuillez réessayer.');
-    } finally {
-      setIsSubmitting(false);
-      console.log('🏁 SUBMIT_PARCEL_COMPLETE (iOS)');
-    }
+    // ✅ DIRECT SUBMISSION - Call submitParcel
+    await submitParcel();
   };
 
   return (
@@ -596,9 +536,10 @@ export default function ColisScreen() {
                 { backgroundColor: canSubmit ? colors.accent : colors.border }
               ]}
               onPress={handleSubmitClick}
+              disabled={!canSubmit || isSubmitting}
             >
               <Text style={styles.submitButtonText}>
-                {isSubmitting ? 'ENVOI EN COURS...' : 'ENVOYER MON COLIS'}
+                {isSubmitting ? 'ENVOI EN COURS...' : 'ENVOYER MON COLIS (TEST)'}
               </Text>
             </TouchableOpacity>
             {!canSubmit && (
