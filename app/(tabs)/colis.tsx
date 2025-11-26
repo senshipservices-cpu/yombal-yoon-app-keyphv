@@ -59,194 +59,56 @@ export default function ColisScreen() {
     loadVerificationStatus();
   }, [loadVerificationStatus]);
 
-  // ✅ IMPROVED canSubmit - Now includes location validation
-  const canSubmit = 
-    senderName.trim() !== '' &&
-    senderPhone.trim() !== '' &&
-    recipientName.trim() !== '' &&
-    recipientPhone.trim() !== '' &&
-    departureAddress.trim() !== '' &&
-    departureLocation !== null &&
-    arrivalAddress.trim() !== '' &&
-    arrivalLocation !== null &&
-    description.trim() !== '' &&
-    !isSubmitting;
-
-  const validateAddresses = (): boolean => {
-    console.log('🔍 VALIDATING ADDRESSES...');
-    let isValid = true;
-    
-    setDepartureAddressError('');
-    setArrivalAddressError('');
-    
-    if (departureAddress.trim() !== '' && !departureLocation) {
-      console.log('❌ Departure address not selected from autocomplete');
-      setDepartureAddressError('Veuillez sélectionner l\'adresse de départ dans la liste proposée');
-      isValid = false;
-    } else {
-      console.log('✅ Departure address valid:', departureLocation);
-    }
-    
-    if (arrivalAddress.trim() !== '' && !arrivalLocation) {
-      console.log('❌ Arrival address not selected from autocomplete');
-      setArrivalAddressError('Veuillez sélectionner l\'adresse d\'arrivée dans la liste proposée');
-      isValid = false;
-    } else {
-      console.log('✅ Arrival address valid:', arrivalLocation);
-    }
-    
-    console.log('🔍 Validation result:', isValid);
-    return isValid;
-  };
-
   const submitParcel = async () => {
-    console.log("DEBUG_SUBMIT_PARCEL_START");
-    
     try {
       setIsSubmitting(true);
-      
-      const pricingData = distanceKm > 0 ? {
-        distance: distanceKm,
-        baseFee: PRICING_CONFIG.baseFee,
-        kmFee: calculatedPrice - PRICING_CONFIG.baseFee,
-        total: calculatedPrice,
-      } : undefined;
 
       const payload = {
-        senderName: senderName.trim(),
-        senderPhone: senderPhone.trim(),
-        recipientName: recipientName.trim(),
-        recipientPhone: recipientPhone.trim(),
-        departureAddress: departureAddress.trim(),
-        departureLocation: departureLocation || undefined,
-        arrivalAddress: arrivalAddress.trim(),
-        arrivalLocation: arrivalLocation || undefined,
-        description: description.trim(),
-        deliveryOption: 'standard',
-        pricing: pricingData,
+        senderName,
+        senderPhone,
+        recipientName,
+        recipientPhone,
+        departureAddress,
+        departureLocation,
+        arrivalAddress,
+        arrivalLocation,
+        description,
+        estimatedDistanceKm: distanceKm,
+        estimatedPrice: calculatedPrice,
       };
 
-      console.log("DEBUG_SUBMIT_PARCEL_PAYLOAD", payload);
+      console.log("DEBUG_SUBMIT_PARCEL_START", payload);
 
-      const result = await addParcelRequest(payload);
-      
-      console.log("DEBUG_SUBMIT_PARCEL_RESPONSE", result);
+      const { data, error } = await addParcelRequest(payload);
 
-      if (result.error) {
-        console.log("SUBMIT_PARCEL_BACKEND_ERROR", result.error);
-        Alert.alert(
-          "Erreur",
-          "Impossible d'enregistrer votre colis. Veuillez réessayer."
-        );
+      console.log("DEBUG_SUBMIT_PARCEL_RESPONSE", { data, error });
+
+      if (error) {
+        alert("Erreur : impossible d'enregistrer votre colis. Veuillez réessayer.");
         return;
       }
 
-      // Succès
-      if (result.success && result.requestId) {
-        console.log('✅ SUBMIT_PARCEL_SUCCESS - Request ID:', result.requestId);
-        
-        if (departureLocation) {
-          console.log('📍 Assigning parcel to nearby delivery persons...');
-          await assignParcelToNearbyDeliveryPersons(
-            result.requestId,
-            departureLocation,
-            departureAddress.trim()
-          );
-          console.log('✅ Parcel assigned to nearby delivery persons');
-        }
-
-        console.log('🧹 Clearing form...');
-        setSenderName('');
-        setSenderPhone('');
-        setRecipientName('');
-        setRecipientPhone('');
-        setDepartureAddress('');
-        setDepartureLocation(null);
-        setArrivalAddress('');
-        setArrivalLocation(null);
-        setDescription('');
-        
-        resetCalculations();
-        setDepartureAddressError('');
-        setArrivalAddressError('');
-        
-        Alert.alert(
-          "Succès",
-          "Votre demande de colis a été enregistrée. Vous pouvez la retrouver dans 'Mes colis'.",
-          [
-            {
-              text: 'Voir mes colis',
-              onPress: () => router.push('/colis/my-parcels')
-            },
-            {
-              text: 'OK',
-              style: 'cancel'
-            }
-          ]
-        );
-        
-        setShowSuccess(true);
-        setTimeout(() => {
-          setShowSuccess(false);
-        }, 8000);
-      } else {
-        console.log("SUBMIT_PARCEL_BACKEND_ERROR", result.error || "Unknown error");
-        Alert.alert(
-          "Erreur",
-          "Impossible d'enregistrer votre colis. Veuillez réessayer."
-        );
-      }
-    } catch (e: any) {
+      alert("Succès : votre colis a bien été enregistré. Vous pouvez le voir dans 'Mes colis'.");
+      
+      // Clear form
+      setSenderName('');
+      setSenderPhone('');
+      setRecipientName('');
+      setRecipientPhone('');
+      setDepartureAddress('');
+      setDepartureLocation(null);
+      setArrivalAddress('');
+      setArrivalLocation(null);
+      setDescription('');
+      resetCalculations();
+      
+      // navigation.navigate("MesColis"); // if the screen exists
+    } catch (e) {
       console.log("SUBMIT_PARCEL_EXCEPTION", e);
-      Alert.alert(
-        "Erreur",
-        "Une erreur inattendue est survenue. Veuillez réessayer."
-      );
+      alert("Erreur inattendue lors de l'envoi du colis. Veuillez réessayer.");
     } finally {
       setIsSubmitting(false);
     }
-  };
-
-  const handleSubmitClick = async () => {
-    console.log('🚀 SUBMIT_PARCEL_CLICKED - Platform:', Platform.OS);
-
-    if (!canSubmit) {
-      console.log('❌ SUBMIT_PARCEL_VALIDATION_FAILED - canSubmit is false');
-      
-      if (!departureLocation || !arrivalLocation) {
-        console.log('❌ Missing location data');
-        Alert.alert(
-          'Adresses non valides',
-          'Veuillez sélectionner vos adresses dans la liste proposée pour Départ et Arrivée.',
-          [{ text: 'OK' }]
-        );
-      } else {
-        console.log('❌ Missing required fields');
-        Alert.alert('Erreur', 'Veuillez remplir tous les champs obligatoires');
-      }
-      return;
-    }
-
-    if (!validateAddresses()) {
-      console.log('❌ SUBMIT_PARCEL_VALIDATION_FAILED - Address validation failed');
-      Alert.alert(
-        'Adresses non valides',
-        'Veuillez sélectionner vos adresses dans la liste proposée pour Départ et Arrivée.',
-        [{ text: 'OK' }]
-      );
-      return;
-    }
-
-    console.log('✅ SUBMIT_PARCEL_VALIDATION_OK');
-
-    if (!isPhoneVerified) {
-      console.log('⚠️ Phone not verified, showing verification modal');
-      setShowVerificationModal(true);
-      return;
-    }
-
-    // ✅ DIRECT SUBMISSION - Call submitParcel
-    await submitParcel();
   };
 
   const formatTimeAgo = (dateString: string) => {
@@ -623,17 +485,21 @@ export default function ColisScreen() {
             )}
             <View style={{ paddingHorizontal: 16, paddingVertical: 24 }}>
               <TouchableOpacity
-                onPress={handleSubmitClick}
-                disabled={isSubmitting}
+                onPress={async () => {
+                  console.log("DEBUG_BUTTON_CLICK");
+                  alert("DEBUG : clic détecté, tentative d'envoi du colis…");
+                  await submitParcel();
+                }}
+                activeOpacity={0.8}
                 style={{
-                  backgroundColor: isSubmitting ? "#999" : "#E30613",
+                  backgroundColor: "#E30613",
                   borderRadius: 8,
                   paddingVertical: 14,
                   alignItems: "center",
                 }}
               >
                 <Text style={{ color: "#FFFFFF", fontWeight: "bold", fontSize: 16 }}>
-                  {isSubmitting ? "Envoi en cours..." : "ENVOYER MON COLIS"}
+                  ENVOYER MON COLIS
                 </Text>
               </TouchableOpacity>
             </View>
@@ -705,7 +571,6 @@ export default function ColisScreen() {
         onClose={() => setShowVerificationModal(false)}
         onSuccess={() => {
           setShowVerificationModal(false);
-          handleSubmitClick();
         }}
       />
     </View>
