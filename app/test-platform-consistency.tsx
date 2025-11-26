@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -34,11 +34,7 @@ export default function TestPlatformConsistency() {
   const [isRunning, setIsRunning] = useState(false);
   const [currentTest, setCurrentTest] = useState('');
 
-  useEffect(() => {
-    runAllTests();
-  }, []);
-
-  const runAllTests = async () => {
+  const runAllTests = useCallback(async () => {
     setIsRunning(true);
     const results: TestCategory[] = [];
 
@@ -56,7 +52,11 @@ export default function TestPlatformConsistency() {
 
     setTestResults(results);
     setIsRunning(false);
-  };
+  }, []);
+
+  useEffect(() => {
+    runAllTests();
+  }, [runAllTests]);
 
   const testDesignSystem = async (): Promise<TestCategory> => {
     setCurrentTest('Testing Design System...');

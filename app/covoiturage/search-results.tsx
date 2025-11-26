@@ -20,7 +20,6 @@ import { useOTP } from '@/contexts/OTPContext';
 import EmptyState from '@/components/EmptyState';
 import ErrorState from '@/components/ErrorState';
 import PhoneVerificationModal from '@/components/PhoneVerificationModal';
-import SecurityReminderModal from '@/components/SecurityReminderModal';
 import VerifiedDriverBadge from '@/components/VerifiedDriverBadge';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { supabase } from '@/app/integrations/supabase/client';
@@ -66,8 +65,6 @@ export default function SearchResultsScreen() {
   const [passengerPhone, setPassengerPhone] = useState('');
   const [isBooking, setIsBooking] = useState(false);
   const [showVerificationModal, setShowVerificationModal] = useState(false);
-  const [showSecurityModal, setShowSecurityModal] = useState(false);
-  const [pendingBooking, setPendingBooking] = useState<RideResult | null>(null);
 
   const searchRides = useCallback(async () => {
     setIsLoading(true);
@@ -122,17 +119,8 @@ export default function SearchResultsScreen() {
       return;
     }
 
-    // Show security reminder
-    setPendingBooking(ride);
-    setShowSecurityModal(true);
-  };
-
-  const handleSecurityConfirm = () => {
-    setShowSecurityModal(false);
-    if (pendingBooking) {
-      setSelectedRideId(pendingBooking.id);
-      setPendingBooking(null);
-    }
+    // Directly select the ride for booking (no security modal)
+    setSelectedRideId(ride.id);
   };
 
   const handleBookRide = async (ride: RideResult) => {
@@ -289,15 +277,6 @@ export default function SearchResultsScreen() {
             'Vous pouvez maintenant réserver un trajet.',
             [{ text: 'OK' }]
           );
-        }}
-      />
-
-      <SecurityReminderModal
-        visible={showSecurityModal}
-        onConfirm={handleSecurityConfirm}
-        onCancel={() => {
-          setShowSecurityModal(false);
-          setPendingBooking(null);
         }}
       />
 
