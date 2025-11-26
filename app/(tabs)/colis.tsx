@@ -11,7 +11,6 @@ import { useProfile } from "@/contexts/ProfileContext";
 import { useOTP } from "@/contexts/OTPContext";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
 import PhoneVerificationModal from "@/components/PhoneVerificationModal";
-import SecurityReminderModal from "@/components/SecurityReminderModal";
 import VerifiedDriverBadge from "@/components/VerifiedDriverBadge";
 import ContactButtons from "@/components/ContactButtons";
 import { maskPhoneNumber } from "@/utils/phoneUtils";
@@ -50,7 +49,6 @@ export default function ColisScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [showVerificationModal, setShowVerificationModal] = useState(false);
-  const [showSecurityReminder, setShowSecurityReminder] = useState(false);
   
   // Validation errors
   const [departureAddressError, setDepartureAddressError] = useState('');
@@ -120,7 +118,7 @@ export default function ColisScreen() {
     return isValid;
   };
 
-  const handleSubmitClick = () => {
+  const handleSubmitClick = async () => {
     console.log('═══════════════════════════════════════════════════════');
     console.log('🚀 SUBMIT_PARCEL_CLICKED');
     console.log('═══════════════════════════════════════════════════════');
@@ -176,16 +174,11 @@ export default function ColisScreen() {
       return;
     }
 
-    console.log('✅ Showing security reminder');
-    setShowSecurityReminder(true);
-  };
-
-  const handleConfirmSubmit = async () => {
+    // ✅ DIRECT SUBMISSION - No more security reminder modal
     console.log('═══════════════════════════════════════════════════════');
     console.log('📤 SUBMIT_PARCEL_SEND_REQUEST');
     console.log('═══════════════════════════════════════════════════════');
     
-    setShowSecurityReminder(false);
     setIsSubmitting(true);
 
     try {
@@ -217,7 +210,6 @@ export default function ColisScreen() {
         pricing: pricingData,
       });
 
-      // 🔍 PARTIE 2 - ACTION 4: Enhanced response logging
       console.log('═══════════════════════════════════════════════════════');
       console.log('📬 DEBUG_SUBMIT_PARCEL_RESPONSE');
       console.log('═══════════════════════════════════════════════════════');
@@ -262,7 +254,6 @@ export default function ColisScreen() {
         setDepartureAddressError('');
         setArrivalAddressError('');
         
-        // 🔍 PARTIE 2 - ACTION 5: Show success message as specified
         console.log('✅ Showing success message');
         Alert.alert(
           '✅ Succès',
@@ -284,7 +275,6 @@ export default function ColisScreen() {
           setShowSuccess(false);
         }, 8000);
       } else {
-        // 🔍 PARTIE 2 - ACTION 4: Log backend error and show user-friendly message
         console.log('═══════════════════════════════════════════════════════');
         console.log('❌ SUBMIT_PARCEL_ERROR');
         console.log('═══════════════════════════════════════════════════════');
@@ -292,7 +282,6 @@ export default function ColisScreen() {
         console.log('   - Full result:', JSON.stringify(result, null, 2));
         console.log('═══════════════════════════════════════════════════════');
         
-        // Show generic user message but log detailed error
         Alert.alert(
           '❌ Erreur', 
           result.error || 'Impossible d\'enregistrer votre colis. Veuillez réessayer.'
@@ -777,14 +766,8 @@ export default function ColisScreen() {
         onClose={() => setShowVerificationModal(false)}
         onSuccess={() => {
           setShowVerificationModal(false);
-          setShowSecurityReminder(true);
+          handleSubmitClick();
         }}
-      />
-      <SecurityReminderModal
-        visible={showSecurityReminder}
-        onConfirm={handleConfirmSubmit}
-        onCancel={() => setShowSecurityReminder(false)}
-        type="parcel"
       />
     </View>
   );
