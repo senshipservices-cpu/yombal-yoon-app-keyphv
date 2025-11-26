@@ -100,7 +100,7 @@ export default function ColisScreen() {
   };
 
   const submitParcel = async () => {
-    console.log("DEBUG_SUBMIT_PARCEL_CLICKED");
+    console.log("DEBUG_SUBMIT_PARCEL_START");
     
     try {
       setIsSubmitting(true);
@@ -126,7 +126,7 @@ export default function ColisScreen() {
         pricing: pricingData,
       };
 
-      console.log("DEBUG_SUBMIT_PARCEL_BEFORE_CALL", payload);
+      console.log("DEBUG_SUBMIT_PARCEL_PAYLOAD", payload);
 
       const result = await addParcelRequest(payload);
       
@@ -623,19 +623,17 @@ export default function ColisScreen() {
             )}
             <View style={{ paddingHorizontal: 16, paddingVertical: 24 }}>
               <TouchableOpacity
-                onPress={() => {
-                  console.log("DEBUG_RAW_BUTTON_PRESS");
-                  alert("TEST : le bouton ENVOYER MON COLIS (TEST) répond bien au clic.");
-                }}
+                onPress={submitParcel}
+                disabled={isSubmitting}
                 style={{
-                  backgroundColor: "#E30613",
+                  backgroundColor: isSubmitting ? "#999" : "#E30613",
                   borderRadius: 8,
                   paddingVertical: 14,
                   alignItems: "center",
                 }}
               >
                 <Text style={{ color: "#FFFFFF", fontWeight: "bold", fontSize: 16 }}>
-                  ENVOYER MON COLIS (TEST)
+                  {isSubmitting ? "Envoi en cours..." : "ENVOYER MON COLIS"}
                 </Text>
               </TouchableOpacity>
             </View>
