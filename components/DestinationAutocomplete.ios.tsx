@@ -44,10 +44,10 @@ export default function DestinationAutocomplete({
   const [isFocused, setIsFocused] = useState(false);
 
   useEffect(() => {
-    console.log('[DestinationAutocomplete] Value changed:', value);
+    console.log('[DestinationAutocomplete iOS] Value changed:', value);
     if (value.length > 0) {
       const results = searchDestinations(value);
-      console.log('[DestinationAutocomplete] Search results:', results.length);
+      console.log('[DestinationAutocomplete iOS] Search results:', results.length);
       setSuggestions(results);
       setShowSuggestions(results.length > 0 && isFocused);
     } else {
@@ -57,7 +57,7 @@ export default function DestinationAutocomplete({
   }, [value, isFocused]);
 
   const handleSelectDestination = (destination: Destination) => {
-    console.log('[DestinationAutocomplete] Selected:', destination.name);
+    console.log('[DestinationAutocomplete iOS] Selected:', destination.name);
     onChangeText(destination.name);
     onSelectDestination(destination);
     setShowSuggestions(false);
@@ -66,7 +66,7 @@ export default function DestinationAutocomplete({
   };
 
   const handleFocus = () => {
-    console.log('[DestinationAutocomplete] Input focused');
+    console.log('[DestinationAutocomplete iOS] Input focused');
     setIsFocused(true);
     if (suggestions.length > 0) {
       setShowSuggestions(true);
@@ -74,7 +74,7 @@ export default function DestinationAutocomplete({
   };
 
   const handleBlur = () => {
-    console.log('[DestinationAutocomplete] Input blurred');
+    console.log('[DestinationAutocomplete iOS] Input blurred');
     // Delay hiding suggestions to allow tap to register
     setTimeout(() => {
       setIsFocused(false);
@@ -169,6 +169,7 @@ export default function DestinationAutocomplete({
           autoCapitalize="words"
           autoCorrect={false}
           autoComplete="off"
+          clearButtonMode="while-editing"
         />
       </View>
 
@@ -189,7 +190,7 @@ export default function DestinationAutocomplete({
         </View>
       )}
 
-      {/* Suggestions List */}
+      {/* Suggestions List - iOS Optimized */}
       {showSuggestions && suggestions.length > 0 && (
         <View
           style={[
@@ -215,7 +216,7 @@ export default function DestinationAutocomplete({
             nestedScrollEnabled={true}
             scrollEnabled={true}
             showsVerticalScrollIndicator={true}
-            removeClippedSubviews={Platform.OS === 'android'}
+            removeClippedSubviews={false}
             initialNumToRender={10}
             maxToRenderPerBatch={10}
             windowSize={5}
@@ -279,20 +280,11 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     maxHeight: 300,
     overflow: 'hidden',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.15,
-        shadowRadius: 12,
-      },
-      android: {
-        elevation: 8,
-      },
-      web: {
-        boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.15)',
-      },
-    }),
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
   },
   suggestionsHeader: {
     padding: 10,
