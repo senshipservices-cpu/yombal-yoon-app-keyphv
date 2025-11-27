@@ -111,6 +111,14 @@ export default function ColisScreen() {
     }
   };
 
+  const handleSubmitClick = async () => {
+    console.log("DEBUG_BUTTON_CLICK");
+
+    const result = await submitParcel();
+
+    console.log("DEBUG_SUBMIT_PARCEL_RESPONSE", result);
+  };
+
   const formatTimeAgo = (dateString: string) => {
     const date = new Date(dateString);
     const now = new Date();
@@ -485,11 +493,7 @@ export default function ColisScreen() {
             )}
             <View style={{ paddingHorizontal: 16, paddingVertical: 24 }}>
               <TouchableOpacity
-                onPress={async () => {
-                  console.log("DEBUG_BUTTON_CLICK");
-                  alert("DEBUG : clic détecté, tentative d'envoi du colis…");
-                  await submitParcel();
-                }}
+                onPress={handleSubmitClick}
                 activeOpacity={0.8}
                 style={{
                   backgroundColor: "#E30613",
