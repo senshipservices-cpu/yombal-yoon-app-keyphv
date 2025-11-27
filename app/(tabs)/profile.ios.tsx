@@ -23,18 +23,11 @@ export default function ProfileScreen() {
   const { profile, updateProfile, isLoading, refreshProfile } = useProfile();
   const { registerForPushNotifications } = useNotifications();
 
-  const [isSender, setIsSender] = useState(profile.roles.sender);
-  const [isDelivery, setIsDelivery] = useState(profile.roles.delivery);
   const [showPhoneVerification, setShowPhoneVerification] = useState(false);
   const [wallet, setWallet] = useState<any>(null);
   const [isLoadingWallet, setIsLoadingWallet] = useState(true);
   const [walletError, setWalletError] = useState<string | null>(null);
   const [walletRetryCount, setWalletRetryCount] = useState(0);
-
-  useEffect(() => {
-    setIsSender(profile.roles.sender);
-    setIsDelivery(profile.roles.delivery);
-  }, [profile]);
 
   /**
    * BLOC 2 - Load wallet using the new utility function with retry logic
@@ -99,38 +92,6 @@ export default function ProfileScreen() {
     console.log(`🔄 [iOS] Manual retry attempt #${walletRetryCount + 1}`);
     setWalletRetryCount(0); // Reset counter for manual retry
     await loadWallet();
-  };
-
-  const handleRoleToggle = async (role: 'sender' | 'delivery', value: boolean) => {
-    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-
-    if (role === 'sender') {
-      setIsSender(value);
-    } else {
-      setIsDelivery(value);
-    }
-
-    const updatedRoles = {
-      ...profile.roles,
-      [role]: value,
-      driver: true,
-      passenger: true,
-    };
-
-    await updateProfile({
-      roles: updatedRoles,
-    });
-
-    const activeRoles: string[] = [];
-    if (updatedRoles.driver) activeRoles.push('driver');
-    if (updatedRoles.passenger) activeRoles.push('passenger');
-    if (updatedRoles.delivery) activeRoles.push('delivery');
-    if (updatedRoles.sender) activeRoles.push('sender');
-
-    console.log('Registering push notifications with roles:', activeRoles);
-    await registerForPushNotifications(profile.phone || 'current_user', activeRoles);
-
-    console.log(`Role ${role} ${value ? 'activated' : 'deactivated'} immediately`);
   };
 
   const maskPhone = (phone: string) => {
@@ -211,7 +172,6 @@ export default function ProfileScreen() {
         contentContainerStyle={styles.contentContainer}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header and other sections remain the same as Android version */}
         {/* 1️⃣ HEADER – Informations utilisateur */}
         <View style={[styles.headerCard, { backgroundColor: isDark ? colors.darkCard : colors.card }]}>
           <View style={styles.headerContent}>
@@ -253,7 +213,7 @@ export default function ProfileScreen() {
           </Text>
 
           {/* A. Sous-bloc : Covoiturage */}
-          <View style={styles.roleCategory}>
+          <View style={[styles.roleCategory, styles.roleCategoryLast]}>
             <View style={[styles.categoryHeader, { backgroundColor: isDark ? colors.darkBackground : colors.background }]}>
               <Text style={[styles.categoryTitle, { color: isDark ? colors.darkText : colors.text }]}>
                 Covoiturage
@@ -302,65 +262,6 @@ export default function ProfileScreen() {
               </View>
             </View>
           </View>
-
-          {/* B. Sous-bloc : Envoi de colis (Thiak Thiak) */}
-          <View style={[styles.roleCategory, styles.roleCategoryLast]}>
-            <View style={[styles.categoryHeader, { backgroundColor: isDark ? colors.darkBackground : colors.background }]}>
-              <Text style={[styles.categoryTitle, { color: isDark ? colors.darkText : colors.text }]}>
-                Envoi de colis (Thiak Thiak)
-              </Text>
-            </View>
-
-            <View style={styles.roleItem}>
-              <View style={styles.roleInfo}>
-                <IconSymbol
-                  ios_icon_name="paperplane.fill"
-                  android_material_icon_name="send"
-                  size={24}
-                  color="#FF8C00"
-                />
-                <View style={styles.roleTextContainer}>
-                  <Text style={[styles.roleLabel, { color: isDark ? colors.darkText : colors.text }]}>
-                    Expéditeur
-                  </Text>
-                  <Text style={[styles.roleSubtext, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-                    Envoyer des colis
-                  </Text>
-                </View>
-              </View>
-              <Switch
-                value={isSender}
-                onValueChange={(value) => handleRoleToggle('sender', value)}
-                trackColor={{ false: colors.border, true: '#FF8C00' + '80' }}
-                thumbColor={isSender ? '#FF8C00' : colors.textSecondary}
-              />
-            </View>
-
-            <View style={[styles.roleItem, styles.roleItemLast]}>
-              <View style={styles.roleInfo}>
-                <IconSymbol
-                  ios_icon_name="shippingbox.fill"
-                  android_material_icon_name="local-shipping"
-                  size={24}
-                  color={colors.secondary}
-                />
-                <View style={styles.roleTextContainer}>
-                  <Text style={[styles.roleLabel, { color: isDark ? colors.darkText : colors.text }]}>
-                    Livreur
-                  </Text>
-                  <Text style={[styles.roleSubtext, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-                    Livrer des colis
-                  </Text>
-                </View>
-              </View>
-              <Switch
-                value={isDelivery}
-                onValueChange={(value) => handleRoleToggle('delivery', value)}
-                trackColor={{ false: colors.border, true: colors.secondary + '80' }}
-                thumbColor={isDelivery ? colors.secondary : colors.textSecondary}
-              />
-            </View>
-          </View>
         </View>
 
         {/* 3️⃣ SECTION – 📦 MES ACTIVITÉS */}
@@ -399,7 +300,7 @@ export default function ProfileScreen() {
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.activityItem}
+            style={[styles.activityItem, styles.activityItemLast]}
             activeOpacity={0.7}
             onPress={() => router.push('/covoiturage/my-reservations')}
           >
@@ -413,64 +314,6 @@ export default function ProfileScreen() {
               <View style={styles.activityTextContainer}>
                 <Text style={[styles.activityTitle, { color: isDark ? colors.darkText : colors.text }]}>
                   Mes réservations covoiturage
-                </Text>
-                <Text style={[styles.activitySubtext, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-                  Voir l&apos;historique
-                </Text>
-              </View>
-            </View>
-            <IconSymbol
-              ios_icon_name="chevron.right"
-              android_material_icon_name="chevron-right"
-              size={20}
-              color={isDark ? colors.darkTextSecondary : colors.textSecondary}
-            />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.activityItem}
-            activeOpacity={0.7}
-            onPress={() => router.push('/colis/my-parcels')}
-          >
-            <View style={styles.activityLeft}>
-              <IconSymbol
-                ios_icon_name="shippingbox.fill"
-                android_material_icon_name="inventory"
-                size={24}
-                color="#FF8C00"
-              />
-              <View style={styles.activityTextContainer}>
-                <Text style={[styles.activityTitle, { color: isDark ? colors.darkText : colors.text }]}>
-                  Mes colis envoyés
-                </Text>
-                <Text style={[styles.activitySubtext, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-                  Voir l&apos;historique
-                </Text>
-              </View>
-            </View>
-            <IconSymbol
-              ios_icon_name="chevron.right"
-              android_material_icon_name="chevron-right"
-              size={20}
-              color={isDark ? colors.darkTextSecondary : colors.textSecondary}
-            />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.activityItem, styles.activityItemLast]}
-            activeOpacity={0.7}
-            onPress={() => router.push('/colis/driver-my-deliveries')}
-          >
-            <View style={styles.activityLeft}>
-              <IconSymbol
-                ios_icon_name="truck.box.fill"
-                android_material_icon_name="local-shipping"
-                size={24}
-                color={colors.secondary}
-              />
-              <View style={styles.activityTextContainer}>
-                <Text style={[styles.activityTitle, { color: isDark ? colors.darkText : colors.text }]}>
-                  Mes colis à livrer
                 </Text>
                 <Text style={[styles.activitySubtext, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
                   Voir l&apos;historique
@@ -624,7 +467,6 @@ export default function ProfileScreen() {
           </View>
         )}
 
-        {/* Remaining sections (Security, Assistance, Settings, Footer) - same as Android */}
         {/* 4️⃣ SECTION – 🔐 SÉCURITÉ & IDENTITÉ */}
         <View style={[styles.sectionCard, { backgroundColor: isDark ? colors.darkCard : colors.card }]}>
           <Text style={[styles.sectionTitle, { color: isDark ? colors.darkText : colors.text }]}>
