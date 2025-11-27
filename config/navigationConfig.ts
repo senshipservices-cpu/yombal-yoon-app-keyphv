@@ -40,6 +40,8 @@ export interface NavigationTab {
 /**
  * Main navigation tabs for Yombal Yoon
  * DO NOT modify order or labels without updating all platforms
+ * 
+ * NOTE: 'Envoi de colis' module has been disabled
  */
 export const NAVIGATION_TABS: NavigationTab[] = [
   {
@@ -62,16 +64,17 @@ export const NAVIGATION_TABS: NavigationTab[] = [
     },
     screenTitle: 'Covoiturage',
   },
-  {
-    id: 'colis',
-    label: 'Colis',
-    route: '/(tabs)/colis',
-    icon: {
-      ios: 'shippingbox.fill',
-      android: 'local-shipping',
-    },
-    screenTitle: 'Envoi de Colis',
-  },
+  // DISABLED: Envoi de colis module
+  // {
+  //   id: 'colis',
+  //   label: 'Colis',
+  //   route: '/(tabs)/colis',
+  //   icon: {
+  //     ios: 'shippingbox.fill',
+  //     android: 'local-shipping',
+  //   },
+  //   screenTitle: 'Envoi de Colis',
+  // },
   {
     id: 'livraison',
     label: 'Livraison',

@@ -1,8 +1,9 @@
 
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from "react-native";
 import { useTheme } from "@react-navigation/native";
 import { useRouter } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { colors } from "@/styles/commonStyles";
 import { IconSymbol } from "@/components/IconSymbol";
 import { useProfile } from "@/contexts/ProfileContext";
@@ -12,7 +13,6 @@ import YombalBanner from "@/components/YombalBanner";
 const tips = [
   "Réservez vos trajets tôt le matin pour trouver plus de conducteurs.",
   "Précisez bien vos arrêts intermédiaires pour un covoiturage fluide.",
-  "Emballez correctement vos colis pour éviter les dommages.",
   "Confirmez toujours votre réservation 24h avant le départ.",
   "Partagez votre position en temps réel pour faciliter la rencontre.",
   "Vérifiez les avis des conducteurs avant de réserver.",
@@ -20,7 +20,10 @@ const tips = [
   "Arrivez 10 minutes avant l'heure de départ prévue.",
   "Communiquez avec le conducteur si vous avez des bagages volumineux.",
   "Respectez les horaires pour une expérience agréable pour tous.",
+  "Utilisez la livraison inter-régions pour vos envois à travers le Sénégal.",
 ];
+
+type UserMainRole = 'Conducteur' | 'Passager' | 'Livreur' | null;
 
 export default function HomeScreen() {
   const theme = useTheme();
@@ -29,14 +32,28 @@ export default function HomeScreen() {
   const { profile } = useProfile();
   const { unreadCount, registerForPushNotifications } = useNotifications();
   const [tipOfTheDay, setTipOfTheDay] = useState("");
+  const [userMainRole, setUserMainRole] = useState<UserMainRole>(null);
+  const hasRegisteredNotifications = useRef(false);
 
-  const registerNotifications = useCallback(() => {
-    const roles = [];
-    if (profile.roles.driver) roles.push('driver');
-    if (profile.roles.passenger) roles.push('passenger');
-    if (profile.roles.delivery) roles.push('delivery');
-    
-    registerForPushNotifications('current_user', roles);
+  const registerNotifications = useCallback(async () => {
+    // Only register once per app session
+    if (hasRegisteredNotifications.current) {
+      console.log('Notifications already registered for this session');
+      return;
+    }
+
+    try {
+      const roles = [];
+      if (profile.roles.driver) roles.push('driver');
+      if (profile.roles.passenger) roles.push('passenger');
+      if (profile.roles.delivery) roles.push('delivery');
+      
+      await registerForPushNotifications('current_user', roles);
+      hasRegisteredNotifications.current = true;
+      console.log('Push notifications registered successfully');
+    } catch (error) {
+      console.error('Failed to register push notifications:', error);
+    }
   }, [profile.roles, registerForPushNotifications]);
 
   useEffect(() => {
@@ -51,6 +68,50 @@ export default function HomeScreen() {
     console.log('Tip of the day selected:', tips[tipIndex]);
   }, []);
 
+  useEffect(() => {
+    // Load user main role
+    const loadUserMainRole = async () => {
+      try {
+        const role = await AsyncStorage.getItem('userMainRole');
+        if (role) {
+          setUserMainRole(role as UserMainRole);
+          console.log('User main role loaded:', role);
+        }
+      } catch (error) {
+        console.error('Error loading user main role:', error);
+      }
+    };
+    loadUserMainRole();
+  }, []);
+
+  const getRoleBasedWelcomeMessage = () => {
+    switch (userMainRole) {
+      case 'Conducteur':
+        return "Bienvenue ! Publiez vos trajets et trouvez des passagers.";
+      case 'Passager':
+        return "Bienvenue ! Trouvez un trajet en covoiturage en quelques clics.";
+      case 'Livreur':
+        return "Bienvenue ! Recevez des missions de livraison près de vous.";
+      default:
+        return "Voyagez ensemble, économisez ensemble";
+    }
+  };
+
+  const getHighlightedService = () => {
+    switch (userMainRole) {
+      case 'Conducteur':
+      case 'Passager':
+        return 'covoiturage';
+      case 'Livreur':
+        return 'livraison';
+      default:
+        return null;
+    }
+  };
+
+  const highlightedService = getHighlightedService();
+
+  // DISABLED: Envoi de colis service removed from services list
   const services = [
     {
       id: 'covoiturage',
@@ -59,14 +120,6 @@ export default function HomeScreen() {
       icon: { ios: 'car.fill', android: 'directions-car' },
       color: '#FF8C00',
       route: '/covoiturage',
-    },
-    {
-      id: 'colis',
-      title: 'Envoi de Colis',
-      subtitle: 'Livraison rapide',
-      icon: { ios: 'shippingbox.fill', android: 'local-shipping' },
-      color: colors.accent,
-      route: '/colis',
     },
     {
       id: 'livraison',
@@ -125,7 +178,7 @@ export default function HomeScreen() {
 
           <View style={styles.taglineContainer}>
             <Text style={[styles.tagline, { color: isDark ? colors.darkText : colors.text }]}>
-              Voyagez ensemble, économisez ensemble
+              {getRoleBasedWelcomeMessage()}
             </Text>
           </View>
 
@@ -149,37 +202,56 @@ export default function HomeScreen() {
             Nos Services
           </Text>
 
-          {services.map((service, index) => (
-            <TouchableOpacity
-              key={index}
-              style={[styles.serviceCard, { backgroundColor: isDark ? colors.darkCard : colors.card }]}
-              onPress={() => router.push(service.route as any)}
-              activeOpacity={0.7}
-            >
-              <View style={[styles.serviceIcon, { backgroundColor: service.color + '20' }]}>
+          {services.map((service) => {
+            const isHighlighted = service.id === highlightedService;
+            return (
+              <TouchableOpacity
+                key={service.id}
+                style={[
+                  styles.serviceCard,
+                  { backgroundColor: isDark ? colors.darkCard : colors.card },
+                  isHighlighted && styles.serviceCardHighlighted,
+                  isHighlighted && { borderColor: service.color, borderWidth: 2 },
+                ]}
+                onPress={() => router.push(service.route as any)}
+                activeOpacity={0.7}
+              >
+                {isHighlighted && (
+                  <View style={[styles.highlightBadge, { backgroundColor: service.color }]}>
+                    <IconSymbol
+                      ios_icon_name="star.fill"
+                      android_material_icon_name="star"
+                      size={16}
+                      color="#FFFFFF"
+                    />
+                    <Text style={styles.highlightBadgeText}>Recommandé</Text>
+                  </View>
+                )}
+                <View style={[styles.serviceIcon, { backgroundColor: service.color + '20' }]}>
+                  <IconSymbol
+                    ios_icon_name={service.icon.ios}
+                    android_material_icon_name={service.icon.android}
+                    size={32}
+                    color={service.color}
+                  />
+                </View>
+                <View style={styles.serviceInfo}>
+                  <Text style={[styles.serviceTitle, { color: isDark ? colors.darkText : colors.text }]}>
+                    {service.title}
+                  </Text>
+                  <Text style={[styles.serviceSubtitle, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+                    {service.subtitle}
+                  </Text>
+                </View>
                 <IconSymbol
-                  ios_icon_name={service.icon.ios}
-                  android_material_icon_name={service.icon.android}
-                  size={32}
-                  color={service.color}
+                  ios_icon_name="chevron.right"
+                  android_material_icon_name="chevron-right"
+                  size={24}
+                  color={colors.textSecondary}
                 />
-              </View>
-              <View style={styles.serviceInfo}>
-                <Text style={[styles.serviceTitle, { color: isDark ? colors.darkText : colors.text }]}>
-                  {service.title}
-                </Text>
-                <Text style={[styles.serviceSubtitle, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-                  {service.subtitle}
-                </Text>
-              </View>
-              <IconSymbol
-                ios_icon_name="chevron.right"
-                android_material_icon_name="chevron-right"
-                size={24}
-                color={colors.textSecondary}
-              />
-            </TouchableOpacity>
-          ))}
+              </TouchableOpacity>
+            );
+          })}
 
           <View style={[styles.infoCard, { backgroundColor: colors.primary + '10' }]}>
             <IconSymbol
@@ -209,7 +281,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 140,
+    paddingBottom: 40,
   },
   header: {
     padding: 20,
@@ -319,6 +391,29 @@ const styles = StyleSheet.create({
     boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.08)',
     elevation: 3,
     gap: 16,
+    position: 'relative',
+  },
+  serviceCardHighlighted: {
+    boxShadow: '0px 4px 16px rgba(0, 128, 0, 0.25)',
+    elevation: 6,
+  },
+  highlightBadge: {
+    position: 'absolute',
+    top: -8,
+    right: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    boxShadow: '0px 2px 6px rgba(0, 0, 0, 0.15)',
+    elevation: 4,
+  },
+  highlightBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
   serviceIcon: {
     width: 64,

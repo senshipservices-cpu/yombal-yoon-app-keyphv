@@ -24,10 +24,11 @@ export default function TabLayout() {
         <Icon sf="car.fill" />
       </NativeTabs.Trigger>
       
-      <NativeTabs.Trigger name="colis">
+      {/* DISABLED: Envoi de colis module */}
+      {/* <NativeTabs.Trigger name="colis">
         <Label>Colis</Label>
         <Icon sf="shippingbox.fill" />
-      </NativeTabs.Trigger>
+      </NativeTabs.Trigger> */}
       
       <NativeTabs.Trigger name="livraison">
         <Label>Livraison</Label>

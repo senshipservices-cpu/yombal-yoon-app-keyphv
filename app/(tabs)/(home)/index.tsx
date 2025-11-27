@@ -13,7 +13,6 @@ import YombalBanner from "@/components/YombalBanner";
 const tips = [
   "Réservez vos trajets tôt le matin pour trouver plus de conducteurs.",
   "Précisez bien vos arrêts intermédiaires pour un covoiturage fluide.",
-  "Emballez correctement vos colis pour éviter les dommages.",
   "Confirmez toujours votre réservation 24h avant le départ.",
   "Partagez votre position en temps réel pour faciliter la rencontre.",
   "Vérifiez les avis des conducteurs avant de réserver.",
@@ -21,9 +20,10 @@ const tips = [
   "Arrivez 10 minutes avant l'heure de départ prévue.",
   "Communiquez avec le conducteur si vous avez des bagages volumineux.",
   "Respectez les horaires pour une expérience agréable pour tous.",
+  "Utilisez la livraison inter-régions pour vos envois à travers le Sénégal.",
 ];
 
-type UserMainRole = 'Conducteur' | 'Passager' | 'Envoyeur de colis' | 'Livreur' | null;
+type UserMainRole = 'Conducteur' | 'Passager' | 'Livreur' | null;
 
 export default function HomeScreen() {
   const theme = useTheme();
@@ -90,8 +90,6 @@ export default function HomeScreen() {
         return "Bienvenue ! Publiez vos trajets et trouvez des passagers.";
       case 'Passager':
         return "Bienvenue ! Trouvez un trajet en covoiturage en quelques clics.";
-      case 'Envoyeur de colis':
-        return "Bienvenue ! Envoyez vos colis en toute sécurité.";
       case 'Livreur':
         return "Bienvenue ! Recevez des missions de livraison près de vous.";
       default:
@@ -104,8 +102,6 @@ export default function HomeScreen() {
       case 'Conducteur':
       case 'Passager':
         return 'covoiturage';
-      case 'Envoyeur de colis':
-        return 'colis';
       case 'Livreur':
         return 'livraison';
       default:
@@ -115,6 +111,7 @@ export default function HomeScreen() {
 
   const highlightedService = getHighlightedService();
 
+  // DISABLED: Envoi de colis service removed from services list
   const services = [
     {
       id: 'covoiturage',
@@ -123,14 +120,6 @@ export default function HomeScreen() {
       icon: { ios: 'car.fill', android: 'directions-car' },
       color: '#FF8C00',
       route: '/covoiturage',
-    },
-    {
-      id: 'colis',
-      title: 'Envoi de Colis',
-      subtitle: 'Livraison rapide',
-      icon: { ios: 'shippingbox.fill', android: 'local-shipping' },
-      color: colors.accent,
-      route: '/colis',
     },
     {
       id: 'livraison',
