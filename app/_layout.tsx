@@ -13,6 +13,7 @@ import { DeliveryProvider } from '@/contexts/DeliveryContext';
 import { NotificationProvider } from '@/contexts/NotificationContext';
 import { OTPProvider } from '@/contexts/OTPContext';
 import * as Network from 'expo-network';
+import { initializeNotificationHandlers } from '@/utils/notificationSetup';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -24,6 +25,11 @@ export default function RootLayout() {
   const [loaded] = useFonts({
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
   });
+
+  // Initialize notification handlers on app start
+  useEffect(() => {
+    initializeNotificationHandlers();
+  }, []);
 
   useEffect(() => {
     const checkNetwork = async () => {

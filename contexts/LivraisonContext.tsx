@@ -3,6 +3,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '@/app/integrations/supabase/client';
 import type { TablesInsert } from '@/app/integrations/supabase/types';
+import { triggerEvent } from '@/utils/eventSystem';
 
 export interface InterRegionalRequest {
   id: string;
@@ -228,11 +229,30 @@ export function LivraisonProvider({ children }: { children: ReactNode }) {
       
       console.log('✅ Inter-regional request added to Supabase:', newRequest);
 
-      // Send notifications to Yombal Yoon team (Email + WhatsApp)
+      // 🔔 Trigger the INTER_REGION_DELIVERY_CREATED event
+      // This will automatically send Email + WhatsApp notifications via the event system
+      triggerEvent('INTER_REGION_DELIVERY_CREATED', {
+        senderName: newRequest.senderName,
+        senderPhone: newRequest.senderPhone,
+        recipientName: newRequest.recipientName,
+        recipientPhone: newRequest.recipientPhone,
+        departureCity: newRequest.departureRegion,
+        departureRegion: newRequest.departureRegion,
+        arrivalCity: newRequest.destinationRegion,
+        destinationRegion: newRequest.destinationRegion,
+        weight: 0, // Weight not tracked in current form
+        price: newRequest.pricing.total,
+        pricingTotal: newRequest.pricing.total,
+        description: newRequest.description,
+      }).catch(error => {
+        console.error('⚠️ Error triggering event:', error);
+      });
+
+      // Also send notifications via the old method as backup
       // This runs asynchronously and doesn't block the user experience
       sendNotifications(requestData).then(notificationResult => {
         if (notificationResult.success) {
-          console.log('✅ Notifications sent successfully to Yombal Yoon team');
+          console.log('✅ Notifications sent successfully to Yombal Yoon team (backup method)');
         } else {
           console.warn('⚠️ Notifications failed but request was saved:', notificationResult.error);
         }

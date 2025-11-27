@@ -1,181 +1,268 @@
 
-# Notifications Livraison Inter-Régions - Yombal Yoon
+# 📧📱 Notifications Inter-Régions - Documentation
 
-## 🎯 Objectif
+## Vue d'ensemble
 
-Chaque fois qu'un utilisateur clique sur le bouton **COMMANDER** dans le formulaire "Livraison Inter régions", l'équipe Yombal Yoon est immédiatement notifiée via :
+Ce système implémente des notifications automatiques par **Email** et **WhatsApp** lors de la création d'une livraison inter-régions dans l'application Yombal Yoon.
 
-- **Email** : senshipservices@gmail.com
-- **WhatsApp** : +221 76 567 64 86
+## Architecture
 
-## ✅ Fonctionnalités implémentées
+### 1. Système d'événements (`utils/eventSystem.ts`)
 
-### 1. Edge Function Supabase
+Un système d'événements léger et flexible qui permet de déclencher des actions de manière découplée.
 
-Une nouvelle Edge Function `send-intercity-notifications` a été créée pour gérer l'envoi des notifications.
+**Fonctions principales :**
 
-**Fichier** : `supabase/functions/send-intercity-notifications/index.ts`
+- `onEvent(eventName, handler)` - Enregistre un gestionnaire d'événements
+- `triggerEvent(eventName, data)` - Déclenche un événement avec des données
+- `sendEmail(options)` - Envoie un email via Supabase Edge Function
+- `callWhatsApp(options)` - Envoie un message WhatsApp via Supabase Edge Function
 
-**Fonctionnalités** :
-- Envoi d'email via Resend API
-- Envoi de message WhatsApp via Twilio API
-- Formatage professionnel des messages (texte + HTML pour email)
-- Gestion des erreurs et logs détaillés
-- Support CORS pour les appels depuis l'application
+**Exemple d'utilisation :**
 
-### 2. Intégration dans LivraisonContext
+```typescript
+import { onEvent, triggerEvent, sendEmail, callWhatsApp } from '@/utils/eventSystem';
 
-Le contexte `LivraisonContext.tsx` a été mis à jour pour appeler automatiquement l'Edge Function après l'enregistrement d'une demande.
+// Enregistrer un gestionnaire
+onEvent('INTER_REGION_DELIVERY_CREATED', async (delivery) => {
+  await sendEmail({
+    to: 'woyofaldem@gmail.com',
+    subject: 'Nouvelle commande',
+    html: '<h1>Nouvelle livraison</h1>',
+  });
+});
 
-**Modifications** :
-- Nouvelle fonction `sendNotifications()` qui appelle l'Edge Function
-- Appel asynchrone des notifications (n'affecte pas l'expérience utilisateur)
-- Les notifications sont envoyées même si l'enregistrement en base réussit
-
-### 3. Contenu des notifications
-
-Les notifications incluent toutes les informations du formulaire :
-
-```
-🚚 NOUVELLE DEMANDE DE LIVRAISON INTER-RÉGIONS
-
-👤 EXPÉDITEUR:
-Nom: [Nom du client]
-Téléphone: [Téléphone]
-
-👤 DESTINATAIRE:
-Nom: [Nom destinataire]
-Téléphone: [Téléphone]
-
-📍 ITINÉRAIRE:
-Départ: Dakar Métropolitaine
-Destination: [Région / Département]
-
-📦 DESCRIPTION:
-[Description du colis ou "Non spécifiée"]
-
-💰 TARIF TOTAL: [Prix] FCFA
-
-⏰ Date: [Date et heure]
+// Déclencher l'événement
+await triggerEvent('INTER_REGION_DELIVERY_CREATED', deliveryData);
 ```
 
-## 🔧 Configuration requise
+### 2. Configuration des notifications (`utils/notificationSetup.ts`)
 
-Pour que les notifications fonctionnent, vous devez configurer les services externes :
+Ce fichier configure les gestionnaires d'événements pour les notifications Email et WhatsApp.
 
-### 1. Email (Resend)
+**Initialisation :**
 
-Ajoutez ce secret dans Supabase :
-```
-RESEND_API_KEY=re_xxxxxxxxxxxxx
-```
+```typescript
+import { initializeNotificationHandlers } from '@/utils/notificationSetup';
 
-### 2. WhatsApp (Twilio)
-
-Ajoutez ces secrets dans Supabase :
-```
-TWILIO_ACCOUNT_SID=ACxxxxxxxxxxxxx
-TWILIO_AUTH_TOKEN=xxxxxxxxxxxxx
-TWILIO_WHATSAPP_NUMBER=whatsapp:+14155238886
+// Appeler au démarrage de l'app
+initializeNotificationHandlers();
 ```
 
-**📖 Voir le fichier `NOTIFICATIONS_SETUP.md` pour les instructions détaillées de configuration.**
+**Gestionnaires configurés :**
 
-## 🚀 Flux de fonctionnement
+1. **Email** → `woyofaldem@gmail.com`
+2. **WhatsApp** → `+221765676486`
 
-1. **Utilisateur remplit le formulaire** "Livraison Inter régions"
-2. **Utilisateur clique sur "COMMANDER"**
-3. **Demande enregistrée** dans la base de données Supabase (`intercity_deliveries`)
-4. **Notifications envoyées** en arrière-plan :
-   - Email à senshipservices@gmail.com
-   - WhatsApp à +221 76 567 64 86
-5. **Confirmation affichée** à l'utilisateur
-6. **Équipe Yombal Yoon contacte** le client manuellement
+### 3. Supabase Edge Function (`supabase/functions/send-intercity-notifications`)
 
-## ⚠️ Important
+Cette fonction gère l'envoi réel des notifications via :
 
-### Pas de traitement automatique
+- **Resend API** pour les emails
+- **Twilio API** pour WhatsApp
 
-Les demandes de livraison inter-régions **ne sont PAS** traitées automatiquement par le système :
+**Variables d'environnement requises :**
 
-- ❌ Pas d'assignation automatique aux livreurs
-- ❌ Pas de tracking automatique
-- ❌ Pas de mise à jour de statut automatique
+```bash
+RESEND_API_KEY=re_xxxxx
+TWILIO_ACCOUNT_SID=ACxxxxx
+TWILIO_AUTH_TOKEN=xxxxx
+TWILIO_WHATSAPP_FROM=whatsapp:+14155238886
+```
 
-L'équipe Yombal Yoon doit :
-- ✅ Recevoir la notification
-- ✅ Contacter le client manuellement
-- ✅ Organiser la livraison en dehors de l'app
-- ✅ (Optionnel) Mettre à jour le statut manuellement dans la base de données
+**Modes d'utilisation :**
 
-### Notifications asynchrones
+1. **Mode standard** - Envoie email + WhatsApp pour une livraison inter-régions
+2. **Mode email uniquement** - `emailOnly: true`
+3. **Mode WhatsApp uniquement** - `whatsappOnly: true`
 
-Les notifications sont envoyées en arrière-plan et n'affectent pas l'expérience utilisateur :
+### 4. Intégration dans LivraisonContext
 
-- Si les notifications échouent, la demande est quand même enregistrée
-- L'utilisateur voit toujours le message de confirmation
-- Les erreurs sont loggées dans Supabase Edge Functions
+Le contexte `LivraisonContext` déclenche automatiquement l'événement `INTER_REGION_DELIVERY_CREATED` après la création réussie d'une livraison.
 
-## 📊 Monitoring
+```typescript
+// Dans addInterRegionalRequest()
+triggerEvent('INTER_REGION_DELIVERY_CREATED', {
+  senderName: newRequest.senderName,
+  senderPhone: newRequest.senderPhone,
+  departureCity: newRequest.departureRegion,
+  arrivalCity: newRequest.destinationRegion,
+  price: newRequest.pricing.total,
+  // ...
+});
+```
 
-### Vérifier les notifications envoyées
+## Format des notifications
 
-1. **Supabase Dashboard** :
-   - Edge Functions > send-intercity-notifications > Logs
-   - Recherchez les messages de succès/erreur
+### Email
 
-2. **Base de données** :
-   - Table `intercity_deliveries`
-   - Toutes les demandes sont enregistrées avec leur statut
+**Destinataire :** woyofaldem@gmail.com  
+**Sujet :** Nouvelle commande - Livraison Inter Régions
 
-3. **Email** :
-   - Vérifiez la boîte mail senshipservices@gmail.com
+**Contenu :**
 
-4. **WhatsApp** :
-   - Vérifiez le téléphone +221 76 567 64 86
+```html
+<h2>Nouvelle livraison inter régions</h2>
+<p><strong>Client :</strong> [Nom du client]</p>
+<p><strong>Téléphone :</strong> [Téléphone]</p>
+<p><strong>Départ :</strong> [Ville de départ]</p>
+<p><strong>Arrivée :</strong> [Ville d'arrivée]</p>
+<p><strong>Poids :</strong> [Poids] kg</p>
+<p><strong>Prix estimé :</strong> [Prix] FCFA</p>
+<p><strong>Date :</strong> [Date et heure]</p>
+```
 
-## 🧪 Tests
+### WhatsApp
 
-### Test en développement
+**Destinataire :** +221765676486
 
-1. Remplissez le formulaire avec des données de test
-2. Cliquez sur "COMMANDER"
-3. Vérifiez les logs dans Supabase
-4. Vérifiez la réception des notifications
+**Contenu :**
 
-### Test en production
+```
+🚚 Nouvelle commande - Livraison Inter Régions
 
-1. Assurez-vous que tous les secrets sont configurés
-2. Testez avec une vraie demande
-3. Vérifiez que l'équipe reçoit bien les notifications
-4. Vérifiez que la demande est bien enregistrée en base
+👤 Client : [Nom]
+📞 Tel : [Téléphone]
 
-## 📝 Fichiers modifiés/créés
+📍 Départ : [Ville de départ]
+📍 Arrivée : [Ville d'arrivée]
 
-### Nouveaux fichiers :
-- `supabase/functions/send-intercity-notifications/index.ts` - Edge Function pour les notifications
-- `NOTIFICATIONS_SETUP.md` - Guide de configuration détaillé
-- `INTERCITY_NOTIFICATIONS.md` - Ce fichier (documentation)
+📦 Poids : [Poids] kg
+💰 Prix estimé : [Prix] FCFA
 
-### Fichiers modifiés :
-- `contexts/LivraisonContext.tsx` - Ajout de l'appel aux notifications
+🕒 [Date et heure]
 
-### Fichiers inchangés :
-- `app/(tabs)/livraison.tsx` - Aucune modification nécessaire
-- `app/(tabs)/livraison.ios.tsx` - Aucune modification nécessaire
+Merci de traiter cette commande rapidement.
+```
 
-## 🔄 Prochaines étapes
+## Flux de données
 
-1. **Configurer les services** (voir `NOTIFICATIONS_SETUP.md`)
-2. **Tester les notifications** en développement
-3. **Vérifier la réception** des emails et WhatsApp
-4. **Passer en production** avec les vrais identifiants
-5. **Former l'équipe** sur le processus de traitement manuel
+```
+1. Utilisateur remplit le formulaire de livraison inter-régions
+   ↓
+2. Clic sur "COMMANDER"
+   ↓
+3. LivraisonContext.addInterRegionalRequest()
+   ↓
+4. Enregistrement dans Supabase (table: intercity_deliveries)
+   ↓
+5. triggerEvent('INTER_REGION_DELIVERY_CREATED', deliveryData)
+   ↓
+6. Gestionnaires d'événements exécutés en parallèle:
+   - sendEmail() → Supabase Edge Function → Resend API
+   - callWhatsApp() → Supabase Edge Function → Twilio API
+   ↓
+7. Notifications envoyées ✅
+```
 
-## 💡 Améliorations futures possibles
+## Configuration Supabase
 
-- Ajouter un dashboard admin pour voir toutes les demandes
-- Ajouter la possibilité de répondre directement depuis l'email
-- Ajouter des notifications SMS en plus de WhatsApp
-- Créer un système de suivi manuel des demandes
-- Ajouter des statistiques sur les demandes inter-régions
+### Déployer l'Edge Function
+
+```bash
+supabase functions deploy send-intercity-notifications
+```
+
+### Configurer les secrets
+
+```bash
+supabase secrets set RESEND_API_KEY=re_xxxxx
+supabase secrets set TWILIO_ACCOUNT_SID=ACxxxxx
+supabase secrets set TWILIO_AUTH_TOKEN=xxxxx
+supabase secrets set TWILIO_WHATSAPP_FROM=whatsapp:+14155238886
+```
+
+## Tests
+
+### Test manuel
+
+1. Ouvrir l'app Yombal Yoon
+2. Aller dans l'onglet "Livraison"
+3. Remplir le formulaire de livraison inter-régions
+4. Cliquer sur "COMMANDER"
+5. Vérifier :
+   - Message de succès dans l'app
+   - Email reçu sur woyofaldem@gmail.com
+   - Message WhatsApp reçu sur +221765676486
+
+### Logs de débogage
+
+Les logs suivants sont disponibles dans la console :
+
+```
+🔔 Initializing notification handlers...
+✅ Notification handlers initialized
+🔔 Event triggered: INTER_REGION_DELIVERY_CREATED
+📧 Sending email notification for inter-region delivery...
+✅ Email notification sent successfully
+📱 Sending WhatsApp notification for inter-region delivery...
+✅ WhatsApp notification sent successfully
+```
+
+## Gestion des erreurs
+
+Le système est conçu pour être résilient :
+
+- Si l'email échoue, WhatsApp est quand même envoyé
+- Si WhatsApp échoue, l'email est quand même envoyé
+- Les erreurs sont loggées mais ne bloquent pas l'utilisateur
+- La livraison est enregistrée même si les notifications échouent
+
+## Extensibilité
+
+Pour ajouter de nouveaux types de notifications :
+
+1. **Créer un nouveau gestionnaire d'événements :**
+
+```typescript
+onEvent('INTER_REGION_DELIVERY_CREATED', async (delivery) => {
+  // Votre logique de notification
+  await sendSMS(delivery);
+});
+```
+
+2. **Créer un nouvel événement :**
+
+```typescript
+// Dans votre contexte
+await triggerEvent('NEW_EVENT_TYPE', eventData);
+
+// Dans notificationSetup.ts
+onEvent('NEW_EVENT_TYPE', async (data) => {
+  // Gérer le nouvel événement
+});
+```
+
+## Compatibilité
+
+✅ **Web** - Fonctionne  
+✅ **iOS** - Fonctionne  
+✅ **Android** - Fonctionne
+
+Le système utilise Supabase Edge Functions qui sont indépendantes de la plateforme.
+
+## Sécurité
+
+- Les clés API sont stockées dans Supabase Secrets (jamais dans le code)
+- Les Edge Functions sont protégées par CORS
+- Les emails sont envoyés via Resend (service sécurisé)
+- WhatsApp utilise Twilio (service officiel)
+
+## Support
+
+Pour toute question ou problème :
+
+1. Vérifier les logs dans la console
+2. Vérifier les logs Supabase Edge Functions
+3. Vérifier que les secrets sont bien configurés
+4. Vérifier que les APIs Resend et Twilio sont actives
+
+## Changelog
+
+### Version 1.0.0 (2024)
+
+- ✅ Système d'événements implémenté
+- ✅ Notifications Email via Resend
+- ✅ Notifications WhatsApp via Twilio
+- ✅ Intégration avec LivraisonContext
+- ✅ Documentation complète

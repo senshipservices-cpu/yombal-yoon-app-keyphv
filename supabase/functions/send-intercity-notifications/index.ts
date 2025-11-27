@@ -10,7 +10,7 @@ const TWILIO_ACCOUNT_SID = Deno.env.get('TWILIO_ACCOUNT_SID');
 const TWILIO_AUTH_TOKEN = Deno.env.get('TWILIO_AUTH_TOKEN');
 const TWILIO_WHATSAPP_FROM = Deno.env.get('TWILIO_WHATSAPP_FROM') || 'whatsapp:+14155238886';
 
-const YOMBAL_EMAIL = 'senshipservices@gmail.com';
+const YOMBAL_EMAIL = 'woyofaldem@gmail.com';
 const YOMBAL_WHATSAPP = '+221765676486';
 
 const corsHeaders = {
@@ -19,15 +19,24 @@ const corsHeaders = {
 };
 
 interface NotificationRequest {
-  senderName: string;
-  senderPhone: string;
-  recipientName: string;
-  recipientPhone: string;
-  departureRegion: string;
-  destinationRegion: string;
+  senderName?: string;
+  senderPhone?: string;
+  recipientName?: string;
+  recipientPhone?: string;
+  departureRegion?: string;
+  destinationRegion?: string;
   destinationDepartment?: string;
   description?: string;
-  pricingTotal: number;
+  pricingTotal?: number;
+  weight?: number;
+  // For direct email/WhatsApp calls
+  emailOnly?: boolean;
+  emailTo?: string;
+  emailSubject?: string;
+  emailHtml?: string;
+  whatsappOnly?: boolean;
+  whatsappPhone?: string;
+  whatsappMessage?: string;
 }
 
 async function sendEmail(data: NotificationRequest): Promise<{ success: boolean; error?: string }> {
@@ -37,36 +46,42 @@ async function sendEmail(data: NotificationRequest): Promise<{ success: boolean;
   }
 
   try {
-    const emailBody = `
-      <h2>🚚 Nouvelle Demande de Livraison Inter-Régions</h2>
-      
-      <h3>📦 Détails de la Livraison</h3>
-      <ul>
-        <li><strong>Départ:</strong> ${data.departureRegion}</li>
-        <li><strong>Destination:</strong> ${data.destinationRegion}${data.destinationDepartment ? ` (${data.destinationDepartment})` : ''}</li>
-        <li><strong>Prix Total:</strong> ${data.pricingTotal.toLocaleString()} FCFA</li>
-      </ul>
-      
-      <h3>👤 Expéditeur</h3>
-      <ul>
-        <li><strong>Nom:</strong> ${data.senderName}</li>
-        <li><strong>Téléphone:</strong> ${data.senderPhone}</li>
-      </ul>
-      
-      <h3>👤 Destinataire</h3>
-      <ul>
-        <li><strong>Nom:</strong> ${data.recipientName}</li>
-        <li><strong>Téléphone:</strong> ${data.recipientPhone}</li>
-      </ul>
-      
-      ${data.description ? `
-      <h3>📝 Description</h3>
-      <p>${data.description}</p>
-      ` : ''}
-      
-      <hr>
-      <p><em>Cette demande a été créée via l'application Yombal Yoon</em></p>
-    `;
+    // Check if this is a direct email call
+    let emailBody: string;
+    let emailTo: string;
+    let emailSubject: string;
+
+    if (data.emailOnly && data.emailHtml && data.emailTo && data.emailSubject) {
+      // Direct email call
+      emailBody = data.emailHtml;
+      emailTo = data.emailTo;
+      emailSubject = data.emailSubject;
+    } else {
+      // Standard inter-region delivery notification
+      emailBody = `
+        <h2>Nouvelle livraison inter régions</h2>
+        <p><strong>Client :</strong> ${data.senderName}</p>
+        <p><strong>Téléphone :</strong> ${data.senderPhone}</p>
+        <p><strong>Départ :</strong> ${data.departureRegion}</p>
+        <p><strong>Arrivée :</strong> ${data.destinationRegion}${data.destinationDepartment ? ` (${data.destinationDepartment})` : ''}</p>
+        ${data.weight ? `<p><strong>Poids :</strong> ${data.weight} kg</p>` : ''}
+        <p><strong>Prix estimé :</strong> ${data.pricingTotal?.toLocaleString()} FCFA</p>
+        <p><strong>Date :</strong> ${new Date().toLocaleString('fr-FR', { timeZone: 'Africa/Dakar' })}</p>
+        
+        <hr>
+        
+        <h3>👤 Destinataire</h3>
+        <p><strong>Nom :</strong> ${data.recipientName}</p>
+        <p><strong>Téléphone :</strong> ${data.recipientPhone}</p>
+        
+        ${data.description ? `
+        <h3>📝 Description</h3>
+        <p>${data.description}</p>
+        ` : ''}
+      `;
+      emailTo = YOMBAL_EMAIL;
+      emailSubject = 'Nouvelle commande - Livraison Inter Régions';
+    }
 
     const response = await fetch('https://api.resend.com/emails', {
       method: 'POST',
@@ -76,8 +91,8 @@ async function sendEmail(data: NotificationRequest): Promise<{ success: boolean;
       },
       body: JSON.stringify({
         from: 'Yombal Yoon <notifications@yombalyoon.com>',
-        to: [YOMBAL_EMAIL],
-        subject: `🚚 Nouvelle Livraison: ${data.departureRegion} → ${data.destinationRegion}`,
+        to: [emailTo],
+        subject: emailSubject,
         html: emailBody,
       }),
     });
@@ -104,33 +119,40 @@ async function sendWhatsApp(data: NotificationRequest): Promise<{ success: boole
   }
 
   try {
-    const message = `
-🚚 *Nouvelle Livraison Inter-Régions*
+    // Check if this is a direct WhatsApp call
+    let message: string;
+    let whatsappTo: string;
 
-📦 *Détails:*
-• Départ: ${data.departureRegion}
-• Destination: ${data.destinationRegion}${data.destinationDepartment ? ` (${data.destinationDepartment})` : ''}
-• Prix: ${data.pricingTotal.toLocaleString()} FCFA
+    if (data.whatsappOnly && data.whatsappMessage && data.whatsappPhone) {
+      // Direct WhatsApp call
+      message = data.whatsappMessage;
+      whatsappTo = data.whatsappPhone;
+    } else {
+      // Standard inter-region delivery notification
+      message = `
+🚚 Nouvelle commande - Livraison Inter Régions
 
-👤 *Expéditeur:*
-• ${data.senderName}
-• ${data.senderPhone}
+👤 Client : ${data.senderName}
+📞 Tel : ${data.senderPhone}
 
-👤 *Destinataire:*
-• ${data.recipientName}
-• ${data.recipientPhone}
+📍 Départ : ${data.departureRegion}
+📍 Arrivée : ${data.destinationRegion}${data.destinationDepartment ? ` (${data.destinationDepartment})` : ''}
 
-${data.description ? `📝 *Description:*\n${data.description}\n\n` : ''}
----
-_Via Yombal Yoon App_
-    `.trim();
+${data.weight ? `📦 Poids : ${data.weight} kg\n` : ''}💰 Prix estimé : ${data.pricingTotal?.toLocaleString()} FCFA
+
+🕒 ${new Date().toLocaleString('fr-FR', { timeZone: 'Africa/Dakar' })}
+
+Merci de traiter cette commande rapidement.
+      `.trim();
+      whatsappTo = YOMBAL_WHATSAPP;
+    }
 
     const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Messages.json`;
     const credentials = btoa(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`);
 
     const formData = new URLSearchParams();
     formData.append('From', TWILIO_WHATSAPP_FROM);
-    formData.append('To', `whatsapp:${YOMBAL_WHATSAPP}`);
+    formData.append('To', `whatsapp:${whatsappTo}`);
     formData.append('Body', message);
 
     const response = await fetch(twilioUrl, {
@@ -167,11 +189,49 @@ serve(async (req) => {
     const data: NotificationRequest = await req.json();
 
     console.log('Processing notification request:', {
+      emailOnly: data.emailOnly,
+      whatsappOnly: data.whatsappOnly,
       sender: data.senderName,
       destination: data.destinationRegion,
     });
 
-    // Send both notifications in parallel
+    // Handle email-only requests
+    if (data.emailOnly) {
+      const emailResult = await sendEmail(data);
+      return new Response(
+        JSON.stringify({
+          success: emailResult.success,
+          email: emailResult,
+          message: emailResult.success 
+            ? 'Email envoyé avec succès' 
+            : 'Échec de l\'envoi de l\'email',
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: emailResult.success ? 200 : 500,
+        }
+      );
+    }
+
+    // Handle WhatsApp-only requests
+    if (data.whatsappOnly) {
+      const whatsappResult = await sendWhatsApp(data);
+      return new Response(
+        JSON.stringify({
+          success: whatsappResult.success,
+          whatsapp: whatsappResult,
+          message: whatsappResult.success 
+            ? 'WhatsApp envoyé avec succès' 
+            : 'Échec de l\'envoi du WhatsApp',
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: whatsappResult.success ? 200 : 500,
+        }
+      );
+    }
+
+    // Send both notifications in parallel (standard inter-region delivery)
     const [emailResult, whatsappResult] = await Promise.all([
       sendEmail(data),
       sendWhatsApp(data),
