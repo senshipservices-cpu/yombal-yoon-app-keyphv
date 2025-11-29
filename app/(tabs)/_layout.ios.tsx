@@ -31,7 +31,7 @@ export default function TabLayout() {
       </NativeTabs.Trigger> */}
       
       <NativeTabs.Trigger name="livraison">
-        <Label>Livraison</Label>
+        <Label>LIVRAISON COLIS INTER-REGION</Label>
         <Icon sf="bolt.fill" />
       </NativeTabs.Trigger>
       

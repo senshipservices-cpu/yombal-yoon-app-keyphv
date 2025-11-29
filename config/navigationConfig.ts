@@ -77,13 +77,13 @@ export const NAVIGATION_TABS: NavigationTab[] = [
   // },
   {
     id: 'livraison',
-    label: 'Livraison',
+    label: 'LIVRAISON COLIS INTER-REGION',
     route: '/(tabs)/livraison',
     icon: {
       ios: 'bolt.fill',
       android: 'flash-on',
     },
-    screenTitle: 'Livraison 14 Régions',
+    screenTitle: 'LIVRAISON COLIS INTER-REGION',
   },
   {
     id: 'profile',

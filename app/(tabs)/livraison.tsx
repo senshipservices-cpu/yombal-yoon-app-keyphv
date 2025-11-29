@@ -147,7 +147,7 @@ export default function LivraisonScreen() {
             />
           </View>
           <View style={styles.headerTextContainer}>
-            <Text style={styles.headerTitle}>Livraison Inter-Régions</Text>
+            <Text style={styles.headerTitle}>LIVRAISON COLIS INTER-REGION</Text>
             <Text style={styles.headerSubtitle}>14 Régions + 45 Départements</Text>
           </View>
         </View>
@@ -461,7 +461,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerTitle: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: '800',
     color: '#333333',
   },
