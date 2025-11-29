@@ -8,7 +8,9 @@ import {
   TouchableOpacity,
   ScrollView,
   Keyboard,
+  KeyboardAvoidingView,
   Platform,
+  Dimensions,
 } from 'react-native';
 import { useTheme } from '@react-navigation/native';
 import { colors } from '@/styles/commonStyles';
@@ -30,6 +32,8 @@ interface DestinationAutocompleteProps {
   label: string;
 }
 
+const SCREEN_HEIGHT = Dimensions.get('window').height;
+
 export default function DestinationAutocomplete({
   value,
   onChangeText,
@@ -42,8 +46,29 @@ export default function DestinationAutocomplete({
   const [suggestions, setSuggestions] = useState<Destination[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const [inputLayout, setInputLayout] = useState({ y: 0, height: 0 });
   const hideTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const inputRef = useRef<TextInput>(null);
+  const containerRef = useRef<View>(null);
+
+  // Listen to keyboard events
+  useEffect(() => {
+    const keyboardWillShow = Keyboard.addListener('keyboardWillShow', (e) => {
+      console.log('[DestinationAutocomplete iOS] Keyboard will show:', e.endCoordinates.height);
+      setKeyboardHeight(e.endCoordinates.height);
+    });
+
+    const keyboardWillHide = Keyboard.addListener('keyboardWillHide', () => {
+      console.log('[DestinationAutocomplete iOS] Keyboard will hide');
+      setKeyboardHeight(0);
+    });
+
+    return () => {
+      keyboardWillShow.remove();
+      keyboardWillHide.remove();
+    };
+  }, []);
 
   useEffect(() => {
     console.log('[DestinationAutocomplete iOS] Value changed:', value);
@@ -91,6 +116,15 @@ export default function DestinationAutocomplete({
     }
     
     setIsFocused(true);
+    
+    // Measure input position
+    if (containerRef.current) {
+      containerRef.current.measureInWindow((x, y, width, height) => {
+        console.log('[DestinationAutocomplete iOS] Input position:', { y, height });
+        setInputLayout({ y, height });
+      });
+    }
+    
     if (suggestions.length > 0) {
       setShowSuggestions(true);
     }
@@ -100,7 +134,6 @@ export default function DestinationAutocomplete({
     console.log('[DestinationAutocomplete iOS] Input blurred');
     
     // Delay hiding suggestions to allow tap to register
-    // Increased delay for iOS to ensure touch events are captured
     hideTimeoutRef.current = setTimeout(() => {
       setIsFocused(false);
       setShowSuggestions(false);
@@ -142,8 +175,25 @@ export default function DestinationAutocomplete({
     }
   };
 
+  // Calculate if suggestions should appear above or below input
+  const spaceBelow = SCREEN_HEIGHT - inputLayout.y - inputLayout.height - keyboardHeight;
+  const showAbove = spaceBelow < 200 && keyboardHeight > 0;
+  
+  // Calculate max height for suggestions list
+  const maxSuggestionsHeight = showAbove 
+    ? Math.min(inputLayout.y - 100, 250) // Space above input
+    : Math.min(spaceBelow - 20, 250); // Space below input
+
+  console.log('[DestinationAutocomplete iOS] Layout:', {
+    inputY: inputLayout.y,
+    keyboardHeight,
+    spaceBelow,
+    showAbove,
+    maxHeight: maxSuggestionsHeight,
+  });
+
   return (
-    <View style={styles.container}>
+    <View style={styles.container} ref={containerRef}>
       <Text style={[styles.label, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
         {label}
       </Text>
@@ -187,7 +237,7 @@ export default function DestinationAutocomplete({
         </Text>
       )}
 
-      {/* Suggestions List - iOS Optimized with ScrollView */}
+      {/* Suggestions List - Positioned to avoid keyboard */}
       {showSuggestions && suggestions.length > 0 && (
         <View
           style={[
@@ -195,6 +245,8 @@ export default function DestinationAutocomplete({
             {
               backgroundColor: isDark ? colors.darkBackground : colors.background,
               borderColor: isDark ? colors.darkCard : colors.border,
+              maxHeight: maxSuggestionsHeight,
+              [showAbove ? 'bottom' : 'top']: showAbove ? inputLayout.height + 8 : 56,
             },
           ]}
         >
@@ -279,16 +331,18 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
   },
   suggestionsContainer: {
-    marginTop: 8,
+    position: 'absolute',
+    left: 0,
+    right: 0,
     borderWidth: 1,
     borderRadius: 12,
-    maxHeight: 300,
     overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
     shadowRadius: 12,
     elevation: 8,
+    zIndex: 2000,
   },
   suggestionsHeader: {
     padding: 10,
