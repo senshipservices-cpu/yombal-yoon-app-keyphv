@@ -1,6 +1,14 @@
 {
   "cli": {
-    "appVersionSource": "remote"
+    "appVersionSource": "remote",
+    "appStoreConnect": {
+      // chemin vers ta clé .p8 DANS TON PROJET
+      "apiKeyPath": "keys/AuthKey_66TQ2QU29C.p8",
+      // Issuer ID copié depuis App Store Connect
+      "issuerId": "34bd9f43-15f0-47e3-a0c6-2b5087a8f1d9",
+      // Key ID de la clé API
+      "keyId": "66TQ2QU29C"
+    }
   },
   "build": {
     "development": {
