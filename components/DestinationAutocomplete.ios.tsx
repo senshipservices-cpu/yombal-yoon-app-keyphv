@@ -1,12 +1,12 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   TextInput,
   Text,
   StyleSheet,
   TouchableOpacity,
-  FlatList,
+  ScrollView,
   Keyboard,
   Platform,
 } from 'react-native';
@@ -42,6 +42,8 @@ export default function DestinationAutocomplete({
   const [suggestions, setSuggestions] = useState<Destination[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
+  const hideTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const inputRef = useRef<TextInput>(null);
 
   useEffect(() => {
     console.log('[DestinationAutocomplete iOS] Value changed:', value);
@@ -49,7 +51,9 @@ export default function DestinationAutocomplete({
       const results = searchDestinations(value);
       console.log('[DestinationAutocomplete iOS] Search results:', results.length);
       setSuggestions(results);
-      setShowSuggestions(results.length > 0 && isFocused);
+      if (isFocused && results.length > 0) {
+        setShowSuggestions(true);
+      }
     } else {
       setSuggestions([]);
       setShowSuggestions(false);
@@ -58,15 +62,34 @@ export default function DestinationAutocomplete({
 
   const handleSelectDestination = (destination: Destination) => {
     console.log('[DestinationAutocomplete iOS] Selected:', destination.name);
+    
+    // Clear any pending hide timeout
+    if (hideTimeoutRef.current) {
+      clearTimeout(hideTimeoutRef.current);
+      hideTimeoutRef.current = null;
+    }
+    
+    // Update the value and notify parent
     onChangeText(destination.name);
     onSelectDestination(destination);
+    
+    // Hide suggestions immediately
     setShowSuggestions(false);
     setSuggestions([]);
+    
+    // Dismiss keyboard
     Keyboard.dismiss();
   };
 
   const handleFocus = () => {
     console.log('[DestinationAutocomplete iOS] Input focused');
+    
+    // Clear any pending hide timeout
+    if (hideTimeoutRef.current) {
+      clearTimeout(hideTimeoutRef.current);
+      hideTimeoutRef.current = null;
+    }
+    
     setIsFocused(true);
     if (suggestions.length > 0) {
       setShowSuggestions(true);
@@ -75,12 +98,23 @@ export default function DestinationAutocomplete({
 
   const handleBlur = () => {
     console.log('[DestinationAutocomplete iOS] Input blurred');
+    
     // Delay hiding suggestions to allow tap to register
-    setTimeout(() => {
+    // Increased delay for iOS to ensure touch events are captured
+    hideTimeoutRef.current = setTimeout(() => {
       setIsFocused(false);
       setShowSuggestions(false);
-    }, 200);
+    }, 300);
   };
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (hideTimeoutRef.current) {
+        clearTimeout(hideTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const getTypeLabel = (type: string) => {
     switch (type) {
@@ -108,34 +142,6 @@ export default function DestinationAutocomplete({
     }
   };
 
-  const renderSuggestion = ({ item, index }: { item: Destination; index: number }) => (
-    <TouchableOpacity
-      key={`${item.name}-${index}`}
-      style={[
-        styles.suggestionItem,
-        { 
-          backgroundColor: isDark ? colors.darkCard : colors.card,
-          borderBottomColor: isDark ? colors.darkBorder : colors.border,
-        },
-      ]}
-      onPress={() => handleSelectDestination(item)}
-      activeOpacity={0.7}
-    >
-      <Text style={styles.typeIcon}>{getTypeIcon(item.type)}</Text>
-      <View style={styles.suggestionContent}>
-        <Text style={[styles.mainText, { color: isDark ? colors.darkText : colors.text }]}>
-          {item.name}
-        </Text>
-        <Text style={[styles.secondaryText, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-          {getTypeLabel(item.type)}{item.region ? ` - ${item.region}` : ''}
-        </Text>
-      </View>
-      <Text style={[styles.priceText, { color: colors.primary }]}>
-        {item.price.toLocaleString()} FCFA
-      </Text>
-    </TouchableOpacity>
-  );
-
   return (
     <View style={styles.container}>
       <Text style={[styles.label, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
@@ -151,6 +157,7 @@ export default function DestinationAutocomplete({
           style={styles.searchIcon}
         />
         <TextInput
+          ref={inputRef}
           style={[
             styles.input,
             {
@@ -176,7 +183,7 @@ export default function DestinationAutocomplete({
       {/* Helper text */}
       {!showSuggestions && value.length === 0 && (
         <Text style={[styles.helperText, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-          Tapez pour rechercher parmi 14 régions et 45 départements
+          Tapez pour rechercher parmi 14 régions, 45 départements et Touba
         </Text>
       )}
 
@@ -190,7 +197,7 @@ export default function DestinationAutocomplete({
         </View>
       )}
 
-      {/* Suggestions List - iOS Optimized */}
+      {/* Suggestions List - iOS Optimized with ScrollView */}
       {showSuggestions && suggestions.length > 0 && (
         <View
           style={[
@@ -206,21 +213,43 @@ export default function DestinationAutocomplete({
               {suggestions.length} résultat{suggestions.length > 1 ? 's' : ''} trouvé{suggestions.length > 1 ? 's' : ''}
             </Text>
           </View>
-          <FlatList
-            data={suggestions}
-            renderItem={renderSuggestion}
-            keyExtractor={(item, index) => `${item.name}-${item.type}-${index}`}
+          <ScrollView
             style={styles.suggestionsList}
             contentContainerStyle={styles.suggestionsListContent}
             keyboardShouldPersistTaps="always"
             nestedScrollEnabled={true}
             scrollEnabled={true}
             showsVerticalScrollIndicator={true}
-            removeClippedSubviews={false}
-            initialNumToRender={10}
-            maxToRenderPerBatch={10}
-            windowSize={5}
-          />
+            bounces={false}
+          >
+            {suggestions.map((item, index) => (
+              <TouchableOpacity
+                key={`${item.name}-${item.type}-${index}`}
+                style={[
+                  styles.suggestionItem,
+                  { 
+                    backgroundColor: isDark ? colors.darkCard : colors.card,
+                    borderBottomColor: isDark ? colors.darkBorder : colors.border,
+                  },
+                ]}
+                onPress={() => handleSelectDestination(item)}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.typeIcon}>{getTypeIcon(item.type)}</Text>
+                <View style={styles.suggestionContent}>
+                  <Text style={[styles.mainText, { color: isDark ? colors.darkText : colors.text }]}>
+                    {item.name}
+                  </Text>
+                  <Text style={[styles.secondaryText, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+                    {getTypeLabel(item.type)}{item.region ? ` - ${item.region}` : ''}
+                  </Text>
+                </View>
+                <Text style={[styles.priceText, { color: colors.primary }]}>
+                  {item.price.toLocaleString()} FCFA
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
         </View>
       )}
     </View>
@@ -305,21 +334,21 @@ const styles = StyleSheet.create({
   suggestionItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 14,
-    gap: 10,
+    padding: 16,
+    gap: 12,
     borderBottomWidth: 1,
-    minHeight: 70,
+    minHeight: 72,
   },
   typeIcon: {
-    fontSize: 24,
-    width: 32,
+    fontSize: 26,
+    width: 36,
     textAlign: 'center',
   },
   suggestionContent: {
     flex: 1,
   },
   mainText: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '600',
     marginBottom: 4,
   },
@@ -327,7 +356,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   priceText: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '700',
     marginLeft: 8,
   },
