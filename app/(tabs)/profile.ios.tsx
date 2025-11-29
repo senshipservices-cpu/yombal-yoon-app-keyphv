@@ -15,6 +15,7 @@ import { formatCurrency } from "@/utils/walletUtils";
 import { loadWalletForProfil } from "@/utils/profileWalletUtils";
 
 const SUPPORT_PHONE = "+221765676486";
+const GITHUB_URL = "https://github.com/yourusername/yombal-yoon"; // Replace with actual GitHub URL
 
 export default function ProfileScreen() {
   const theme = useTheme();
@@ -131,6 +132,21 @@ export default function ProfileScreen() {
     } catch (error) {
       console.log("Error opening WhatsApp:", error);
       Alert.alert("Erreur", "Une erreur s'est produite");
+    }
+  };
+
+  const handleOpenGitHub = async () => {
+    try {
+      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      const canOpen = await Linking.canOpenURL(GITHUB_URL);
+      if (canOpen) {
+        await Linking.openURL(GITHUB_URL);
+      } else {
+        Alert.alert("Erreur", "Impossible d'ouvrir le lien GitHub");
+      }
+    } catch (error) {
+      console.log("Error opening GitHub:", error);
+      Alert.alert("Erreur", "Une erreur s'est produite lors de l'ouverture de GitHub");
     }
   };
 
@@ -667,6 +683,30 @@ export default function ProfileScreen() {
               thumbColor={isDark ? colors.primary : colors.textSecondary}
             />
           </View>
+
+          <TouchableOpacity
+            style={styles.settingItem}
+            activeOpacity={0.7}
+            onPress={handleOpenGitHub}
+          >
+            <View style={styles.settingLeft}>
+              <IconSymbol
+                ios_icon_name="chevron.left.forwardslash.chevron.right"
+                android_material_icon_name="code"
+                size={20}
+                color={isDark ? colors.darkText : colors.text}
+              />
+              <Text style={[styles.settingItemText, { color: isDark ? colors.darkText : colors.text }]}>
+                Open in GitHub
+              </Text>
+            </View>
+            <IconSymbol
+              ios_icon_name="chevron.right"
+              android_material_icon_name="chevron-right"
+              size={20}
+              color={isDark ? colors.darkTextSecondary : colors.textSecondary}
+            />
+          </TouchableOpacity>
 
           <TouchableOpacity
             style={[styles.settingItem, styles.settingItemLast]}
