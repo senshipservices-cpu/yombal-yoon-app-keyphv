@@ -187,16 +187,6 @@ export default function DestinationAutocomplete({
         </Text>
       )}
 
-      {/* No results message */}
-      {!showSuggestions && value.length > 0 && suggestions.length === 0 && (
-        <View style={[styles.noResultsContainer, { backgroundColor: isDark ? colors.darkCard : '#FFF8E1' }]}>
-          <Text style={styles.noResultsIcon}>🔍</Text>
-          <Text style={[styles.noResultsText, { color: isDark ? colors.darkText : colors.text }]}>
-            Aucune région ou département trouvé pour &quot;{value}&quot;
-          </Text>
-        </View>
-      )}
-
       {/* Suggestions List - iOS Optimized with ScrollView */}
       {showSuggestions && suggestions.length > 0 && (
         <View
@@ -287,21 +277,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 6,
     fontStyle: 'italic',
-  },
-  noResultsContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 8,
-    padding: 12,
-    borderRadius: 8,
-    gap: 8,
-  },
-  noResultsIcon: {
-    fontSize: 20,
-  },
-  noResultsText: {
-    flex: 1,
-    fontSize: 13,
   },
   suggestionsContainer: {
     marginTop: 8,
