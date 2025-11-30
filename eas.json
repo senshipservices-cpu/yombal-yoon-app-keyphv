@@ -20,6 +20,13 @@
         "buildType": "app-bundle",
         "credentialsSource": "remote"
       }
+    },
+    "production-local": {
+      "distribution": "store",
+      "android": {
+        "buildType": "app-bundle",
+        "credentialsSource": "local"
+      }
     }
   },
   "submit": {
