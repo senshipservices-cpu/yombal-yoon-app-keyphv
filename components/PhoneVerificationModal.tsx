@@ -9,11 +9,13 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Platform,
+  Alert,
 } from 'react-native';
 import { useTheme } from '@react-navigation/native';
 import { colors } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
 import { useOTP } from '@/contexts/OTPContext';
+import { useProfile } from '@/contexts/ProfileContext';
 
 interface PhoneVerificationModalProps {
   visible: boolean;
@@ -29,12 +31,15 @@ export default function PhoneVerificationModal({
   const theme = useTheme();
   const isDark = theme.dark;
   const { sendOTP, verifyPhone } = useOTP();
+  const { profile } = useProfile();
 
   const [step, setStep] = useState<'phone' | 'otp'>('phone');
   const [phone, setPhone] = useState('');
   const [otp, setOtp] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [selectedMethod, setSelectedMethod] = useState<'whatsapp' | 'sms'>('whatsapp');
+  const [sentViaMethod, setSentViaMethod] = useState<'whatsapp' | 'sms'>('whatsapp');
 
   const handleSendOTP = async () => {
     if (!phone.trim()) {
@@ -42,16 +47,31 @@ export default function PhoneVerificationModal({
       return;
     }
 
+    // Validate phone number format (basic validation)
+    const phoneRegex = /^\+?[0-9]{10,15}$/;
+    if (!phoneRegex.test(phone.replace(/\s/g, ''))) {
+      setError('Format de numéro invalide. Utilisez le format international (+221...)');
+      return;
+    }
+
     setIsLoading(true);
     setError('');
 
-    const result = await sendOTP(phone);
+    const result = await sendOTP(phone, selectedMethod, profile.id);
 
     setIsLoading(false);
 
     if (result.success) {
       setStep('otp');
       setError('');
+      setSentViaMethod((result.method as 'whatsapp' | 'sms') || selectedMethod);
+      
+      // Show success message
+      Alert.alert(
+        'Code envoyé',
+        result.message || `Code OTP envoyé par ${result.method === 'sms' ? 'SMS' : 'WhatsApp'}`,
+        [{ text: 'OK' }]
+      );
     } else {
       setError(result.message || 'Erreur lors de l\'envoi du code');
     }
@@ -63,19 +83,41 @@ export default function PhoneVerificationModal({
       return;
     }
 
+    if (otp.length !== 6) {
+      setError('Le code OTP doit contenir 6 chiffres');
+      return;
+    }
+
     setIsLoading(true);
     setError('');
 
-    const result = await verifyPhone(phone, otp);
+    const result = await verifyPhone(phone, otp, profile.id);
 
     setIsLoading(false);
 
     if (result.success) {
-      onSuccess();
-      handleClose();
+      Alert.alert(
+        'Succès',
+        'Votre numéro a été vérifié avec succès !',
+        [
+          {
+            text: 'OK',
+            onPress: () => {
+              onSuccess();
+              handleClose();
+            },
+          },
+        ]
+      );
     } else {
       setError(result.message || 'Code incorrect');
     }
+  };
+
+  const handleResendOTP = async () => {
+    setOtp('');
+    setError('');
+    await handleSendOTP();
   };
 
   const handleClose = () => {
@@ -83,6 +125,7 @@ export default function PhoneVerificationModal({
     setPhone('');
     setOtp('');
     setError('');
+    setSelectedMethod('whatsapp');
     onClose();
   };
 
@@ -119,8 +162,8 @@ export default function PhoneVerificationModal({
 
           <Text style={[styles.description, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
             {step === 'phone'
-              ? 'Nous allons vous envoyer un code de vérification par SMS'
-              : `Code envoyé au ${phone}`}
+              ? 'Nous allons vous envoyer un code de vérification'
+              : `Code envoyé au ${phone} par ${sentViaMethod === 'sms' ? 'SMS' : 'WhatsApp'}`}
           </Text>
 
           {error ? (
@@ -152,7 +195,77 @@ export default function PhoneVerificationModal({
                 onChangeText={setPhone}
                 keyboardType="phone-pad"
                 editable={!isLoading}
+                autoFocus
               />
+
+              <View style={styles.methodSelector}>
+                <Text style={[styles.methodLabel, { color: isDark ? colors.darkText : colors.text }]}>
+                  Méthode d'envoi :
+                </Text>
+                <View style={styles.methodButtons}>
+                  <TouchableOpacity
+                    style={[
+                      styles.methodButton,
+                      selectedMethod === 'whatsapp' && styles.methodButtonActive,
+                      { borderColor: selectedMethod === 'whatsapp' ? colors.primary : colors.border },
+                    ]}
+                    onPress={() => setSelectedMethod('whatsapp')}
+                    disabled={isLoading}
+                  >
+                    <IconSymbol
+                      ios_icon_name="message.fill"
+                      android_material_icon_name="chat"
+                      size={20}
+                      color={selectedMethod === 'whatsapp' ? colors.primary : colors.textSecondary}
+                    />
+                    <Text
+                      style={[
+                        styles.methodButtonText,
+                        { color: selectedMethod === 'whatsapp' ? colors.primary : colors.textSecondary },
+                      ]}
+                    >
+                      WhatsApp
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.methodButton,
+                      selectedMethod === 'sms' && styles.methodButtonActive,
+                      { borderColor: selectedMethod === 'sms' ? colors.primary : colors.border },
+                    ]}
+                    onPress={() => setSelectedMethod('sms')}
+                    disabled={isLoading}
+                  >
+                    <IconSymbol
+                      ios_icon_name="envelope.fill"
+                      android_material_icon_name="sms"
+                      size={20}
+                      color={selectedMethod === 'sms' ? colors.primary : colors.textSecondary}
+                    />
+                    <Text
+                      style={[
+                        styles.methodButtonText,
+                        { color: selectedMethod === 'sms' ? colors.primary : colors.textSecondary },
+                      ]}
+                    >
+                      SMS
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              <View style={[styles.infoBox, { backgroundColor: colors.primary + '10' }]}>
+                <IconSymbol
+                  ios_icon_name="info.circle"
+                  android_material_icon_name="info"
+                  size={16}
+                  color={colors.primary}
+                />
+                <Text style={[styles.infoText, { color: isDark ? colors.darkText : colors.text }]}>
+                  Ce numéro servira de relais pour le covoiturage
+                </Text>
+              </View>
 
               <TouchableOpacity
                 style={[
@@ -183,24 +296,25 @@ export default function PhoneVerificationModal({
                     borderColor: colors.border,
                   },
                 ]}
-                placeholder="123456"
+                placeholder="000000"
                 placeholderTextColor={colors.textSecondary}
                 value={otp}
                 onChangeText={setOtp}
                 keyboardType="number-pad"
                 maxLength={6}
                 editable={!isLoading}
+                autoFocus
               />
 
               <View style={styles.otpHint}>
                 <IconSymbol
-                  ios_icon_name="info.circle"
-                  android_material_icon_name="info"
+                  ios_icon_name="clock"
+                  android_material_icon_name="schedule"
                   size={16}
                   color={colors.textSecondary}
                 />
                 <Text style={[styles.otpHintText, { color: colors.textSecondary }]}>
-                  Pour la démo, utilisez le code: 123456
+                  Le code expire dans 10 minutes
                 </Text>
               </View>
 
@@ -223,11 +337,27 @@ export default function PhoneVerificationModal({
 
               <TouchableOpacity
                 style={styles.resendButton}
+                onPress={handleResendOTP}
+                disabled={isLoading}
+              >
+                <IconSymbol
+                  ios_icon_name="arrow.clockwise"
+                  android_material_icon_name="refresh"
+                  size={16}
+                  color={colors.primary}
+                />
+                <Text style={[styles.resendButtonText, { color: colors.primary }]}>
+                  Renvoyer le code
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.changeNumberButton}
                 onPress={() => setStep('phone')}
                 disabled={isLoading}
               >
-                <Text style={[styles.resendButtonText, { color: colors.primary }]}>
-                  Renvoyer le code
+                <Text style={[styles.changeNumberText, { color: colors.textSecondary }]}>
+                  Changer de numéro
                 </Text>
               </TouchableOpacity>
             </React.Fragment>
@@ -313,6 +443,48 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 8,
   },
+  methodSelector: {
+    marginBottom: 16,
+  },
+  methodLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  methodButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  methodButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 2,
+  },
+  methodButtonActive: {
+    backgroundColor: colors.primary + '10',
+  },
+  methodButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  infoBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 16,
+  },
+  infoText: {
+    flex: 1,
+    fontSize: 13,
+    lineHeight: 18,
+  },
   otpHint: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -338,11 +510,21 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   resendButton: {
-    padding: 12,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    padding: 12,
   },
   resendButtonText: {
     fontSize: 15,
     fontWeight: '600',
+  },
+  changeNumberButton: {
+    padding: 8,
+    alignItems: 'center',
+  },
+  changeNumberText: {
+    fontSize: 14,
   },
 });

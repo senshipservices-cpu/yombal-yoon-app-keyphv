@@ -14,6 +14,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { colors } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
 import { useProfile } from '@/contexts/ProfileContext';
+import { useOTP } from '@/contexts/OTPContext';
+import PhoneVerificationModal from '@/components/PhoneVerificationModal';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -77,9 +79,11 @@ const roleOptions = [
 export default function OnboardingScreen() {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [selectedRole, setSelectedRole] = useState<UserMainRole>(null);
+  const [showPhoneVerification, setShowPhoneVerification] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
   const router = useRouter();
   const { updateProfile } = useProfile();
+  const { isPhoneVerified } = useOTP();
 
   const totalSlides = slides.length + 1;
 
@@ -131,12 +135,14 @@ export default function OnboardingScreen() {
   const handleFinish = async () => {
     try {
       console.log('Finish button pressed - completing onboarding');
-      await AsyncStorage.setItem('onboardingDone', 'true');
       
-      if (selectedRole) {
-        await AsyncStorage.setItem('userMainRole', selectedRole);
-        console.log('User main role saved:', selectedRole);
+      if (!selectedRole) {
+        return;
       }
+
+      // Save role selection
+      await AsyncStorage.setItem('userMainRole', selectedRole);
+      console.log('User main role saved:', selectedRole);
 
       const roles = {
         driver: true,
@@ -147,11 +153,23 @@ export default function OnboardingScreen() {
 
       await updateProfile({ roles });
       console.log('Roles synced to Supabase:', roles);
-      
+
+      // Show phone verification modal
+      console.log('Opening phone verification modal');
+      setShowPhoneVerification(true);
+    } catch (error) {
+      console.error('Error saving onboarding status:', error);
+    }
+  };
+
+  const handlePhoneVerificationSuccess = async () => {
+    try {
+      console.log('Phone verification successful');
+      await AsyncStorage.setItem('onboardingDone', 'true');
       console.log('Onboarding completed, navigating to home');
       router.replace('/(tabs)/(home)');
     } catch (error) {
-      console.error('Error saving onboarding status:', error);
+      console.error('Error completing onboarding:', error);
     }
   };
 
@@ -199,7 +217,7 @@ export default function OnboardingScreen() {
           </View>
         ))}
 
-        {/* Role Selection Slide */}
+        {/* Role Selection Slide (Miniboard) */}
         <View key="role-selection-slide" style={[styles.slide, { width: SCREEN_WIDTH }]}>
           <ScrollView 
             style={styles.roleSlideScrollView}
@@ -318,7 +336,7 @@ export default function OnboardingScreen() {
               disabled={!selectedRole}
             >
               <Text style={[styles.finishButtonText, { opacity: selectedRole ? 1 : 0.5 }]}>
-                Commencer avec Yombal Yoon
+                Continuer
               </Text>
               <IconSymbol
                 ios_icon_name="arrow.right"
@@ -330,6 +348,13 @@ export default function OnboardingScreen() {
           )}
         </View>
       </View>
+
+      {/* Phone Verification Modal */}
+      <PhoneVerificationModal
+        visible={showPhoneVerification}
+        onClose={() => setShowPhoneVerification(false)}
+        onSuccess={handlePhoneVerificationSuccess}
+      />
     </View>
   );
 }

@@ -1,12 +1,13 @@
 
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { SUPABASE_URL } from '@/config/supabase';
 
 interface OTPContextType {
   isPhoneVerified: boolean;
   phoneNumber: string;
-  verifyPhone: (phone: string, otp: string) => Promise<{ success: boolean; message?: string }>;
-  sendOTP: (phone: string) => Promise<{ success: boolean; message?: string }>;
+  verifyPhone: (phone: string, otp: string, userId?: string) => Promise<{ success: boolean; message?: string }>;
+  sendOTP: (phone: string, method?: 'whatsapp' | 'sms', userId?: string) => Promise<{ success: boolean; message?: string; method?: string }>;
   setPhoneVerified: (verified: boolean) => Promise<void>;
   loadVerificationStatus: () => Promise<void>;
 }
@@ -47,56 +48,103 @@ export function OTPProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const sendOTP = async (phone: string): Promise<{ success: boolean; message?: string }> => {
+  const sendOTP = async (
+    phone: string,
+    method: 'whatsapp' | 'sms' = 'whatsapp',
+    userId?: string
+  ): Promise<{ success: boolean; message?: string; method?: string }> => {
     try {
-      console.log('Sending OTP to:', phone);
+      console.log('Sending OTP to:', phone, 'via', method);
 
-      // In a real implementation, this would call a backend service
-      // For demo purposes, we'll simulate success
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Normalize phone number (ensure it starts with +)
+      const normalizedPhone = phone.startsWith('+') ? phone : `+${phone}`;
 
-      // Simulate OTP: 123456
-      console.log('OTP sent successfully (demo mode)');
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/send-otp-twilio/send`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          phoneNumber: normalizedPhone,
+          method,
+          userId,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        console.error('Error sending OTP:', data.error);
+        return {
+          success: false,
+          message: data.error || 'Erreur lors de l\'envoi du code OTP',
+        };
+      }
+
+      console.log('OTP sent successfully via', data.method);
       return {
         success: true,
-        message: 'Code OTP envoyé par SMS. Utilisez 123456 pour la démo.',
+        message: data.message,
+        method: data.method,
       };
     } catch (error) {
       console.error('Error sending OTP:', error);
       return {
         success: false,
-        message: 'Erreur lors de l\'envoi du code OTP',
+        message: 'Erreur de connexion. Veuillez réessayer.',
       };
     }
   };
 
-  const verifyPhone = async (phone: string, otp: string): Promise<{ success: boolean; message?: string }> => {
+  const verifyPhone = async (
+    phone: string,
+    otp: string,
+    userId?: string
+  ): Promise<{ success: boolean; message?: string }> => {
     try {
-      console.log('Verifying OTP for phone:', phone, 'OTP:', otp);
+      console.log('Verifying OTP for phone:', phone);
 
-      // In a real implementation, this would verify with backend
-      // For demo purposes, accept 123456 as valid OTP
-      if (otp === '123456') {
-        await AsyncStorage.setItem(OTP_STORAGE_KEY, 'true');
-        await AsyncStorage.setItem(PHONE_STORAGE_KEY, phone);
-        setIsPhoneVerifiedState(true);
-        setPhoneNumber(phone);
-        console.log('Phone verified successfully');
-        return {
-          success: true,
-          message: 'Numéro vérifié avec succès !',
-        };
-      } else {
+      // Normalize phone number
+      const normalizedPhone = phone.startsWith('+') ? phone : `+${phone}`;
+
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/send-otp-twilio/verify`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          phoneNumber: normalizedPhone,
+          otpCode: otp,
+          userId,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        console.error('Error verifying OTP:', data.error);
         return {
           success: false,
-          message: 'Code OTP incorrect. Utilisez 123456 pour la démo.',
+          message: data.error || 'Code OTP incorrect',
         };
       }
+
+      // Store verification status locally
+      await AsyncStorage.setItem(OTP_STORAGE_KEY, 'true');
+      await AsyncStorage.setItem(PHONE_STORAGE_KEY, normalizedPhone);
+      setIsPhoneVerifiedState(true);
+      setPhoneNumber(normalizedPhone);
+
+      console.log('Phone verified successfully');
+      return {
+        success: true,
+        message: data.message,
+      };
     } catch (error) {
       console.error('Error verifying OTP:', error);
       return {
         success: false,
-        message: 'Erreur lors de la vérification',
+        message: 'Erreur de connexion. Veuillez réessayer.',
       };
     }
   };
