@@ -26,9 +26,11 @@ export default function RootLayout() {
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
   });
 
-  // Initialize notification handlers on app start
+  // Initialize notification system on app start
   useEffect(() => {
+    console.log('🚀 Initializing notification system...');
     initializeNotificationHandlers();
+    console.log('✅ Notification system initialized');
   }, []);
 
   useEffect(() => {

@@ -5,13 +5,20 @@ import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
+import { 
+  setupNotificationChannels, 
+  requestNotificationPermissions,
+  sendPushNotification,
+} from '@/utils/notificationSetup';
 
+// Configure notification handler globally
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
-    shouldShowBanner: true,
-    shouldShowList: true,
+    shouldShowAlert: true,
     shouldPlaySound: true,
     shouldSetBadge: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
   }),
 });
 
@@ -48,7 +55,7 @@ interface NotificationContextType {
   notifications: NotificationData[];
   unreadCount: number;
   registerForPushNotifications: (userId?: string, roles?: string[]) => Promise<void>;
-  sendLocalNotification: (title: string, body: string, data?: any) => Promise<void>;
+  sendLocalNotification: (title: string, body: string, data?: any, channelId?: string) => Promise<void>;
   markNotificationAsRead: (notificationId: string) => Promise<void>;
   markAllAsRead: () => Promise<void>;
   clearAllNotifications: () => Promise<void>;
@@ -78,17 +85,17 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       const storedNotifications = await AsyncStorage.getItem(NOTIFICATIONS_STORAGE_KEY);
       if (storedNotifications) {
         setNotifications(JSON.parse(storedNotifications));
-        console.log('Notifications loaded from storage');
+        console.log('📱 Notifications loaded from storage');
       }
     } catch (error) {
-      console.error('Error loading notifications:', error);
+      console.error('❌ Error loading notifications:', error);
     } finally {
       setIsLoading(false);
     }
   }, []);
 
   const navigateToParcelDetail = useCallback((parcelId: string, assignmentId: string) => {
-    console.log('Navigating to driver parcel detail:', parcelId, assignmentId);
+    console.log('🚀 Navigating to driver parcel detail:', parcelId, assignmentId);
     try {
       router.push({
         pathname: '/colis/driver-parcel-detail',
@@ -98,7 +105,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         },
       });
     } catch (error) {
-      console.error('Error navigating to parcel detail:', error);
+      console.error('❌ Error navigating to parcel detail:', error);
     }
   }, [router]);
 
@@ -133,11 +140,10 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
         }
 
-        // If it's a parcel assignment notification, navigate directly to detail screen
+        // Auto-navigate for parcel assignments
         const data = notification.request.content.data;
         if (data?.type === 'parcel_assignment' && data?.parcelId && data?.assignmentId) {
           console.log('🚀 Auto-navigating to parcel detail (foreground)');
-          // Small delay to ensure the notification is processed
           setTimeout(() => {
             navigateToParcelDetail(data.parcelId, data.assignmentId);
           }, 500);
@@ -168,10 +174,19 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
               rideId: data.rideId,
             },
           });
+        } else if (
+          (data?.type === 'reservation_accepted' || 
+           data?.type === 'reservation_refused' || 
+           data?.type === 'ride_cancelled') && 
+          data?.reservationId
+        ) {
+          router.push('/covoiturage/my-reservations');
         }
       });
+
+      console.log('✅ Notification listeners configured');
     } catch (error) {
-      console.error('Error setting up notification listeners:', error);
+      console.error('❌ Error setting up notification listeners:', error);
     }
   }, [navigateToParcelDetail, router]);
 
@@ -191,65 +206,22 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 
   const registerForPushNotifications = async (userId: string = 'current_user', roles: string[] = []) => {
     try {
-      // Check if we're on a physical device or emulator
-      if (Platform.OS === 'android') {
-        // First, set up notification channels before requesting permissions
-        try {
-          await Notifications.setNotificationChannelAsync('default', {
-            name: 'Notifications Yombal Yoon',
-            importance: Notifications.AndroidImportance.MAX,
-            vibrationPattern: [0, 250, 250, 250],
-            lightColor: '#008000',
-            sound: 'default',
-            enableVibrate: true,
-            showBadge: true,
-          });
+      console.log('🔔 Registering for push notifications...');
+      
+      // Request permissions and setup channels
+      const granted = await requestNotificationPermissions();
+      setHasPermission(granted);
 
-          await Notifications.setNotificationChannelAsync('covoiturage', {
-            name: 'Covoiturage',
-            importance: Notifications.AndroidImportance.MAX,
-            vibrationPattern: [0, 250, 250, 250],
-            lightColor: '#FF8C00',
-            sound: 'default',
-            enableVibrate: true,
-            showBadge: true,
-          });
-
-          await Notifications.setNotificationChannelAsync('colis', {
-            name: 'Livraison de Colis',
-            importance: Notifications.AndroidImportance.MAX,
-            vibrationPattern: [0, 250, 250, 250],
-            lightColor: '#FF0000',
-            sound: 'default',
-            enableVibrate: true,
-            showBadge: true,
-          });
-
-          console.log('✅ Android notification channels created successfully');
-        } catch (channelError) {
-          console.log('Error creating notification channels (may be expected on emulator):', channelError);
-        }
-      }
-
-      const { status: existingStatus } = await Notifications.getPermissionsAsync();
-      let finalStatus = existingStatus;
-
-      if (existingStatus !== 'granted') {
-        const { status } = await Notifications.requestPermissionsAsync();
-        finalStatus = status;
-      }
-
-      if (finalStatus !== 'granted') {
-        console.log('Permission not granted for push notifications');
-        setHasPermission(false);
+      if (!granted) {
+        console.log('❌ Push notification permissions not granted');
         return;
       }
 
-      setHasPermission(true);
       console.log('✅ Push notification permissions granted');
 
       // Generate a mock token for demo purposes
-      const token = `mock_token_${Platform.OS}_${userId}_${Date.now()}`;
+      // In production, you would get the actual Expo push token
+      const token = `expo_token_${Platform.OS}_${userId}_${Date.now()}`;
       setDeviceToken(token);
 
       const deviceTokenData: DeviceToken = {
@@ -272,44 +244,39 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       
       await AsyncStorage.setItem(DEVICE_TOKENS_STORAGE_KEY, JSON.stringify(tokens));
 
-      console.log('✅ Device token registered successfully:', token, 'Roles:', roles);
+      console.log('✅ Device token registered:', token, 'Roles:', roles);
     } catch (error) {
-      console.error('Error registering for push notifications:', error);
+      console.error('❌ Error registering for push notifications:', error);
       setHasPermission(false);
-      // Don't throw the error, just log it to prevent app crashes
     }
   };
 
-  const sendLocalNotification = async (title: string, body: string, data?: any) => {
+  const sendLocalNotification = async (
+    title: string, 
+    body: string, 
+    data?: any,
+    channelId: string = 'covoiturage-general'
+  ) => {
     try {
       if (!hasPermission) {
-        console.log('Cannot send notification: permission not granted');
-        return;
+        console.log('⚠️ Cannot send notification: permission not granted');
+        // Try to request permissions again
+        const granted = await requestNotificationPermissions();
+        if (!granted) {
+          console.log('❌ Still no permission after retry');
+          return;
+        }
+        setHasPermission(true);
       }
 
-      const channelId = data?.type?.includes('parcel') || data?.type?.includes('colis') 
-        ? 'colis' 
-        : data?.type?.includes('reservation') || data?.type?.includes('ride')
-        ? 'covoiturage'
-        : 'default';
+      console.log('📤 Sending local notification:', { title, body, channelId });
 
-      console.log('📤 Sending local notification:', title, 'Channel:', channelId);
+      // Use the enhanced sendPushNotification function
+      await sendPushNotification(title, body, data, channelId);
 
-      await Notifications.scheduleNotificationAsync({
-        content: {
-          title,
-          body,
-          data,
-          sound: true,
-          vibrate: [0, 250, 250, 250],
-          priority: Notifications.AndroidNotificationPriority.MAX,
-        },
-        trigger: null,
-      });
-
-      console.log('✅ Local notification sent:', title);
+      console.log('✅ Local notification sent successfully');
     } catch (error) {
-      console.error('Error sending local notification:', error);
+      console.error('❌ Error sending local notification:', error);
     }
   };
 
@@ -320,9 +287,9 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       );
       setNotifications(updatedNotifications);
       await AsyncStorage.setItem(NOTIFICATIONS_STORAGE_KEY, JSON.stringify(updatedNotifications));
-      console.log('Notification marked as read:', notificationId);
+      console.log('✅ Notification marked as read:', notificationId);
     } catch (error) {
-      console.error('Error marking notification as read:', error);
+      console.error('❌ Error marking notification as read:', error);
     }
   };
 
@@ -331,9 +298,9 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       const updatedNotifications = notifications.map(notif => ({ ...notif, read: true }));
       setNotifications(updatedNotifications);
       await AsyncStorage.setItem(NOTIFICATIONS_STORAGE_KEY, JSON.stringify(updatedNotifications));
-      console.log('All notifications marked as read');
+      console.log('✅ All notifications marked as read');
     } catch (error) {
-      console.error('Error marking all notifications as read:', error);
+      console.error('❌ Error marking all notifications as read:', error);
     }
   };
 
@@ -342,9 +309,9 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       setNotifications([]);
       await AsyncStorage.removeItem(NOTIFICATIONS_STORAGE_KEY);
       await Notifications.dismissAllNotificationsAsync();
-      console.log('All notifications cleared');
+      console.log('✅ All notifications cleared');
     } catch (error) {
-      console.error('Error clearing notifications:', error);
+      console.error('❌ Error clearing notifications:', error);
     }
   };
 

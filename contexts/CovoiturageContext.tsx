@@ -4,6 +4,12 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '@/app/integrations/supabase/client';
 import type { Tables, TablesInsert } from '@/app/integrations/supabase/types';
 import { calculateAmounts, blockCommission, getOrCreateWallet } from '@/utils/walletUtils';
+import {
+  notifyDriverNewReservation,
+  notifyPassengerReservationAccepted,
+  notifyPassengerReservationRefused,
+  notifyPassengersRideCancelled,
+} from '@/utils/notificationSetup';
 
 export interface Ride {
   id: string;
@@ -174,7 +180,6 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
         }
       } catch (storageError) {
         console.error('Error loading from AsyncStorage:', storageError);
-        // Set empty arrays to prevent crashes
         setRides([]);
         setReservations([]);
       }
@@ -207,7 +212,6 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
 
   const addRide = useCallback(async (rideData: Omit<Ride, 'id' | 'createdAt' | 'status'>) => {
     try {
-      // Calculate total price and commission
       const totalSeats = rideData.totalSeats;
       const pricePerSeat = rideData.pricePerPassenger;
       const prixTotal = totalSeats * pricePerSeat;
@@ -220,13 +224,11 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
         prixPrestataire,
       });
 
-      // Combine date and time into departure_datetime
       const departureDatetime = new Date(`${rideData.date}T${rideData.time}`).toISOString();
 
-      // Prepare data for Supabase
       const supabaseData: TablesInsert<'carpool_rides'> = {
         driver_name: rideData.driverName,
-        driver_phone: '221' + (rideData.driverId || '000000000'), // Placeholder phone
+        driver_phone: '221' + (rideData.driverId || '000000000'),
         departure_city: rideData.departureCity,
         arrival_city: rideData.arrivalCity,
         departure_datetime: departureDatetime,
@@ -242,14 +244,12 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
         arrival_lng: rideData.arrivalLng || null,
         distance_km: rideData.distanceKm || null,
         duration_minutes: rideData.durationMinutes || null,
-        // Add commission fields
         prix_total: prixTotal,
         commission_yombal: commissionYombal,
         prix_prestataire: prixPrestataire,
         statut_paiement: 'en_attente',
       };
 
-      // Insert into Supabase
       const { data, error } = await supabase
         .from('carpool_rides')
         .insert(supabaseData)
@@ -263,17 +263,14 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
 
       console.log('Ride created in Supabase:', data);
 
-      // Block commission in wallet (optional)
       try {
         const userId = await getUserId();
         await blockCommission(userId, commissionYombal);
         console.log('Commission blocked in wallet');
       } catch (walletError) {
         console.error('Error blocking commission (non-critical):', walletError);
-        // Don't fail the ride creation if wallet blocking fails
       }
 
-      // Convert Supabase data to local format
       const newRide: Ride = {
         id: data.id,
         driverId: rideData.driverId,
@@ -297,7 +294,6 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
         durationMinutes: data.duration_minutes || undefined,
       };
 
-      // Update local state
       const updatedRides = [newRide, ...rides];
       setRides(updatedRides);
       await AsyncStorage.setItem(RIDES_STORAGE_KEY, JSON.stringify(updatedRides));
@@ -348,7 +344,6 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
         return { success: false, message: 'Ce trajet a été annulé' };
       }
 
-      // Check if enough seats are available
       if (ride.availableSeats < reservationData.numberOfPassengers) {
         return { 
           success: false, 
@@ -363,7 +358,6 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
         createdAt: new Date().toISOString(),
       };
 
-      // Update available seats (optimistically reserve)
       const updatedRides = rides.map(r => {
         if (r && r.id === reservationData.rideId) {
           return {
@@ -385,7 +379,22 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
 
       console.log('Reservation added:', newReservation);
 
-      // Notify driver
+      // Send push notification to driver
+      await notifyDriverNewReservation(
+        ride.driverName,
+        reservationData.passengerName,
+        reservationData.numberOfPassengers,
+        {
+          from: ride.departureCity,
+          to: ride.arrivalCity,
+          date: new Date(ride.date).toLocaleDateString('fr-FR'),
+          time: ride.time,
+        },
+        newReservation.id,
+        ride.id
+      );
+
+      // Also call the legacy callback if provided
       if (onNotify) {
         onNotify('reservation_created', ride.driverId, {
           reservationId: newReservation.id,
@@ -446,7 +455,6 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
         return { success: false, message: 'Trajet introuvable' };
       }
 
-      // Update in Supabase
       const { error: updateError } = await supabase
         .from('carpool_bookings')
         .update({ status })
@@ -457,7 +465,6 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
         return { success: false, message: 'Erreur lors de la mise à jour' };
       }
 
-      // If accepting, check if we still have enough seats
       if (status === 'accepted') {
         const acceptedReservations = reservations.filter(
           r => r && r.rideId === ride.id && r.status === 'accepted'
@@ -482,7 +489,6 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
         return r;
       });
 
-      // If refused, restore available seats
       let updatedRides = rides;
       if (status === 'refused') {
         updatedRides = rides.map(r => {
@@ -495,7 +501,6 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
           return r;
         });
 
-        // Update seats in Supabase
         const newSeatsAvailable = ride.availableSeats + reservation.numberOfPassengers;
         await supabase
           .from('carpool_rides')
@@ -511,7 +516,36 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
       
       console.log('Reservation status updated:', reservationId, status);
 
-      // Notify passenger
+      // Send push notification to passenger
+      if (status === 'accepted') {
+        await notifyPassengerReservationAccepted(
+          reservation.passengerName,
+          ride.driverName,
+          {
+            from: ride.departureCity,
+            to: ride.arrivalCity,
+            date: new Date(ride.date).toLocaleDateString('fr-FR'),
+            time: ride.time,
+          },
+          reservation.id,
+          ride.id
+        );
+      } else {
+        await notifyPassengerReservationRefused(
+          reservation.passengerName,
+          ride.driverName,
+          {
+            from: ride.departureCity,
+            to: ride.arrivalCity,
+            date: new Date(ride.date).toLocaleDateString('fr-FR'),
+            time: ride.time,
+          },
+          reservation.id,
+          ride.id
+        );
+      }
+
+      // Also call the legacy callback if provided
       if (onNotify) {
         const notificationType = status === 'accepted' ? 'reservation_accepted' : 'reservation_refused';
         onNotify(notificationType, reservation.passengerId, {
@@ -537,7 +571,6 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
       const reservation = reservations.find(r => r && r.id === reservationId);
       if (!reservation) return;
 
-      // Update in Supabase
       const { error: updateError } = await supabase
         .from('carpool_bookings')
         .update({ status: 'cancelled' })
@@ -548,7 +581,6 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
         throw updateError;
       }
 
-      // Restore available seats if booking was pending
       if (reservation.status === 'pending') {
         const ride = rides.find(r => r && r.id === reservation.rideId);
         if (ride) {
@@ -608,7 +640,6 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
         currentStatus: ride.status,
       });
 
-      // Update ride status in Supabase
       console.log('Updating ride status in Supabase...');
       const { data: updatedRide, error: updateError } = await supabase
         .from('carpool_rides')
@@ -627,13 +658,11 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
 
       console.log('Supabase update successful:', updatedRide);
 
-      // Get all reservations for this ride
       const rideReservations = reservations.filter(r => r && r.rideId === rideId);
       const passengerIds = rideReservations.map(r => r.passengerId);
 
       console.log('Found reservations to update:', rideReservations.length);
 
-      // Update all bookings to refused in Supabase
       if (rideReservations.length > 0) {
         const bookingIds = rideReservations.map(r => r.id);
         console.log('Updating bookings in Supabase:', bookingIds);
@@ -648,9 +677,23 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
         } else {
           console.log('Bookings updated successfully in Supabase');
         }
+
+        // Send push notifications to all passengers
+        for (const reservation of rideReservations) {
+          await notifyPassengersRideCancelled(
+            reservation.passengerName,
+            ride.driverName,
+            {
+              from: ride.departureCity,
+              to: ride.arrivalCity,
+              date: new Date(ride.date).toLocaleDateString('fr-FR'),
+              time: ride.time,
+            },
+            ride.id
+          );
+        }
       }
 
-      // Update ride status locally
       console.log('Updating local state...');
       const updatedRides = rides.map(r => {
         if (r && r.id === rideId) {
@@ -659,7 +702,6 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
         return r;
       });
 
-      // Set all reservations to refused locally
       const updatedReservations = reservations.map(r => {
         if (r && r.rideId === rideId && r.status !== 'refused') {
           return { ...r, status: 'refused' as const };
@@ -667,12 +709,10 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
         return r;
       });
 
-      // Update state immediately
       console.log('Setting state with updated data...');
       setRides(updatedRides);
       setReservations(updatedReservations);
 
-      // Save to AsyncStorage
       console.log('Saving to AsyncStorage...');
       await Promise.all([
         AsyncStorage.setItem(RIDES_STORAGE_KEY, JSON.stringify(updatedRides)),
@@ -681,9 +721,9 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
 
       console.log('AsyncStorage updated successfully');
 
-      // Notify all passengers
+      // Also call the legacy callback if provided
       if (onNotify && passengerIds.length > 0) {
-        console.log('Sending notifications to passengers...');
+        console.log('Calling legacy notification callback...');
         onNotify('ride_cancelled', passengerIds, {
           ride: {
             departureCity: ride.departureCity,
