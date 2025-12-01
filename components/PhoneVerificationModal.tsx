@@ -57,9 +57,17 @@ export default function PhoneVerificationModal({
     setIsLoading(true);
     setError('');
 
+    console.log('📱 Attempting to send OTP:', {
+      phone,
+      method: selectedMethod,
+      userId: profile.id,
+    });
+
     const result = await sendOTP(phone, selectedMethod, profile.id);
 
     setIsLoading(false);
+
+    console.log('📱 OTP send result:', result);
 
     if (result.success) {
       setStep('otp');
@@ -73,7 +81,15 @@ export default function PhoneVerificationModal({
         [{ text: 'OK' }]
       );
     } else {
+      console.error('❌ Failed to send OTP:', result.message);
       setError(result.message || 'Erreur lors de l\'envoi du code');
+      
+      // Show detailed error in alert for debugging
+      Alert.alert(
+        'Erreur',
+        result.message || 'Erreur lors de l\'envoi du code OTP',
+        [{ text: 'OK' }]
+      );
     }
   };
 
@@ -91,9 +107,17 @@ export default function PhoneVerificationModal({
     setIsLoading(true);
     setError('');
 
+    console.log('🔍 Attempting to verify OTP:', {
+      phone,
+      otp: '******',
+      userId: profile.id,
+    });
+
     const result = await verifyPhone(phone, otp, profile.id);
 
     setIsLoading(false);
+
+    console.log('🔍 OTP verify result:', result);
 
     if (result.success) {
       Alert.alert(
@@ -110,6 +134,7 @@ export default function PhoneVerificationModal({
         ]
       );
     } else {
+      console.error('❌ Failed to verify OTP:', result.message);
       setError(result.message || 'Code incorrect');
     }
   };

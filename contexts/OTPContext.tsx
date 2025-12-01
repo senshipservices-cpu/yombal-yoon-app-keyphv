@@ -1,7 +1,7 @@
 
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { SUPABASE_URL } from '@/config/supabase';
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from '@/config/supabase';
 
 interface OTPContextType {
   isPhoneVerified: boolean;
@@ -63,6 +63,8 @@ export function OTPProvider({ children }: { children: ReactNode }) {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+          'apikey': SUPABASE_ANON_KEY,
         },
         body: JSON.stringify({
           phoneNumber: normalizedPhone,
@@ -111,6 +113,8 @@ export function OTPProvider({ children }: { children: ReactNode }) {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+          'apikey': SUPABASE_ANON_KEY,
         },
         body: JSON.stringify({
           phoneNumber: normalizedPhone,
