@@ -13,6 +13,8 @@ import PhoneVerificationModal from "@/components/PhoneVerificationModal";
 import * as Haptics from 'expo-haptics';
 import { formatCurrency } from "@/utils/walletUtils";
 import { loadWalletForProfil, refreshWallet } from "@/utils/profileWalletUtils";
+import { supabase } from "@/app/integrations/supabase/client";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const SUPPORT_PHONE = "+221765676486";
 const GITHUB_URL = "https://github.com/yourusername/yombal-yoon"; // Replace with actual GitHub URL
@@ -21,7 +23,7 @@ export default function ProfileScreen() {
   const theme = useTheme();
   const isDark = theme.dark;
   const router = useRouter();
-  const { profile, updateProfile, isLoading, refreshProfile } = useProfile();
+  const { profile, updateProfile, isLoading, refreshProfile, resetProfile } = useProfile();
   const { registerForPushNotifications } = useNotifications();
 
   const [showPhoneVerification, setShowPhoneVerification] = useState(false);
@@ -29,6 +31,7 @@ export default function ProfileScreen() {
   const [isLoadingWallet, setIsLoadingWallet] = useState(true);
   const [walletError, setWalletError] = useState<string | null>(null);
   const [walletRetryCount, setWalletRetryCount] = useState(0);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   /**
    * BLOC 2 - Load wallet using the new utility function with retry logic
@@ -96,6 +99,94 @@ export default function ProfileScreen() {
     console.log(`🔄 Manual retry attempt #${walletRetryCount + 1}`);
     setWalletRetryCount(0); // Reset counter for manual retry
     await loadWallet();
+  };
+
+  /**
+   * Handle logout - properly sign out from Supabase and clear local data
+   */
+  const handleLogout = async () => {
+    try {
+      setIsLoggingOut(true);
+      console.log('🔄 Starting logout process...');
+
+      // Sign out from Supabase (clears all sessions)
+      const { error } = await supabase.auth.signOut();
+      
+      if (error) {
+        console.error('❌ Error signing out from Supabase:', error);
+        Alert.alert(
+          "Erreur de déconnexion",
+          "Une erreur s'est produite lors de la déconnexion. Voulez-vous réessayer ?",
+          [
+            { text: "Annuler", style: "cancel" },
+            { text: "Réessayer", onPress: handleLogout }
+          ]
+        );
+        return;
+      }
+
+      console.log('✅ Signed out from Supabase successfully');
+
+      // Clear local storage
+      await AsyncStorage.multiRemove([
+        '@yombal_yoon_profile',
+        '@yombal_yoon_user_id'
+      ]);
+      console.log('✅ Local storage cleared');
+
+      // Reset profile context
+      await resetProfile();
+      console.log('✅ Profile context reset');
+
+      // Show success message
+      Alert.alert(
+        "Déconnexion réussie",
+        "Vous avez été déconnecté avec succès.",
+        [
+          {
+            text: "OK",
+            onPress: () => {
+              // Navigate to home or onboarding
+              router.replace('/(tabs)/(home)');
+            }
+          }
+        ]
+      );
+
+      console.log('✅ Logout process completed');
+    } catch (error) {
+      console.error('❌ Unexpected error during logout:', error);
+      Alert.alert(
+        "Erreur",
+        "Une erreur inattendue s'est produite. Veuillez réessayer.",
+        [
+          { text: "OK" }
+        ]
+      );
+    } finally {
+      setIsLoggingOut(false);
+    }
+  };
+
+  /**
+   * Show logout confirmation dialog
+   */
+  const confirmLogout = () => {
+    Alert.alert(
+      "Déconnexion",
+      "Êtes-vous sûr de vouloir vous déconnecter ?",
+      [
+        {
+          text: "Annuler",
+          style: "cancel"
+        },
+        {
+          text: "Se déconnecter",
+          style: "destructive",
+          onPress: handleLogout
+        }
+      ]
+    );
   };
 
   const maskPhone = (phone: string) => {
@@ -742,10 +833,8 @@ export default function ProfileScreen() {
           <TouchableOpacity
             style={[styles.settingItem, styles.settingItemLast]}
             activeOpacity={0.7}
-            onPress={() => Alert.alert("Déconnexion", "Êtes-vous sûr de vouloir vous déconnecter ?", [
-              { text: "Annuler", style: "cancel" },
-              { text: "Déconnexion", style: "destructive", onPress: () => console.log("Logout") }
-            ])}
+            onPress={confirmLogout}
+            disabled={isLoggingOut}
           >
             <View style={styles.settingLeft}>
               <IconSymbol
@@ -755,9 +844,12 @@ export default function ProfileScreen() {
                 color={colors.accent}
               />
               <Text style={[styles.logoutText, { color: colors.accent }]}>
-                Se déconnecter
+                {isLoggingOut ? 'Déconnexion en cours...' : 'Se déconnecter'}
               </Text>
             </View>
+            {isLoggingOut && (
+              <ActivityIndicator size="small" color={colors.accent} />
+            )}
           </TouchableOpacity>
         </View>
 
