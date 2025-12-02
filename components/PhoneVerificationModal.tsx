@@ -31,7 +31,7 @@ export default function PhoneVerificationModal({
   const theme = useTheme();
   const isDark = theme.dark;
   const { sendOTP, verifyPhone } = useOTP();
-  const { profile } = useProfile();
+  const { profile, refreshProfile } = useProfile();
 
   const [step, setStep] = useState<'phone' | 'otp'>('phone');
   const [phone, setPhone] = useState('');
@@ -86,8 +86,8 @@ export default function PhoneVerificationModal({
       
       // Show detailed error in alert for debugging
       Alert.alert(
-        'Erreur',
-        result.message || 'Erreur lors de l\'envoi du code OTP',
+        'Erreur d\'envoi',
+        result.message || 'Erreur lors de l\'envoi du code OTP. Vérifiez que votre numéro est correct et enregistré sur WhatsApp.',
         [{ text: 'OK' }]
       );
     }
@@ -120,6 +120,10 @@ export default function PhoneVerificationModal({
     console.log('🔍 OTP verify result:', result);
 
     if (result.success) {
+      // Refresh the profile to get updated verification status
+      console.log('🔄 Refreshing profile after successful verification...');
+      await refreshProfile();
+      
       Alert.alert(
         'Succès',
         'Votre numéro a été vérifié avec succès !',
@@ -136,6 +140,12 @@ export default function PhoneVerificationModal({
     } else {
       console.error('❌ Failed to verify OTP:', result.message);
       setError(result.message || 'Code incorrect');
+      
+      Alert.alert(
+        'Erreur de vérification',
+        result.message || 'Code incorrect. Veuillez réessayer.',
+        [{ text: 'OK' }]
+      );
     }
   };
 
@@ -289,6 +299,18 @@ export default function PhoneVerificationModal({
                 />
                 <Text style={[styles.infoText, { color: isDark ? colors.darkText : colors.text }]}>
                   Ce numéro servira de relais pour le covoiturage
+                </Text>
+              </View>
+
+              <View style={[styles.warningBox, { backgroundColor: colors.warning + '10' }]}>
+                <IconSymbol
+                  ios_icon_name="exclamationmark.triangle"
+                  android_material_icon_name="warning"
+                  size={16}
+                  color={colors.warning}
+                />
+                <Text style={[styles.warningText, { color: isDark ? colors.darkText : colors.text }]}>
+                  Pour WhatsApp : Le numéro doit être enregistré sur WhatsApp
                 </Text>
               </View>
 
@@ -503,12 +525,25 @@ const styles = StyleSheet.create({
     gap: 8,
     padding: 12,
     borderRadius: 12,
-    marginBottom: 16,
+    marginBottom: 12,
   },
   infoText: {
     flex: 1,
     fontSize: 13,
     lineHeight: 18,
+  },
+  warningBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 16,
+  },
+  warningText: {
+    flex: 1,
+    fontSize: 12,
+    lineHeight: 16,
   },
   otpHint: {
     flexDirection: 'row',
