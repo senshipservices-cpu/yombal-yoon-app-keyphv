@@ -159,7 +159,7 @@ export default function TestPlatformConsistency() {
           details: data.error_message || 'No error message',
         });
       }
-    } catch (error) {
+    } catch (error: any) {
       tests.push({
         name: 'Google Maps Autocomplete',
         status: 'fail',
@@ -202,10 +202,10 @@ export default function TestPlatformConsistency() {
         'No key found',
     });
 
-    // Test 3: Supabase Connection
+    // Test 3: Supabase Connection - FIXED: Use correct table name 'user_profiles'
     try {
       const { data, error } = await supabase
-        .from('profiles')
+        .from('user_profiles')
         .select('count')
         .limit(1);
 
@@ -221,10 +221,10 @@ export default function TestPlatformConsistency() {
           name: 'Supabase Connection',
           status: 'pass',
           message: 'Successfully connected to Supabase',
-          details: `Platform: ${Platform.OS}`,
+          details: `Platform: ${Platform.OS}, Table: user_profiles`,
         });
       }
-    } catch (error) {
+    } catch (error: any) {
       tests.push({
         name: 'Supabase Connection',
         status: 'fail',
@@ -247,9 +247,9 @@ export default function TestPlatformConsistency() {
     const appVersion = Constants.expoConfig?.version;
     tests.push({
       name: 'App Version',
-      status: appVersion === '1.0.0' ? 'pass' : 'warning',
-      message: appVersion === '1.0.0' ? 
-        'App version is 1.0.0' : 
+      status: appVersion === '1.0.1' ? 'pass' : 'warning',
+      message: appVersion === '1.0.1' ? 
+        'App version is 1.0.1' : 
         `App version is ${appVersion}`,
       details: `Version: ${appVersion}`,
     });
