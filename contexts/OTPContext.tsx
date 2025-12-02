@@ -59,7 +59,7 @@ export function OTPProvider({ children }: { children: ReactNode }) {
       // Normalize phone number (ensure it starts with +)
       const normalizedPhone = phone.startsWith('+') ? phone : `+${phone}`;
 
-      const response = await fetch(`${SUPABASE_URL}/functions/v1/send-otp-twilio/send`, {
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/send-otp-twilio`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -67,6 +67,7 @@ export function OTPProvider({ children }: { children: ReactNode }) {
           'apikey': SUPABASE_ANON_KEY,
         },
         body: JSON.stringify({
+          action: 'send',
           phoneNumber: normalizedPhone,
           method,
           userId,
@@ -109,7 +110,7 @@ export function OTPProvider({ children }: { children: ReactNode }) {
       // Normalize phone number
       const normalizedPhone = phone.startsWith('+') ? phone : `+${phone}`;
 
-      const response = await fetch(`${SUPABASE_URL}/functions/v1/send-otp-twilio/verify`, {
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/send-otp-twilio`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -117,6 +118,7 @@ export function OTPProvider({ children }: { children: ReactNode }) {
           'apikey': SUPABASE_ANON_KEY,
         },
         body: JSON.stringify({
+          action: 'verify',
           phoneNumber: normalizedPhone,
           otpCode: otp,
           userId,
