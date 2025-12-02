@@ -254,6 +254,8 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
 
   const updateProfile = async (data: Partial<ProfileData>) => {
     try {
+      console.log('📝 Updating profile with data:', data);
+      
       const updatedProfile = { ...profile, ...data };
       
       if (data.roles) {
@@ -265,29 +267,52 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
         };
       }
 
+      // Update local state and storage first
       setProfile(updatedProfile);
       await AsyncStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(updatedProfile));
+      console.log('✅ Profile updated in local storage');
 
+      // Then update Supabase
       const currentUserId = await getUserId();
+      
+      // Prepare the update data - only include fields that exist in the database
+      const updateData: any = {
+        id: currentUserId,
+        updated_at: new Date().toISOString(),
+      };
+
+      // Only add fields if they are provided
+      if (data.phone !== undefined) {
+        updateData.phone_number = updatedProfile.phone;
+      }
+      if (data.fullName !== undefined) {
+        updateData.full_name = updatedProfile.fullName;
+      }
+      if (data.avatarUrl !== undefined) {
+        updateData.avatar_url = updatedProfile.avatarUrl;
+      }
+      if (data.isPhoneVerified !== undefined) {
+        updateData.is_phone_verified = updatedProfile.isPhoneVerified;
+      }
+      if (data.roles !== undefined) {
+        updateData.roles = updatedProfile.roles;
+      }
+
+      console.log('📤 Sending update to Supabase:', updateData);
+
       const { error } = await supabase
         .from('user_profiles')
-        .upsert({
-          id: currentUserId,
-          phone_number: updatedProfile.phone,
-          full_name: updatedProfile.fullName,
-          avatar_url: updatedProfile.avatarUrl,
-          is_phone_verified: updatedProfile.isPhoneVerified,
-          roles: updatedProfile.roles,
-          updated_at: new Date().toISOString(),
-        });
+        .upsert(updateData);
 
       if (error) {
-        console.error('Error updating profile in Supabase:', error);
+        console.error('❌ Error updating profile in Supabase:', error);
+        throw new Error(`Erreur Supabase: ${error.message}`);
       } else {
-        console.log('Profile updated in Supabase');
+        console.log('✅ Profile updated in Supabase successfully');
       }
     } catch (error) {
-      console.error('Error updating profile:', error);
+      console.error('❌ Error updating profile:', error);
+      throw error; // Re-throw to let the caller handle it
     }
   };
 

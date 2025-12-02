@@ -17,7 +17,6 @@ export default function EditProfileScreen() {
 
   const [fullName, setFullName] = useState(profile.fullName || '');
   const [phone, setPhone] = useState(profile.phone || '');
-  const [email, setEmail] = useState(profile.email || '');
   const [isSaving, setIsSaving] = useState(false);
 
   const handleSave = async () => {
@@ -36,10 +35,11 @@ export default function EditProfileScreen() {
     setIsSaving(true);
 
     try {
+      console.log('💾 Saving profile:', { fullName: fullName.trim(), phone: phone.trim() });
+      
       await updateProfile({
         fullName: fullName.trim(),
         phone: phone.trim(),
-        email: email.trim() || undefined,
       });
 
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -49,10 +49,13 @@ export default function EditProfileScreen() {
           onPress: () => router.back(),
         },
       ]);
-    } catch (error) {
-      console.error("Error updating profile:", error);
+    } catch (error: any) {
+      console.error("❌ Error updating profile:", error);
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert("Erreur", "Une erreur s'est produite lors de la mise à jour de votre profil");
+      Alert.alert(
+        "Erreur", 
+        error?.message || "Une erreur s'est produite lors de la mise à jour de votre profil"
+      );
     } finally {
       setIsSaving(false);
     }
@@ -177,30 +180,6 @@ export default function EditProfileScreen() {
                 </Text>
               </View>
             )}
-          </View>
-
-          {/* Email */}
-          <View style={styles.inputGroup}>
-            <Text style={[styles.inputLabel, { color: isDark ? colors.darkText : colors.text }]}>
-              Email (optionnel)
-            </Text>
-            <View style={[styles.inputContainer, { backgroundColor: isDark ? colors.darkBackground : colors.background }]}>
-              <IconSymbol
-                ios_icon_name="envelope.fill"
-                android_material_icon_name="email"
-                size={20}
-                color={isDark ? colors.darkTextSecondary : colors.textSecondary}
-              />
-              <TextInput
-                style={[styles.input, { color: isDark ? colors.darkText : colors.text }]}
-                value={email}
-                onChangeText={setEmail}
-                placeholder="exemple@email.com"
-                placeholderTextColor={isDark ? colors.darkTextSecondary : colors.textSecondary}
-                keyboardType="email-address"
-                autoCapitalize="none"
-              />
-            </View>
           </View>
         </View>
 
