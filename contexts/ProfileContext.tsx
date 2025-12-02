@@ -277,7 +277,6 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
       
       // Prepare the update data - only include fields that exist in the database
       const updateData: any = {
-        id: currentUserId,
         updated_at: new Date().toISOString(),
       };
 
@@ -300,12 +299,20 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
 
       console.log('📤 Sending update to Supabase:', updateData);
 
+      // Use .update() instead of .upsert() to avoid conflicts
       const { error } = await supabase
         .from('user_profiles')
-        .upsert(updateData);
+        .update(updateData)
+        .eq('id', currentUserId);
 
       if (error) {
         console.error('❌ Error updating profile in Supabase:', error);
+        
+        // Check if it's a unique constraint violation on phone_number
+        if (error.code === '23505' && error.message.includes('phone_number')) {
+          throw new Error('Ce numéro de téléphone est déjà utilisé par un autre compte');
+        }
+        
         throw new Error(`Erreur Supabase: ${error.message}`);
       } else {
         console.log('✅ Profile updated in Supabase successfully');
