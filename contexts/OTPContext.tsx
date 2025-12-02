@@ -54,10 +54,19 @@ export function OTPProvider({ children }: { children: ReactNode }) {
     userId?: string
   ): Promise<{ success: boolean; message?: string; method?: string }> => {
     try {
-      console.log('Sending OTP to:', phone, 'via', method);
+      console.log('📱 Sending OTP to:', phone, 'via', method, 'userId:', userId);
 
       // Normalize phone number (ensure it starts with +)
       const normalizedPhone = phone.startsWith('+') ? phone : `+${phone}`;
+
+      const requestBody = {
+        action: 'send',
+        phoneNumber: normalizedPhone,
+        method,
+        userId,
+      };
+
+      console.log('📤 Request body:', requestBody);
 
       const response = await fetch(`${SUPABASE_URL}/functions/v1/send-otp-twilio`, {
         method: 'POST',
@@ -66,32 +75,29 @@ export function OTPProvider({ children }: { children: ReactNode }) {
           'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
           'apikey': SUPABASE_ANON_KEY,
         },
-        body: JSON.stringify({
-          action: 'send',
-          phoneNumber: normalizedPhone,
-          method,
-          userId,
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       const data = await response.json();
 
+      console.log('📥 Response:', { status: response.status, data });
+
       if (!response.ok || !data.success) {
-        console.error('Error sending OTP:', data.error);
+        console.error('❌ Error sending OTP:', data.error);
         return {
           success: false,
           message: data.error || 'Erreur lors de l\'envoi du code OTP',
         };
       }
 
-      console.log('OTP sent successfully via', data.method);
+      console.log('✅ OTP sent successfully via', data.method);
       return {
         success: true,
         message: data.message,
         method: data.method,
       };
     } catch (error) {
-      console.error('Error sending OTP:', error);
+      console.error('❌ Error sending OTP:', error);
       return {
         success: false,
         message: 'Erreur de connexion. Veuillez réessayer.',
@@ -105,10 +111,19 @@ export function OTPProvider({ children }: { children: ReactNode }) {
     userId?: string
   ): Promise<{ success: boolean; message?: string }> => {
     try {
-      console.log('Verifying OTP for phone:', phone);
+      console.log('🔍 Verifying OTP for phone:', phone, 'userId:', userId);
 
       // Normalize phone number
       const normalizedPhone = phone.startsWith('+') ? phone : `+${phone}`;
+
+      const requestBody = {
+        action: 'verify',
+        phoneNumber: normalizedPhone,
+        otpCode: otp,
+        userId,
+      };
+
+      console.log('📤 Verify request body:', { ...requestBody, otpCode: '******' });
 
       const response = await fetch(`${SUPABASE_URL}/functions/v1/send-otp-twilio`, {
         method: 'POST',
@@ -117,18 +132,15 @@ export function OTPProvider({ children }: { children: ReactNode }) {
           'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
           'apikey': SUPABASE_ANON_KEY,
         },
-        body: JSON.stringify({
-          action: 'verify',
-          phoneNumber: normalizedPhone,
-          otpCode: otp,
-          userId,
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       const data = await response.json();
 
+      console.log('📥 Verify response:', { status: response.status, data });
+
       if (!response.ok || !data.success) {
-        console.error('Error verifying OTP:', data.error);
+        console.error('❌ Error verifying OTP:', data.error);
         return {
           success: false,
           message: data.error || 'Code OTP incorrect',
@@ -141,13 +153,13 @@ export function OTPProvider({ children }: { children: ReactNode }) {
       setIsPhoneVerifiedState(true);
       setPhoneNumber(normalizedPhone);
 
-      console.log('Phone verified successfully');
+      console.log('✅ Phone verified successfully');
       return {
         success: true,
         message: data.message,
       };
     } catch (error) {
-      console.error('Error verifying OTP:', error);
+      console.error('❌ Error verifying OTP:', error);
       return {
         success: false,
         message: 'Erreur de connexion. Veuillez réessayer.',
