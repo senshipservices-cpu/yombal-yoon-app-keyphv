@@ -15,6 +15,9 @@
 // - Les Edge Functions sont des appels serveur → Google, elles nécessitent une clé serveur
 // - Ajoutez GOOGLE_MAPS_API_KEY_SERVER aux secrets Supabase via le dashboard
 
+// Production mode flag - set via environment variable
+const isProduction = Deno.env.get("IS_PRODUCTION_MODE") === "true";
+
 const GOOGLE_MAPS_API_KEY_SERVER = Deno.env.get('GOOGLE_MAPS_API_KEY_SERVER');
 
 const corsHeaders = {
@@ -33,13 +36,14 @@ Deno.serve(async (req) => {
     const platform = req.headers.get('x-platform') || 'web';
     const referer = req.headers.get('referer') || req.headers.get('origin') || 'unknown';
     
-    console.log(`📱 Requête: ${platform} - ${action}`);
+    console.log(`📱 Requête: ${platform} - ${action} [Mode: ${isProduction ? 'Production' : 'Test'}]`);
     console.log(`🌐 Referer: ${referer}`);
     console.log(`📊 Paramètres:`, JSON.stringify(params, null, 2));
     
     // Log environment variable status (without exposing the actual key)
     console.log(`🔐 Environment Variables Status:`);
     console.log(`   - GOOGLE_MAPS_API_KEY_SERVER: ${GOOGLE_MAPS_API_KEY_SERVER ? '✅ SET' : '❌ NOT SET'}`);
+    console.log(`   - IS_PRODUCTION_MODE: ${isProduction ? '✅ Production' : '🧪 Test'}`);
     
     // Vérifier que la clé API serveur est configurée
     if (!GOOGLE_MAPS_API_KEY_SERVER) {
@@ -53,10 +57,12 @@ Deno.serve(async (req) => {
           error_message: `La clé API Google Maps serveur n'est pas configurée dans les secrets Supabase Edge Function.`,
           platform: platform,
           referer: referer,
+          mode: isProduction ? 'production' : 'test',
           timestamp: new Date().toISOString(),
           debug: {
             env_status: {
               server: 'NOT_SET',
+              production_mode: isProduction,
             },
             requested_platform: platform,
             missing_secret: 'GOOGLE_MAPS_API_KEY_SERVER',
@@ -196,7 +202,8 @@ Deno.serve(async (req) => {
         return new Response(
           JSON.stringify({ 
             error: 'Action invalide',
-            validActions: ['autocomplete', 'city_autocomplete', 'place_details', 'distance_matrix']
+            validActions: ['autocomplete', 'city_autocomplete', 'place_details', 'distance_matrix'],
+            mode: isProduction ? 'production' : 'test',
           }),
           {
             status: 400,
@@ -211,6 +218,7 @@ Deno.serve(async (req) => {
     console.log(`   - Content-Type: ${response.headers.get('content-type')}`);
     console.log(`   - Platform: ${platform}`);
     console.log(`   - Referer: ${referer}`);
+    console.log(`   - Mode: ${isProduction ? 'Production' : 'Test'}`);
 
     const data = await response.json();
     
@@ -224,6 +232,7 @@ Deno.serve(async (req) => {
       console.error(`   💬 Message: ${data.error_message || 'Pas de message d\'erreur'}`);
       console.error(`   📱 Platform: ${platform}`);
       console.error(`   🔗 Referer: ${referer}`);
+      console.error(`   🔧 Mode: ${isProduction ? 'Production' : 'Test'}`);
       console.error(`   🔑 API Key Length: ${GOOGLE_MAPS_API_KEY_SERVER.length} caractères`);
       console.error(`   🔑 API Key Prefix: ${GOOGLE_MAPS_API_KEY_SERVER.substring(0, 10)}...`);
       console.error(`   🔍 Request URL Pattern: ${url.replace(GOOGLE_MAPS_API_KEY_SERVER, 'REDACTED')}`);
@@ -233,6 +242,7 @@ Deno.serve(async (req) => {
       // Add platform info and debug data to error response
       data.platform_used = platform;
       data.referer = referer;
+      data.mode = isProduction ? 'production' : 'test';
       data.timestamp = new Date().toISOString();
       data.http_status = response.status;
       data.http_status_text = response.statusText;
@@ -240,8 +250,10 @@ Deno.serve(async (req) => {
         api_key_length: GOOGLE_MAPS_API_KEY_SERVER.length,
         api_key_prefix: GOOGLE_MAPS_API_KEY_SERVER.substring(0, 10),
         request_url_pattern: url.replace(GOOGLE_MAPS_API_KEY_SERVER, 'REDACTED'),
+        production_mode: isProduction,
         env_status: {
           server: 'SET',
+          production_mode: isProduction,
         },
       };
       
@@ -330,6 +342,9 @@ Deno.serve(async (req) => {
       console.log(`✅ Matrice de distance calculée (${platform})`);
     }
 
+    // Add mode to successful responses
+    data.mode = isProduction ? 'production' : 'test';
+
     return new Response(JSON.stringify(data), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200,
@@ -341,12 +356,14 @@ Deno.serve(async (req) => {
     console.error('   💬 Message:', error.message);
     console.error('   📚 Stack trace:', error.stack);
     console.error('   🕐 Timestamp:', new Date().toISOString());
+    console.error('   🔧 Mode:', isProduction ? 'Production' : 'Test');
     console.error('💥 ========================================');
     
     return new Response(
       JSON.stringify({ 
         error: 'Erreur interne du serveur',
         error_message: error.message,
+        mode: isProduction ? 'production' : 'test',
         timestamp: new Date().toISOString(),
         help: 'Consultez les logs de la fonction Edge pour plus de détails'
       }),

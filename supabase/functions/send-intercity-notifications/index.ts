@@ -5,6 +5,9 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
+// Production mode flag - set via environment variable
+const isProduction = Deno.env.get("IS_PRODUCTION_MODE") === "true";
+
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
 const TWILIO_ACCOUNT_SID = Deno.env.get('TWILIO_ACCOUNT_SID');
 const TWILIO_AUTH_TOKEN = Deno.env.get('TWILIO_AUTH_TOKEN');
@@ -83,6 +86,8 @@ async function sendEmail(data: NotificationRequest): Promise<{ success: boolean;
       emailSubject = 'Nouvelle commande - Livraison Inter Régions';
     }
 
+    console.log(`📧 Sending email [Mode: ${isProduction ? 'Production' : 'Test'}]`);
+
     const response = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
@@ -104,7 +109,7 @@ async function sendEmail(data: NotificationRequest): Promise<{ success: boolean;
     }
 
     const result = await response.json();
-    console.log('Email sent successfully:', result);
+    console.log('✅ Email sent successfully:', result);
     return { success: true };
   } catch (error) {
     console.error('Error sending email:', error);
@@ -147,6 +152,8 @@ Merci de traiter cette commande rapidement.
       whatsappTo = YOMBAL_WHATSAPP;
     }
 
+    console.log(`📱 Sending WhatsApp [Mode: ${isProduction ? 'Production' : 'Test'}]`);
+
     const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Messages.json`;
     const credentials = btoa(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`);
 
@@ -171,7 +178,7 @@ Merci de traiter cette commande rapidement.
     }
 
     const result = await response.json();
-    console.log('WhatsApp sent successfully:', result);
+    console.log('✅ WhatsApp sent successfully:', result);
     return { success: true };
   } catch (error) {
     console.error('Error sending WhatsApp:', error);
@@ -188,11 +195,12 @@ serve(async (req) => {
   try {
     const data: NotificationRequest = await req.json();
 
-    console.log('Processing notification request:', {
+    console.log('📥 Processing notification request:', {
       emailOnly: data.emailOnly,
       whatsappOnly: data.whatsappOnly,
       sender: data.senderName,
       destination: data.destinationRegion,
+      mode: isProduction ? 'Production' : 'Test',
     });
 
     // Handle email-only requests
@@ -205,6 +213,7 @@ serve(async (req) => {
           message: emailResult.success 
             ? 'Email envoyé avec succès' 
             : 'Échec de l\'envoi de l\'email',
+          mode: isProduction ? 'production' : 'test',
         }),
         {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -223,6 +232,7 @@ serve(async (req) => {
           message: whatsappResult.success 
             ? 'WhatsApp envoyé avec succès' 
             : 'Échec de l\'envoi du WhatsApp',
+          mode: isProduction ? 'production' : 'test',
         }),
         {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -248,6 +258,7 @@ serve(async (req) => {
         message: success 
           ? 'Notifications envoyées avec succès' 
           : 'Échec de l\'envoi des notifications',
+        mode: isProduction ? 'production' : 'test',
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -255,11 +266,12 @@ serve(async (req) => {
       }
     );
   } catch (error) {
-    console.error('Error in send-intercity-notifications:', error);
+    console.error('❌ Error in send-intercity-notifications:', error);
     return new Response(
       JSON.stringify({
         success: false,
         error: error.message,
+        mode: isProduction ? 'production' : 'test',
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
