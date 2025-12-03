@@ -15,28 +15,28 @@ export default function TabLayout() {
       backgroundColor={isDark ? colors.darkCard : colors.card}
     >
       <NativeTabs.Trigger name="(home)">
-        <Label style={{ fontSize: 12, fontWeight: '600' }}>Accueil</Label>
+        <Label style={{ fontSize: 11, fontWeight: '600' }}>ACCUEIL</Label>
         <Icon sf="house.fill" />
       </NativeTabs.Trigger>
       
       <NativeTabs.Trigger name="covoiturage">
-        <Label style={{ fontSize: 12, fontWeight: '600' }}>Covoiturage</Label>
+        <Label style={{ fontSize: 10, fontWeight: '600' }}>COVOITURAGE</Label>
         <Icon sf="car.fill" />
       </NativeTabs.Trigger>
       
       {/* DISABLED: Envoi de colis module */}
       {/* <NativeTabs.Trigger name="colis">
-        <Label style={{ fontSize: 12, fontWeight: '600' }}>Colis</Label>
+        <Label style={{ fontSize: 11, fontWeight: '600' }}>COLIS</Label>
         <Icon sf="shippingbox.fill" />
       </NativeTabs.Trigger> */}
       
       <NativeTabs.Trigger name="livraison">
-        <Label style={{ fontSize: 11, fontWeight: '600' }}>LIVRAISON INTER-REGION</Label>
+        <Label style={{ fontSize: 9, fontWeight: '600' }}>LIVRAISON COLIS REGIONS</Label>
         <Icon sf="bolt.fill" />
       </NativeTabs.Trigger>
       
       <NativeTabs.Trigger name="profile">
-        <Label style={{ fontSize: 12, fontWeight: '600' }}>Profil</Label>
+        <Label style={{ fontSize: 11, fontWeight: '600' }}>PROFIL</Label>
         <Icon sf="person.fill" />
       </NativeTabs.Trigger>
     </NativeTabs>

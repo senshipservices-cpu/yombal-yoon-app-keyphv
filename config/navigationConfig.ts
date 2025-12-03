@@ -46,54 +46,54 @@ export interface NavigationTab {
 export const NAVIGATION_TABS: NavigationTab[] = [
   {
     id: 'home',
-    label: 'Accueil',
+    label: 'ACCUEIL',
     route: '/(tabs)/(home)/',
     icon: {
       ios: 'house.fill',
       android: 'home',
     },
-    screenTitle: 'Accueil',
+    screenTitle: 'ACCUEIL',
   },
   {
     id: 'covoiturage',
-    label: 'Covoiturage',
+    label: 'COVOITURAGE',
     route: '/(tabs)/covoiturage',
     icon: {
       ios: 'car.fill',
       android: 'directions-car',
     },
-    screenTitle: 'Covoiturage',
+    screenTitle: 'COVOITURAGE',
   },
   // DISABLED: Envoi de colis module
   // {
   //   id: 'colis',
-  //   label: 'Colis',
+  //   label: 'COLIS',
   //   route: '/(tabs)/colis',
   //   icon: {
   //     ios: 'shippingbox.fill',
   //     android: 'local-shipping',
   //   },
-  //   screenTitle: 'Envoi de Colis',
+  //   screenTitle: 'ENVOI DE COLIS',
   // },
   {
     id: 'livraison',
-    label: 'LIVRAISON COLIS INTER-REGION',
+    label: 'LIVRAISON COLIS REGIONS',
     route: '/(tabs)/livraison',
     icon: {
       ios: 'bolt.fill',
       android: 'flash-on',
     },
-    screenTitle: 'LIVRAISON COLIS INTER-REGION',
+    screenTitle: 'LIVRAISON COLIS REGIONS',
   },
   {
     id: 'profile',
-    label: 'Profil',
+    label: 'PROFIL',
     route: '/(tabs)/profile',
     icon: {
       ios: 'person.fill',
       android: 'person',
     },
-    screenTitle: 'Mon Profil',
+    screenTitle: 'MON PROFIL',
   },
 ];
 
