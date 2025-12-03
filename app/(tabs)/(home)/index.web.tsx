@@ -115,7 +115,7 @@ export default function HomeScreen() {
   const services = [
     {
       id: 'covoiturage',
-      title: 'Covoiturage',
+      title: 'COVOITURAGE',
       subtitle: 'Partagez vos trajets',
       icon: { ios: 'car.fill', android: 'directions-car' },
       color: '#FF8C00',
@@ -123,9 +123,9 @@ export default function HomeScreen() {
     },
     {
       id: 'livraison',
-      title: 'Livraison 14 Régions',
+      title: 'LIVRAISON 14 RÉGIONS',
       subtitle: 'Inter-régions',
-      icon: { ios: 'bolt.fill', android: 'flash-on' },
+      icon: { ios: 'shippingbox.fill', android: 'local-shipping' },
       color: colors.secondary,
       route: '/livraison',
     },
