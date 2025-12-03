@@ -63,6 +63,7 @@ export default function MyReservationsScreen() {
       }
 
       console.log('Bookings loaded:', bookingsData);
+      console.log('Sample booking with ride data:', bookingsData?.[0]);
       setBookings(bookingsData || []);
     } catch (err) {
       console.error('Error in loadBookings:', err);
@@ -287,7 +288,18 @@ export default function MyReservationsScreen() {
 
               const statusIcon = getStatusIcon(booking.status || 'pending');
               const { date, time } = formatDateTime(ride.departure_datetime);
-              const maskedDriverPhone = maskPhoneNumber(ride.driver_phone);
+              
+              // Get the correct driver phone from the ride data
+              const driverPhone = ride.driver_phone || '';
+              const maskedDriverPhone = maskPhoneNumber(driverPhone);
+
+              console.log('Rendering booking:', {
+                bookingId: booking.id,
+                rideId: ride.id,
+                driverName: ride.driver_name,
+                driverPhone: driverPhone,
+                maskedPhone: maskedDriverPhone,
+              });
 
               return (
                 <View
@@ -387,13 +399,13 @@ export default function MyReservationsScreen() {
                   </View>
 
                   {/* Contact Buttons - Only show for accepted reservations */}
-                  {booking.status === 'accepted' && (
+                  {booking.status === 'accepted' && driverPhone && (
                     <View style={styles.contactSection}>
                       <Text style={[styles.contactTitle, { color: isDark ? colors.darkText : colors.text }]}>
                         Contacter le conducteur
                       </Text>
                       <ContactButtons
-                        phoneNumber={ride.driver_phone}
+                        phoneNumber={driverPhone}
                         userName={ride.driver_name}
                       />
                     </View>

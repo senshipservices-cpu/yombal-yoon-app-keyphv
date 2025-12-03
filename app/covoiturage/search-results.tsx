@@ -24,6 +24,7 @@ import VerifiedDriverBadge from '@/components/VerifiedDriverBadge';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { supabase } from '@/app/integrations/supabase/client';
 import { maskPhoneNumber } from '@/utils/phoneUtils';
+import { notifyDriverNewReservation } from '@/utils/notificationSetup';
 
 interface RideResult {
   id: string;
@@ -179,24 +180,50 @@ export default function SearchResultsScreen() {
         console.log('Seats updated:', newSeatsAvailable);
       }
 
-      // Send notification
+      // Send push notification to driver
+      console.log('📤 Sending notification to driver...');
+      await notifyDriverNewReservation(
+        ride.driver_name,
+        passengerName.trim(),
+        passengers,
+        {
+          from: ride.departure_city,
+          to: ride.arrival_city,
+          date: new Date(ride.departure_datetime).toLocaleDateString('fr-FR'),
+          time: new Date(ride.departure_datetime).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
+        },
+        bookingData.id,
+        ride.id
+      );
+      console.log('✅ Driver notification sent');
+
+      // Send in-app notification to passenger
       sendLocalNotification(
         'Réservation enregistrée ! 🎉',
         `Votre réservation pour ${ride.departure_city} → ${ride.arrival_city} est en attente de confirmation du conducteur.`,
         { type: 'reservation_created', bookingId: bookingData.id }
       );
 
+      // Show success message to passenger
       Alert.alert(
-        'Réservation enregistrée et en attente du conducteur.',
-        'Vous serez notifié lorsque le conducteur acceptera ou refusera votre réservation.',
+        'Demande de réservation envoyée ! ✅',
+        `Votre demande de réservation pour ${ride.departure_city} → ${ride.arrival_city} a été envoyée avec succès.\n\nLe conducteur ${ride.driver_name} recevra une notification et vous serez informé(e) de sa décision.`,
         [
+          {
+            text: 'Voir mes réservations',
+            onPress: () => {
+              setSelectedRideId(null);
+              setPassengerName('');
+              setPassengerPhone('');
+              router.push('/covoiturage/my-reservations');
+            },
+          },
           {
             text: 'OK',
             onPress: () => {
               setSelectedRideId(null);
               setPassengerName('');
               setPassengerPhone('');
-              router.push('/covoiturage/my-reservations');
             },
           },
         ]
@@ -557,9 +584,13 @@ export default function SearchResultsScreen() {
                           disabled={!passengerName.trim() || !passengerPhone.trim() || isBooking}
                           activeOpacity={0.7}
                         >
-                          <Text style={styles.confirmButtonText}>
-                            {isBooking ? 'Réservation...' : 'Confirmer la réservation'}
-                          </Text>
+                          {isBooking ? (
+                            <ActivityIndicator size="small" color="#FFFFFF" />
+                          ) : (
+                            <Text style={styles.confirmButtonText}>
+                              Confirmer la réservation
+                            </Text>
+                          )}
                         </TouchableOpacity>
                       </View>
                     </View>
@@ -773,6 +804,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 12,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   cancelButton: {
     backgroundColor: 'transparent',
