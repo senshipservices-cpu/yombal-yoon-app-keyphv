@@ -211,7 +211,7 @@ export default function HomeScreen() {
                   styles.serviceCard,
                   { backgroundColor: isDark ? colors.darkCard : colors.card },
                   isHighlighted && styles.serviceCardHighlighted,
-                  isHighlighted && { borderColor: service.color, borderWidth: 2 },
+                  isHighlighted && { borderColor: service.color, borderWidth: 2.5 },
                 ]}
                 onPress={() => router.push(service.route as any)}
                 activeOpacity={0.7}
@@ -221,7 +221,7 @@ export default function HomeScreen() {
                     <IconSymbol
                       ios_icon_name="star.fill"
                       android_material_icon_name="star"
-                      size={16}
+                      size={18}
                       color="#FFFFFF"
                     />
                     <Text style={styles.highlightBadgeText}>Recommandé</Text>
@@ -231,7 +231,7 @@ export default function HomeScreen() {
                   <IconSymbol
                     ios_icon_name={service.icon.ios}
                     android_material_icon_name={service.icon.android}
-                    size={32}
+                    size={38}
                     color={service.color}
                   />
                 </View>
@@ -246,7 +246,7 @@ export default function HomeScreen() {
                 <IconSymbol
                   ios_icon_name="chevron.right"
                   android_material_icon_name="chevron-right"
-                  size={24}
+                  size={26}
                   color={colors.textSecondary}
                 />
               </TouchableOpacity>
@@ -257,7 +257,7 @@ export default function HomeScreen() {
             <IconSymbol
               ios_icon_name="info.circle.fill"
               android_material_icon_name="info"
-              size={24}
+              size={26}
               color={colors.primary}
             />
             <Text style={[styles.infoText, { color: isDark ? colors.darkText : colors.text }]}>
@@ -303,12 +303,14 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   greeting: {
-    fontSize: 16,
+    fontSize: 17,
     marginBottom: 4,
+    fontWeight: '500',
   },
   appName: {
-    fontSize: 32,
+    fontSize: 34,
     fontWeight: '800',
+    letterSpacing: 0.5,
   },
   notificationButton: {
     position: 'relative',
@@ -331,9 +333,9 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   logo: {
-    width: 40,
-    height: 40,
-    borderRadius: 8,
+    width: 44,
+    height: 44,
+    borderRadius: 10,
   },
   taglineContainer: {
     marginTop: 12,
@@ -341,36 +343,37 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   tagline: {
-    fontSize: 20,
+    fontSize: 21,
     fontWeight: '700',
-    lineHeight: 28,
-    letterSpacing: 0.3,
+    lineHeight: 30,
+    letterSpacing: 0.4,
   },
   tipCard: {
     borderRadius: 16,
-    padding: 16,
+    padding: 18,
     marginTop: 8,
-    boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.08)',
-    elevation: 3,
-    borderLeftWidth: 4,
+    boxShadow: '0px 2px 10px rgba(0, 0, 0, 0.1)',
+    elevation: 4,
+    borderLeftWidth: 5,
     borderLeftColor: colors.secondary,
   },
   tipHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
-    gap: 8,
+    marginBottom: 10,
+    gap: 10,
   },
   tipIcon: {
-    fontSize: 24,
+    fontSize: 26,
   },
   tipTitle: {
-    fontSize: 18,
+    fontSize: 19,
     fontWeight: '700',
+    letterSpacing: 0.3,
   },
   tipText: {
-    fontSize: 15,
-    lineHeight: 22,
+    fontSize: 16,
+    lineHeight: 24,
     fontStyle: 'italic',
   },
   content: {
@@ -378,47 +381,49 @@ const styles = StyleSheet.create({
     paddingTop: 0,
   },
   sectionTitle: {
-    fontSize: 22,
-    fontWeight: '700',
-    marginBottom: 16,
+    fontSize: 24,
+    fontWeight: '800',
+    marginBottom: 18,
+    letterSpacing: 0.4,
   },
   serviceCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
-    boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.08)',
-    elevation: 3,
-    gap: 16,
+    borderRadius: 18,
+    padding: 20,
+    marginBottom: 16,
+    boxShadow: '0px 3px 10px rgba(0, 0, 0, 0.1)',
+    elevation: 4,
+    gap: 18,
     position: 'relative',
   },
   serviceCardHighlighted: {
-    boxShadow: '0px 4px 16px rgba(0, 128, 0, 0.25)',
-    elevation: 6,
+    boxShadow: '0px 5px 18px rgba(0, 128, 0, 0.3)',
+    elevation: 7,
   },
   highlightBadge: {
     position: 'absolute',
-    top: -8,
-    right: 12,
+    top: -10,
+    right: 14,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-    boxShadow: '0px 2px 6px rgba(0, 0, 0, 0.15)',
-    elevation: 4,
+    gap: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 14,
+    boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.2)',
+    elevation: 5,
   },
   highlightBadgeText: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '700',
     color: '#FFFFFF',
+    letterSpacing: 0.3,
   },
   serviceIcon: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 72,
+    height: 72,
+    borderRadius: 36,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -426,26 +431,29 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   serviceTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    marginBottom: 4,
+    fontSize: 20,
+    fontWeight: '800',
+    marginBottom: 5,
+    letterSpacing: 0.3,
   },
   serviceSubtitle: {
-    fontSize: 14,
+    fontSize: 15,
+    fontWeight: '500',
   },
   infoCard: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 12,
-    padding: 16,
-    borderRadius: 12,
-    marginTop: 8,
-    borderLeftWidth: 4,
+    gap: 14,
+    padding: 18,
+    borderRadius: 14,
+    marginTop: 10,
+    borderLeftWidth: 5,
     borderLeftColor: colors.primary,
   },
   infoText: {
     flex: 1,
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: 15,
+    lineHeight: 22,
+    fontWeight: '500',
   },
 });

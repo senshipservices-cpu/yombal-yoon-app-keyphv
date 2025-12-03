@@ -15,28 +15,28 @@ export default function TabLayout() {
       backgroundColor={isDark ? colors.darkCard : colors.card}
     >
       <NativeTabs.Trigger name="(home)">
-        <Label>Accueil</Label>
+        <Label style={{ fontSize: 12, fontWeight: '600' }}>Accueil</Label>
         <Icon sf="house.fill" />
       </NativeTabs.Trigger>
       
       <NativeTabs.Trigger name="covoiturage">
-        <Label>Covoiturage</Label>
+        <Label style={{ fontSize: 12, fontWeight: '600' }}>Covoiturage</Label>
         <Icon sf="car.fill" />
       </NativeTabs.Trigger>
       
       {/* DISABLED: Envoi de colis module */}
       {/* <NativeTabs.Trigger name="colis">
-        <Label>Colis</Label>
+        <Label style={{ fontSize: 12, fontWeight: '600' }}>Colis</Label>
         <Icon sf="shippingbox.fill" />
       </NativeTabs.Trigger> */}
       
       <NativeTabs.Trigger name="livraison">
-        <Label>LIVRAISON COLIS INTER-REGION</Label>
+        <Label style={{ fontSize: 11, fontWeight: '600' }}>LIVRAISON INTER-REGION</Label>
         <Icon sf="bolt.fill" />
       </NativeTabs.Trigger>
       
       <NativeTabs.Trigger name="profile">
-        <Label>Profil</Label>
+        <Label style={{ fontSize: 12, fontWeight: '600' }}>Profil</Label>
         <Icon sf="person.fill" />
       </NativeTabs.Trigger>
     </NativeTabs>

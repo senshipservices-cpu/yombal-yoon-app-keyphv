@@ -110,24 +110,24 @@ export default function FloatingTabBar({
   const dynamicStyles = {
     blurContainer: {
       ...styles.blurContainer,
-      borderWidth: 1.2,
-      borderColor: theme.dark ? YYTheme.colors.primary + '80' : YYTheme.colors.primary + '40',
+      borderWidth: 1.5,
+      borderColor: theme.dark ? YYTheme.colors.primary + '90' : YYTheme.colors.primary + '50',
       ...Platform.select({
         ios: {
           backgroundColor: theme.dark
-            ? 'rgba(28, 28, 30, 0.8)'
-            : 'rgba(255, 255, 255, 0.6)',
+            ? 'rgba(28, 28, 30, 0.85)'
+            : 'rgba(255, 255, 255, 0.7)',
         },
         android: {
           backgroundColor: theme.dark
-            ? 'rgba(28, 28, 30, 0.95)'
-            : 'rgba(255, 255, 255, 0.6)',
+            ? 'rgba(28, 28, 30, 0.97)'
+            : 'rgba(255, 255, 255, 0.7)',
         },
         web: {
           backgroundColor: theme.dark
-            ? 'rgba(28, 28, 30, 0.95)'
-            : 'rgba(255, 255, 255, 0.6)',
-          backdropFilter: 'blur(10px)',
+            ? 'rgba(28, 28, 30, 0.97)'
+            : 'rgba(255, 255, 255, 0.7)',
+          backdropFilter: 'blur(12px)',
         },
       }),
     },
@@ -137,8 +137,8 @@ export default function FloatingTabBar({
     indicator: {
       ...styles.indicator,
       backgroundColor: theme.dark
-        ? YYTheme.colors.primary + '30'
-        : YYTheme.colors.primary + '20',
+        ? YYTheme.colors.primary + '35'
+        : YYTheme.colors.primary + '25',
       width: `${tabWidthPercent}%` as `${number}%`,
     },
   };
@@ -153,7 +153,7 @@ export default function FloatingTabBar({
         }
       ]}>
         <BlurView
-          intensity={80}
+          intensity={85}
           style={[dynamicStyles.blurContainer, { borderRadius }]}
         >
           <View style={dynamicStyles.background} />
@@ -174,15 +174,20 @@ export default function FloatingTabBar({
                       <IconSymbol
                         android_material_icon_name={tab.icon}
                         ios_icon_name={tab.icon}
-                        size={24}
+                        size={28}
                         color={isActive ? YYTheme.colors.primary : (theme.dark ? YYTheme.colors.text.darkSecondary : YYTheme.colors.text.secondary)}
                       />
                       <Text
                         style={[
                           styles.tabLabel,
                           { color: theme.dark ? YYTheme.colors.text.darkSecondary : YYTheme.colors.text.secondary },
-                          isActive && { color: YYTheme.colors.primary, fontWeight: '600' },
+                          isActive && { 
+                            color: YYTheme.colors.primary, 
+                            fontWeight: '700',
+                          },
                         ]}
+                        numberOfLines={1}
+                        adjustsFontSizeToFit
                       >
                         {tab.label}
                       </Text>
@@ -222,29 +227,31 @@ const styles = StyleSheet.create({
     top: 4,
     left: 2,
     bottom: 4,
-    borderRadius: 27,
+    borderRadius: 30,
     width: `${(100 / 2) - 1}%`,
   },
   tabsContainer: {
     flexDirection: 'row',
-    height: 60,
+    height: 70,
     alignItems: 'center',
-    paddingHorizontal: 4,
+    paddingHorizontal: 6,
   },
   tab: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 8,
+    paddingVertical: 10,
   },
   tabContent: {
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 2,
+    gap: 4,
   },
   tabLabel: {
-    fontSize: 9,
-    fontWeight: '500',
-    marginTop: 2,
+    fontSize: 11,
+    fontWeight: '600',
+    marginTop: 3,
+    textAlign: 'center',
+    letterSpacing: 0.2,
   },
 });
