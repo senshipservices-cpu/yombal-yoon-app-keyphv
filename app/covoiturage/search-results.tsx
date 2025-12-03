@@ -126,12 +126,20 @@ export default function SearchResultsScreen() {
 
   const handleBookRide = async (ride: RideResult) => {
     if (!passengerName.trim()) {
-      Alert.alert('Erreur', 'Veuillez entrer votre nom');
+      if (Platform.OS === 'web') {
+        window.alert('Veuillez entrer votre nom');
+      } else {
+        Alert.alert('Erreur', 'Veuillez entrer votre nom');
+      }
       return;
     }
 
     if (!passengerPhone.trim()) {
-      Alert.alert('Erreur', 'Veuillez entrer votre numéro de téléphone');
+      if (Platform.OS === 'web') {
+        window.alert('Veuillez entrer votre numéro de téléphone');
+      } else {
+        Alert.alert('Erreur', 'Veuillez entrer votre numéro de téléphone');
+      }
       return;
     }
 
@@ -160,11 +168,15 @@ export default function SearchResultsScreen() {
 
       if (bookingError) {
         console.error('Error creating booking:', bookingError);
-        Alert.alert('Erreur', 'Impossible de réserver ce trajet. Veuillez réessayer.');
+        if (Platform.OS === 'web') {
+          window.alert('Impossible de réserver ce trajet. Veuillez réessayer.');
+        } else {
+          Alert.alert('Erreur', 'Impossible de réserver ce trajet. Veuillez réessayer.');
+        }
         return;
       }
 
-      console.log('Booking created:', bookingData);
+      console.log('✅ Booking created successfully:', bookingData);
 
       // Update seats_available in carpool_rides
       const newSeatsAvailable = ride.seats_available - passengers;
@@ -177,7 +189,7 @@ export default function SearchResultsScreen() {
         console.error('Error updating seats:', updateError);
         // Don't fail the booking if seat update fails
       } else {
-        console.log('Seats updated:', newSeatsAvailable);
+        console.log('✅ Seats updated:', newSeatsAvailable);
       }
 
       // Send push notification to driver
@@ -204,33 +216,41 @@ export default function SearchResultsScreen() {
         { type: 'reservation_created', bookingId: bookingData.id }
       );
 
+      // Reset form
+      setSelectedRideId(null);
+      setPassengerName('');
+      setPassengerPhone('');
+
       // Show success message to passenger
-      Alert.alert(
-        'Demande de réservation envoyée ! ✅',
-        `Votre demande de réservation pour ${ride.departure_city} → ${ride.arrival_city} a été envoyée avec succès.\n\nLe conducteur ${ride.driver_name} recevra une notification et vous serez informé(e) de sa décision.`,
-        [
-          {
-            text: 'Voir mes réservations',
-            onPress: () => {
-              setSelectedRideId(null);
-              setPassengerName('');
-              setPassengerPhone('');
-              router.push('/covoiturage/my-reservations');
+      const successMessage = `Votre demande de réservation a été envoyée avec succès ! ✅\n\nLe conducteur ${ride.driver_name} recevra une notification et vous serez informé(e) de sa décision.\n\nVous pouvez consulter l'état de votre réservation dans "Mes réservations".`;
+      
+      if (Platform.OS === 'web') {
+        window.alert(successMessage);
+      } else {
+        Alert.alert(
+          'Demande envoyée ! ✅',
+          successMessage,
+          [
+            {
+              text: 'Voir mes réservations',
+              onPress: () => {
+                router.push('/covoiturage/my-reservations');
+              },
             },
-          },
-          {
-            text: 'OK',
-            onPress: () => {
-              setSelectedRideId(null);
-              setPassengerName('');
-              setPassengerPhone('');
+            {
+              text: 'OK',
+              style: 'default',
             },
-          },
-        ]
-      );
+          ]
+        );
+      }
     } catch (error) {
-      console.error('Error booking ride:', error);
-      Alert.alert('Erreur', 'Une erreur est survenue lors de la réservation');
+      console.error('❌ Error booking ride:', error);
+      if (Platform.OS === 'web') {
+        window.alert('Une erreur est survenue lors de la réservation');
+      } else {
+        Alert.alert('Erreur', 'Une erreur est survenue lors de la réservation');
+      }
     } finally {
       setIsBooking(false);
     }
@@ -299,11 +319,15 @@ export default function SearchResultsScreen() {
         visible={showVerificationModal}
         onClose={() => setShowVerificationModal(false)}
         onSuccess={() => {
-          Alert.alert(
-            'Numéro vérifié !',
-            'Vous pouvez maintenant réserver un trajet.',
-            [{ text: 'OK' }]
-          );
+          if (Platform.OS === 'web') {
+            window.alert('Numéro vérifié ! Vous pouvez maintenant réserver un trajet.');
+          } else {
+            Alert.alert(
+              'Numéro vérifié !',
+              'Vous pouvez maintenant réserver un trajet.',
+              [{ text: 'OK' }]
+            );
+          }
         }}
       />
 
