@@ -101,6 +101,7 @@ export default function ProfileScreen() {
   /**
    * Handle logout - properly sign out from Supabase and clear local data
    * iOS-specific implementation with haptic feedback
+   * FIXED: Now properly clears session and navigates to home
    */
   const handleLogout = async () => {
     try {
@@ -108,7 +109,7 @@ export default function ProfileScreen() {
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       console.log('🔄 [iOS] Starting logout process...');
 
-      // Sign out from Supabase (clears all sessions)
+      // 1. Sign out from Supabase (clears all sessions including AsyncStorage)
       const { error } = await supabase.auth.signOut();
       
       if (error) {
@@ -117,7 +118,7 @@ export default function ProfileScreen() {
           "Erreur de déconnexion",
           "Une erreur s'est produite lors de la déconnexion. Voulez-vous réessayer ?",
           [
-            { text: "Annuler", style: "cancel" },
+            { text: "Annuler", style: "cancel", onPress: () => setIsLoggingOut(false) },
             { text: "Réessayer", onPress: handleLogout }
           ]
         );
@@ -126,21 +127,21 @@ export default function ProfileScreen() {
 
       console.log('✅ [iOS] Signed out from Supabase successfully');
 
-      // Clear local storage
+      // 2. Clear any additional local storage keys
       await AsyncStorage.multiRemove([
         '@yombal_yoon_profile',
         '@yombal_yoon_user_id'
       ]);
       console.log('✅ [iOS] Local storage cleared');
 
-      // Reset profile context
+      // 3. Reset profile context to default state
       await resetProfile();
       console.log('✅ [iOS] Profile context reset');
 
-      // Haptic feedback for success
+      // 4. Haptic feedback for success
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
-      // Show success message
+      // 5. Show success message and navigate
       Alert.alert(
         "Déconnexion réussie",
         "Vous avez été déconnecté avec succès.",
@@ -148,7 +149,7 @@ export default function ProfileScreen() {
           {
             text: "OK",
             onPress: () => {
-              // Navigate to home or onboarding
+              // Navigate to home screen
               router.replace('/(tabs)/(home)');
             }
           }
@@ -162,7 +163,7 @@ export default function ProfileScreen() {
         "Erreur",
         "Une erreur inattendue s'est produite. Veuillez réessayer.",
         [
-          { text: "OK" }
+          { text: "OK", onPress: () => setIsLoggingOut(false) }
         ]
       );
     } finally {

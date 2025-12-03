@@ -328,26 +328,33 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
     await initializeUser();
   }, [initializeUser]);
 
+  /**
+   * Reset profile - clears all local data and resets to default state
+   * This is called during logout
+   */
   const resetProfile = React.useCallback(async () => {
     try {
-      const currentUserId = await getUserId();
-      setProfile({ ...defaultProfile, id: currentUserId });
-      await AsyncStorage.removeItem(PROFILE_STORAGE_KEY);
+      console.log('🔄 Resetting profile...');
       
-      const { error } = await supabase
-        .from('user_profiles')
-        .delete()
-        .eq('id', currentUserId);
-
-      if (error) {
-        console.error('Error deleting profile from Supabase:', error);
-      }
-
-      console.log('Profile reset');
+      // Clear local storage
+      await AsyncStorage.multiRemove([PROFILE_STORAGE_KEY, USER_ID_KEY]);
+      console.log('✅ Local storage cleared');
+      
+      // Reset state to default
+      setProfile(defaultProfile);
+      setUserId(null);
+      console.log('✅ Profile state reset to default');
+      
+      // Note: We don't delete from Supabase here because the user might want to log back in
+      // The Supabase session is already cleared by supabase.auth.signOut()
+      
     } catch (error) {
-      console.error('Error resetting profile:', error);
+      console.error('❌ Error resetting profile:', error);
+      // Even if there's an error, reset the state
+      setProfile(defaultProfile);
+      setUserId(null);
     }
-  }, [getUserId]);
+  }, []);
 
   return (
     <ProfileContext.Provider
