@@ -4,6 +4,10 @@
  * 
  * Set IS_TEST_MODE to true during testing phase to disable commissions.
  * Set to false when ready for production.
+ * 
+ * Note: This is separate from productionMode.ts which controls OTP/phone verification.
+ * - testMode.ts: Controls commission calculations (wallet/payment features)
+ * - productionMode.ts: Controls OTP verification and phone number reuse
  */
 
 export const IS_TEST_MODE = true; // Phase test = true, Production = false

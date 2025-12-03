@@ -7,6 +7,9 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Production mode flag - set via environment variable
+const IS_PRODUCTION_MODE = Deno.env.get("IS_PRODUCTION_MODE") === "true";
+
 // Response helper
 function response(data: any, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -51,7 +54,7 @@ async function sendViaTwilio(
     return { success: false, error: "Aucun numéro Twilio configuré." };
   }
 
-  console.log(`📤 Sending OTP via ${method} from ${fromNumber} to ${toNumber}`);
+  console.log(`📤 Sending OTP via ${method} from ${fromNumber} to ${toNumber} [Mode: ${IS_PRODUCTION_MODE ? 'Production' : 'Test'}]`);
 
   try {
     const res = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
@@ -116,7 +119,12 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const action = body.action;
 
-    console.log("📥 Request:", { action, phoneNumber: body.phoneNumber, userId: body.userId });
+    console.log("📥 Request:", { 
+      action, 
+      phoneNumber: body.phoneNumber, 
+      userId: body.userId,
+      mode: IS_PRODUCTION_MODE ? 'Production' : 'Test'
+    });
 
     // ---------- ACTION = SEND ----------
     if (action === "send") {
@@ -128,6 +136,19 @@ Deno.serve(async (req) => {
 
       const otp = generateOTP();
       const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+      // In test mode, delete old OTP entries for this phone number to allow reuse
+      if (!IS_PRODUCTION_MODE) {
+        console.log('🧪 Test mode: Cleaning old OTP entries for phone:', phoneNumber);
+        const { error: deleteError } = await supabase
+          .from("phone_verifications")
+          .delete()
+          .eq("phone_number", phoneNumber);
+        
+        if (deleteError) {
+          console.error("⚠️ Error cleaning old OTP entries:", deleteError);
+        }
+      }
 
       // Save OTP to database
       const { error: saveErr } = await supabase.from("phone_verifications").insert({
@@ -155,8 +176,9 @@ Deno.serve(async (req) => {
 
       return response({
         success: true,
-        message: `Code envoyé par ${sent.method === 'sms' ? 'SMS' : 'WhatsApp'}`,
+        message: `Code envoyé par ${sent.method === 'sms' ? 'SMS' : 'WhatsApp'}${!IS_PRODUCTION_MODE ? ' (Mode Test)' : ''}`,
         method: sent.method,
+        mode: IS_PRODUCTION_MODE ? 'production' : 'test',
       });
     }
 
@@ -164,7 +186,7 @@ Deno.serve(async (req) => {
     if (action === "verify") {
       const { phoneNumber, otpCode, userId } = body;
 
-      console.log("🔍 Verifying OTP:", { phoneNumber, userId });
+      console.log("🔍 Verifying OTP:", { phoneNumber, userId, mode: IS_PRODUCTION_MODE ? 'Production' : 'Test' });
 
       if (!phoneNumber || !otpCode) {
         return response({ success: false, error: "Données manquantes" }, 400);
@@ -240,8 +262,9 @@ Deno.serve(async (req) => {
 
         console.log("📋 Existing profile:", existingProfile);
 
-        // Check if phone number is already used by another user
-        if (existingProfile.phone_number !== phoneNumber) {
+        // In production mode, check if phone number is already used by another user
+        // In test mode, allow phone number reuse
+        if (IS_PRODUCTION_MODE && existingProfile.phone_number !== phoneNumber) {
           const { data: phoneCheck, error: phoneCheckError } = await supabase
             .from("user_profiles")
             .select("id")
@@ -257,6 +280,8 @@ Deno.serve(async (req) => {
               error: "Ce numéro est déjà utilisé par un autre compte" 
             }, 400);
           }
+        } else if (!IS_PRODUCTION_MODE) {
+          console.log('🧪 Test mode: Skipping duplicate phone check');
         }
 
         // Update the profile
@@ -272,10 +297,46 @@ Deno.serve(async (req) => {
 
         if (updateUserError) {
           console.error("❌ Error updating user profile:", updateUserError);
-          return response({ 
-            success: false, 
-            error: "Erreur lors de la mise à jour du profil: " + updateUserError.message 
-          }, 500);
+          
+          // In test mode, if there's a unique constraint error, try to update anyway
+          if (!IS_PRODUCTION_MODE && updateUserError.code === '23505') {
+            console.log('🧪 Test mode: Attempting to bypass unique constraint...');
+            
+            // First, clear the phone number from any other profile
+            const { error: clearError } = await supabase
+              .from("user_profiles")
+              .update({ phone_number: null })
+              .eq("phone_number", phoneNumber)
+              .neq("id", userId);
+            
+            if (clearError) {
+              console.error("❌ Error clearing phone from other profiles:", clearError);
+            }
+            
+            // Try updating again
+            const { error: retryError } = await supabase
+              .from("user_profiles")
+              .update({
+                is_phone_verified: true,
+                phone_verified_at: new Date().toISOString(),
+                phone_number: phoneNumber,
+                updated_at: new Date().toISOString(),
+              })
+              .eq("id", userId);
+            
+            if (retryError) {
+              console.error("❌ Error on retry:", retryError);
+              return response({ 
+                success: false, 
+                error: "Erreur lors de la mise à jour du profil: " + retryError.message 
+              }, 500);
+            }
+          } else {
+            return response({ 
+              success: false, 
+              error: "Erreur lors de la mise à jour du profil: " + updateUserError.message 
+            }, 500);
+          }
         }
 
         console.log("✅ User profile updated successfully");
@@ -284,7 +345,8 @@ Deno.serve(async (req) => {
       console.log("✅ OTP verified successfully");
       return response({ 
         success: true, 
-        message: "Numéro vérifié avec succès" 
+        message: `Numéro vérifié avec succès${!IS_PRODUCTION_MODE ? ' (Mode Test)' : ''}`,
+        mode: IS_PRODUCTION_MODE ? 'production' : 'test',
       });
     }
 

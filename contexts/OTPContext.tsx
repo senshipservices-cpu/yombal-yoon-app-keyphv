@@ -2,6 +2,7 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from '@/config/supabase';
+import { IS_PRODUCTION_MODE } from '@/config/productionMode';
 
 interface OTPContextType {
   isPhoneVerified: boolean;
@@ -10,6 +11,7 @@ interface OTPContextType {
   sendOTP: (phone: string, method?: 'whatsapp' | 'sms', userId?: string) => Promise<{ success: boolean; message?: string; method?: string }>;
   setPhoneVerified: (verified: boolean) => Promise<void>;
   loadVerificationStatus: () => Promise<void>;
+  isProductionMode: boolean;
 }
 
 const OTPContext = createContext<OTPContextType | undefined>(undefined);
@@ -54,7 +56,7 @@ export function OTPProvider({ children }: { children: ReactNode }) {
     userId?: string
   ): Promise<{ success: boolean; message?: string; method?: string }> => {
     try {
-      console.log('📱 Sending OTP to:', phone, 'via', method, 'userId:', userId);
+      console.log('📱 Sending OTP to:', phone, 'via', method, 'userId:', userId, 'Mode:', IS_PRODUCTION_MODE ? 'Production' : 'Test');
 
       // Normalize phone number (ensure it starts with +)
       const normalizedPhone = phone.startsWith('+') ? phone : `+${phone}`;
@@ -111,7 +113,7 @@ export function OTPProvider({ children }: { children: ReactNode }) {
     userId?: string
   ): Promise<{ success: boolean; message?: string }> => {
     try {
-      console.log('🔍 Verifying OTP for phone:', phone, 'userId:', userId);
+      console.log('🔍 Verifying OTP for phone:', phone, 'userId:', userId, 'Mode:', IS_PRODUCTION_MODE ? 'Production' : 'Test');
 
       // Normalize phone number
       const normalizedPhone = phone.startsWith('+') ? phone : `+${phone}`;
@@ -176,6 +178,7 @@ export function OTPProvider({ children }: { children: ReactNode }) {
         sendOTP,
         setPhoneVerified,
         loadVerificationStatus,
+        isProductionMode: IS_PRODUCTION_MODE,
       }}
     >
       {children}
