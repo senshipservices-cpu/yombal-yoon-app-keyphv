@@ -168,6 +168,10 @@ export async function sendPushNotification(
   }
 }
 
+// ================================================
+// PART 1: BEFORE AND DURING RESERVATION
+// ================================================
+
 /**
  * Send notification for new reservation (to driver)
  */
@@ -259,6 +263,138 @@ export async function notifyPassengersRideCancelled(
       rideId,
       driverName,
       route,
+    },
+    'covoiturage-passenger'
+  );
+}
+
+// ================================================
+// PART 2: DURING AND AFTER THE RIDE
+// ================================================
+
+/**
+ * 3.1. Notify passengers that the ride has started
+ */
+export async function notifyPassengersRideStarted(
+  passengerName: string,
+  route: { from: string; to: string; date: string; time: string },
+  rideId: string
+): Promise<void> {
+  await sendPushNotification(
+    '🚗 Trajet démarré',
+    `Le trajet ${route.from} → ${route.to} a démarré`,
+    {
+      type: 'ride_started',
+      rideId,
+      route,
+    },
+    'covoiturage-passenger'
+  );
+}
+
+/**
+ * 3.2. Notify passengers of last-minute cancellation by driver
+ */
+export async function notifyPassengerLastMinuteCancellation(
+  passengerName: string,
+  driverName: string,
+  route: { from: string; to: string; date: string; time: string },
+  rideId: string
+): Promise<void> {
+  await sendPushNotification(
+    'Trajet annulé ❌',
+    `${driverName} a annulé ${route.from} → ${route.to}`,
+    {
+      type: 'ride_cancelled_last_minute',
+      rideId,
+      driverName,
+      route,
+    },
+    'covoiturage-passenger'
+  );
+}
+
+/**
+ * 3.3. Notify driver that a passenger cancelled their reservation
+ */
+export async function notifyDriverPassengerCancelled(
+  driverName: string,
+  passengerName: string,
+  numberOfPassengers: number,
+  rideId: string
+): Promise<void> {
+  await sendPushNotification(
+    '❌ Annulation de réservation',
+    `${passengerName} a annulé sa réservation (${numberOfPassengers} place(s))`,
+    {
+      type: 'passenger_cancelled',
+      rideId,
+      passengerName,
+      numberOfPassengers,
+    },
+    'covoiturage-driver'
+  );
+}
+
+/**
+ * 4.1. Notify that the ride has ended
+ */
+export async function notifyRideEnded(
+  userName: string,
+  route: { from: string; to: string; date: string; time: string },
+  tripSummary: { duration: string; price: number },
+  rideId: string,
+  isDriver: boolean
+): Promise<void> {
+  await sendPushNotification(
+    '✅ Trajet terminé',
+    `Le trajet ${route.from} → ${route.to} est terminé`,
+    {
+      type: 'ride_ended',
+      rideId,
+      route,
+      tripSummary,
+      isDriver,
+    },
+    isDriver ? 'covoiturage-driver' : 'covoiturage-passenger'
+  );
+}
+
+/**
+ * 4.2. Request rating from driver (for passengers)
+ */
+export async function requestDriverRating(
+  driverName: string,
+  rideId: string
+): Promise<void> {
+  await sendPushNotification(
+    '⭐ Note tes passagers',
+    `Comment s'est passé ton trajet ? Note tes passagers`,
+    {
+      type: 'rating_request',
+      rideId,
+      isDriver: true,
+    },
+    'covoiturage-driver'
+  );
+}
+
+/**
+ * 4.2. Request rating from passenger (for driver)
+ */
+export async function requestPassengerRating(
+  passengerName: string,
+  route: { from: string; to: string; date: string; time: string },
+  rideId: string
+): Promise<void> {
+  await sendPushNotification(
+    '⭐ Note ton conducteur',
+    `Note ton conducteur pour le trajet ${route.from} → ${route.to} 🚗`,
+    {
+      type: 'rating_request',
+      rideId,
+      route,
+      isDriver: false,
     },
     'covoiturage-passenger'
   );

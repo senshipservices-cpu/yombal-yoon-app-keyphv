@@ -9,6 +9,12 @@ import {
   notifyPassengerReservationAccepted,
   notifyPassengerReservationRefused,
   notifyPassengersRideCancelled,
+  notifyPassengersRideStarted,
+  notifyPassengerLastMinuteCancellation,
+  notifyDriverPassengerCancelled,
+  notifyRideEnded,
+  requestDriverRating,
+  requestPassengerRating,
 } from '@/utils/notificationSetup';
 
 export interface Ride {
@@ -25,6 +31,7 @@ export interface Ride {
   vehicleType?: string;
   intermediateStops?: string;
   status: 'active' | 'cancelled';
+  rideStatus?: 'pending' | 'started' | 'ended' | 'cancelled';
   createdAt: string;
   departureLat?: number;
   departureLng?: number;
@@ -32,6 +39,9 @@ export interface Ride {
   arrivalLng?: number;
   distanceKm?: number;
   durationMinutes?: number;
+  startedAt?: string;
+  endedAt?: string;
+  durationActualMinutes?: number;
 }
 
 export interface Reservation {
@@ -43,6 +53,11 @@ export interface Reservation {
   status: 'pending' | 'accepted' | 'refused';
   createdAt: string;
   ride?: Ride;
+  driverRating?: number;
+  driverRatingComment?: string;
+  passengerRating?: number;
+  passengerRatingComment?: string;
+  ratedAt?: string;
 }
 
 interface CovoiturageContextType {
@@ -66,6 +81,14 @@ interface CovoiturageContextType {
   cancelRide: (
     rideId: string,
     onNotify?: (type: 'ride_cancelled', passengerIds: string[], rideDetails: any) => void
+  ) => Promise<{ success: boolean; message?: string }>;
+  startRide: (rideId: string) => Promise<{ success: boolean; message?: string }>;
+  endRide: (rideId: string) => Promise<{ success: boolean; message?: string }>;
+  submitRating: (
+    reservationId: string,
+    rating: number,
+    comment: string,
+    isDriverRating: boolean
   ) => Promise<{ success: boolean; message?: string }>;
   refreshData: () => Promise<void>;
   isLoading: boolean;
@@ -115,6 +138,7 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
             vehicleType: ride.vehicle_type || undefined,
             intermediateStops: ride.stops || undefined,
             status: ride.status === 'cancelled' ? 'cancelled' : 'active',
+            rideStatus: (ride as any).ride_status || 'pending',
             createdAt: ride.created_at || new Date().toISOString(),
             departureLat: ride.departure_lat || undefined,
             departureLng: ride.departure_lng || undefined,
@@ -122,6 +146,9 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
             arrivalLng: ride.arrival_lng || undefined,
             distanceKm: ride.distance_km || undefined,
             durationMinutes: ride.duration_minutes || undefined,
+            startedAt: (ride as any).started_at || undefined,
+            endedAt: (ride as any).ended_at || undefined,
+            durationActualMinutes: (ride as any).duration_actual_minutes || undefined,
           };
         });
 
@@ -150,6 +177,11 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
           numberOfPassengers: booking.number_of_passengers,
           status: (booking.status as 'pending' | 'accepted' | 'refused') || 'pending',
           createdAt: booking.created_at || new Date().toISOString(),
+          driverRating: (booking as any).driver_rating || undefined,
+          driverRatingComment: (booking as any).driver_rating_comment || undefined,
+          passengerRating: (booking as any).passenger_rating || undefined,
+          passengerRatingComment: (booking as any).passenger_rating_comment || undefined,
+          ratedAt: (booking as any).rated_at || undefined,
         }));
 
         setReservations(convertedReservations);
@@ -285,6 +317,7 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
         vehicleType: data.vehicle_type || undefined,
         intermediateStops: data.stops || undefined,
         status: 'active',
+        rideStatus: 'pending',
         createdAt: data.created_at || new Date().toISOString(),
         departureLat: data.departure_lat || undefined,
         departureLng: data.departure_lng || undefined,
@@ -630,6 +663,14 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
 
           setRides(updatedRides);
           await AsyncStorage.setItem(RIDES_STORAGE_KEY, JSON.stringify(updatedRides));
+
+          // Notify driver of passenger cancellation
+          await notifyDriverPassengerCancelled(
+            ride.driverName,
+            reservation.passengerName,
+            reservation.numberOfPassengers,
+            ride.id
+          );
         }
       }
 
@@ -667,11 +708,18 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
         currentStatus: ride.status,
       });
 
+      // Check if it's a last-minute cancellation (less than X hours before departure)
+      const departureTime = new Date(`${ride.date}T${ride.time}`);
+      const now = new Date();
+      const hoursUntilDeparture = (departureTime.getTime() - now.getTime()) / (1000 * 60 * 60);
+      const isLastMinute = hoursUntilDeparture < 24; // Less than 24 hours
+
       console.log('Updating ride status in Supabase...');
       const { data: updatedRide, error: updateError } = await supabase
         .from('carpool_rides')
         .update({ 
           status: 'cancelled',
+          ride_status: 'cancelled',
           seats_available: 0 
         })
         .eq('id', rideId)
@@ -705,26 +753,42 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
           console.log('Bookings updated successfully in Supabase');
         }
 
-        // Send push notifications to all passengers
+        // Send notifications to all passengers
         for (const reservation of rideReservations) {
-          await notifyPassengersRideCancelled(
-            reservation.passengerName,
-            ride.driverName,
-            {
-              from: ride.departureCity,
-              to: ride.arrivalCity,
-              date: new Date(ride.date).toLocaleDateString('fr-FR'),
-              time: ride.time,
-            },
-            ride.id
-          );
+          if (isLastMinute) {
+            // Last-minute cancellation: send push + WhatsApp
+            await notifyPassengerLastMinuteCancellation(
+              reservation.passengerName,
+              ride.driverName,
+              {
+                from: ride.departureCity,
+                to: ride.arrivalCity,
+                date: new Date(ride.date).toLocaleDateString('fr-FR'),
+                time: ride.time,
+              },
+              ride.id
+            );
+          } else {
+            // Regular cancellation: send push only
+            await notifyPassengersRideCancelled(
+              reservation.passengerName,
+              ride.driverName,
+              {
+                from: ride.departureCity,
+                to: ride.arrivalCity,
+                date: new Date(ride.date).toLocaleDateString('fr-FR'),
+                time: ride.time,
+              },
+              ride.id
+            );
+          }
         }
       }
 
       console.log('Updating local state...');
       const updatedRides = rides.map(r => {
         if (r && r.id === rideId) {
-          return { ...r, status: 'cancelled' as const, availableSeats: 0 };
+          return { ...r, status: 'cancelled' as const, rideStatus: 'cancelled' as const, availableSeats: 0 };
         }
         return r;
       });
@@ -770,6 +834,248 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
     }
   }, [rides, reservations]);
 
+  const startRide = useCallback(async (rideId: string): Promise<{ success: boolean; message?: string }> => {
+    try {
+      console.log('=== START RIDE ===');
+      console.log('Ride ID:', rideId);
+
+      const ride = rides.find(r => r && r.id === rideId);
+      
+      if (!ride) {
+        return { success: false, message: 'Trajet introuvable' };
+      }
+
+      const startedAt = new Date().toISOString();
+
+      // Update in Supabase
+      const { error: updateError } = await supabase
+        .from('carpool_rides')
+        .update({ 
+          ride_status: 'started',
+          started_at: startedAt
+        })
+        .eq('id', rideId);
+
+      if (updateError) {
+        console.error('Error starting ride:', updateError);
+        return { success: false, message: 'Erreur lors du démarrage du trajet' };
+      }
+
+      // Update local state
+      const updatedRides = rides.map(r => {
+        if (r && r.id === rideId) {
+          return { ...r, rideStatus: 'started' as const, startedAt };
+        }
+        return r;
+      });
+
+      setRides(updatedRides);
+      await AsyncStorage.setItem(RIDES_STORAGE_KEY, JSON.stringify(updatedRides));
+
+      // Notify all passengers
+      const rideReservations = reservations.filter(r => r && r.rideId === rideId && r.status === 'accepted');
+      for (const reservation of rideReservations) {
+        await notifyPassengersRideStarted(
+          reservation.passengerName,
+          {
+            from: ride.departureCity,
+            to: ride.arrivalCity,
+            date: new Date(ride.date).toLocaleDateString('fr-FR'),
+            time: ride.time,
+          },
+          ride.id
+        );
+      }
+
+      console.log('✅ Ride started successfully');
+      return { success: true };
+    } catch (error) {
+      console.error('Error starting ride:', error);
+      return { success: false, message: 'Erreur lors du démarrage du trajet' };
+    }
+  }, [rides, reservations]);
+
+  const endRide = useCallback(async (rideId: string): Promise<{ success: boolean; message?: string }> => {
+    try {
+      console.log('=== END RIDE ===');
+      console.log('Ride ID:', rideId);
+
+      const ride = rides.find(r => r && r.id === rideId);
+      
+      if (!ride) {
+        return { success: false, message: 'Trajet introuvable' };
+      }
+
+      const endedAt = new Date().toISOString();
+      let durationActualMinutes = 0;
+
+      if (ride.startedAt) {
+        const startTime = new Date(ride.startedAt);
+        const endTime = new Date(endedAt);
+        durationActualMinutes = Math.round((endTime.getTime() - startTime.getTime()) / (1000 * 60));
+      }
+
+      // Update in Supabase
+      const { error: updateError } = await supabase
+        .from('carpool_rides')
+        .update({ 
+          ride_status: 'ended',
+          ended_at: endedAt,
+          duration_actual_minutes: durationActualMinutes,
+          rating_requested_at: endedAt
+        })
+        .eq('id', rideId);
+
+      if (updateError) {
+        console.error('Error ending ride:', updateError);
+        return { success: false, message: 'Erreur lors de la fin du trajet' };
+      }
+
+      // Update local state
+      const updatedRides = rides.map(r => {
+        if (r && r.id === rideId) {
+          return { 
+            ...r, 
+            rideStatus: 'ended' as const, 
+            endedAt,
+            durationActualMinutes
+          };
+        }
+        return r;
+      });
+
+      setRides(updatedRides);
+      await AsyncStorage.setItem(RIDES_STORAGE_KEY, JSON.stringify(updatedRides));
+
+      // Notify all participants
+      const rideReservations = reservations.filter(r => r && r.rideId === rideId && r.status === 'accepted');
+      
+      const tripSummary = {
+        duration: `${durationActualMinutes} min`,
+        price: ride.pricePerPassenger
+      };
+
+      // Notify driver
+      await notifyRideEnded(
+        ride.driverName,
+        {
+          from: ride.departureCity,
+          to: ride.arrivalCity,
+          date: new Date(ride.date).toLocaleDateString('fr-FR'),
+          time: ride.time,
+        },
+        tripSummary,
+        ride.id,
+        true
+      );
+
+      // Notify passengers
+      for (const reservation of rideReservations) {
+        await notifyRideEnded(
+          reservation.passengerName,
+          {
+            from: ride.departureCity,
+            to: ride.arrivalCity,
+            date: new Date(ride.date).toLocaleDateString('fr-FR'),
+            time: ride.time,
+          },
+          tripSummary,
+          ride.id,
+          false
+        );
+      }
+
+      // Schedule rating requests (10-30 minutes after)
+      // In a real app, this would be done via a scheduled job or Edge Function
+      // For now, we'll send them immediately
+      setTimeout(async () => {
+        // Request rating from driver
+        await requestDriverRating(ride.driverName, ride.id);
+
+        // Request rating from passengers
+        for (const reservation of rideReservations) {
+          await requestPassengerRating(
+            reservation.passengerName,
+            {
+              from: ride.departureCity,
+              to: ride.arrivalCity,
+              date: new Date(ride.date).toLocaleDateString('fr-FR'),
+              time: ride.time,
+            },
+            ride.id
+          );
+        }
+      }, 10 * 60 * 1000); // 10 minutes
+
+      console.log('✅ Ride ended successfully');
+      return { success: true };
+    } catch (error) {
+      console.error('Error ending ride:', error);
+      return { success: false, message: 'Erreur lors de la fin du trajet' };
+    }
+  }, [rides, reservations]);
+
+  const submitRating = useCallback(async (
+    reservationId: string,
+    rating: number,
+    comment: string,
+    isDriverRating: boolean
+  ): Promise<{ success: boolean; message?: string }> => {
+    try {
+      console.log('=== SUBMIT RATING ===');
+      console.log('Reservation ID:', reservationId);
+      console.log('Rating:', rating);
+      console.log('Is Driver Rating:', isDriverRating);
+
+      const updateData = isDriverRating
+        ? {
+            driver_rating: rating,
+            driver_rating_comment: comment,
+            rated_at: new Date().toISOString()
+          }
+        : {
+            passenger_rating: rating,
+            passenger_rating_comment: comment,
+            rated_at: new Date().toISOString()
+          };
+
+      // Update in Supabase
+      const { error: updateError } = await supabase
+        .from('carpool_bookings')
+        .update(updateData)
+        .eq('id', reservationId);
+
+      if (updateError) {
+        console.error('Error submitting rating:', updateError);
+        return { success: false, message: 'Erreur lors de l\'envoi de la notation' };
+      }
+
+      // Update local state
+      const updatedReservations = reservations.map(r => {
+        if (r && r.id === reservationId) {
+          return { 
+            ...r, 
+            ...(isDriverRating 
+              ? { driverRating: rating, driverRatingComment: comment }
+              : { passengerRating: rating, passengerRatingComment: comment }
+            ),
+            ratedAt: new Date().toISOString()
+          };
+        }
+        return r;
+      });
+
+      setReservations(updatedReservations);
+      await AsyncStorage.setItem(RESERVATIONS_STORAGE_KEY, JSON.stringify(updatedReservations));
+
+      console.log('✅ Rating submitted successfully');
+      return { success: true };
+    } catch (error) {
+      console.error('Error submitting rating:', error);
+      return { success: false, message: 'Erreur lors de l\'envoi de la notation' };
+    }
+  }, [reservations]);
+
   return (
     <CovoiturageContext.Provider
       value={{
@@ -784,6 +1090,9 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
         updateReservationStatus,
         cancelReservation,
         cancelRide,
+        startRide,
+        endRide,
+        submitRating,
         refreshData,
         isLoading,
         error,

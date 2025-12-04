@@ -25,10 +25,11 @@ export default function MyRidesScreen() {
   const theme = useTheme();
   const isDark = theme.dark;
   const router = useRouter();
-  const { rides, getReservationsByRide, updateReservationStatus, cancelRide, isLoading, refreshData } = useCovoiturage();
+  const { rides, getReservationsByRide, updateReservationStatus, cancelRide, startRide, isLoading, refreshData } = useCovoiturage();
   const { sendLocalNotification, registerForPushNotifications } = useNotifications();
   const [refreshing, setRefreshing] = React.useState(false);
   const [cancellingRideId, setCancellingRideId] = React.useState<string | null>(null);
+  const [startingRideId, setStartingRideId] = React.useState<string | null>(null);
   const [passengerPhones, setPassengerPhones] = React.useState<{ [key: string]: string }>({});
 
   const registerNotifications = useCallback(() => {
@@ -186,6 +187,73 @@ export default function MyRidesScreen() {
                 await refreshData();
               } else {
                 Alert.alert('Erreur', result.message || 'Impossible de refuser la réservation');
+              }
+            },
+          },
+        ]
+      );
+    }
+  };
+
+  const handleStartRide = async (rideId: string) => {
+    console.log('=== handleStartRide CALLED ===');
+    console.log('Ride ID:', rideId);
+
+    if (Platform.OS === 'web') {
+      const confirmed = window.confirm('Voulez-vous démarrer ce trajet ?');
+      
+      if (!confirmed) {
+        console.log('User cancelled the action');
+        return;
+      }
+
+      try {
+        console.log('Starting ride...');
+        setStartingRideId(rideId);
+
+        const result = await startRide(rideId);
+
+        console.log('Start result:', result);
+        setStartingRideId(null);
+
+        if (result.success) {
+          window.alert('Trajet démarré ! Les passagers ont été notifiés.');
+          await refreshData();
+        } else {
+          window.alert(result.message || 'Impossible de démarrer le trajet');
+        }
+      } catch (error) {
+        console.error('Error in handleStartRide:', error);
+        setStartingRideId(null);
+        window.alert('Une erreur est survenue lors du démarrage du trajet');
+      }
+    } else {
+      Alert.alert(
+        'Démarrer le trajet',
+        'Voulez-vous démarrer ce trajet ?',
+        [
+          { text: 'Non', style: 'cancel' },
+          {
+            text: 'Oui, démarrer',
+            onPress: async () => {
+              try {
+                console.log('User confirmed start for ride:', rideId);
+                setStartingRideId(rideId);
+
+                const result = await startRide(rideId);
+
+                setStartingRideId(null);
+
+                if (result.success) {
+                  Alert.alert('Succès', 'Trajet démarré ! Les passagers ont été notifiés.');
+                  await refreshData();
+                } else {
+                  Alert.alert('Erreur', result.message || 'Impossible de démarrer le trajet');
+                }
+              } catch (error) {
+                console.error('Error in handleStartRide:', error);
+                setStartingRideId(null);
+                Alert.alert('Erreur', 'Une erreur est survenue lors du démarrage du trajet');
               }
             },
           },
@@ -362,6 +430,10 @@ export default function MyRidesScreen() {
               const isFull = ride.availableSeats === 0;
               const isCancelled = ride.status === 'cancelled';
               const isCancelling = cancellingRideId === ride.id;
+              const isStarting = startingRideId === ride.id;
+              const rideStatus = ride.rideStatus || 'pending';
+              const isStarted = rideStatus === 'started';
+              const isEnded = rideStatus === 'ended';
 
               return (
                 <View
@@ -445,31 +517,67 @@ export default function MyRidesScreen() {
                   </View>
 
                   {/* Action Buttons */}
-                  {!isCancelled && (
+                  {!isCancelled && !isEnded && (
                     <View style={styles.actionButtonsContainer}>
-                      <TouchableOpacity
-                        style={[
-                          styles.endTripButton, 
-                          { 
-                            backgroundColor: colors.primary,
-                          }
-                        ]}
-                        onPress={() => {
-                          console.log('End trip button pressed for ride:', ride.id);
-                          router.push(`/covoiturage/end-trip-payment?rideId=${ride.id}`);
-                        }}
-                        activeOpacity={0.7}
-                      >
-                        <IconSymbol
-                          ios_icon_name="checkmark.circle.fill"
-                          android_material_icon_name="check-circle"
-                          size={16}
-                          color="#FFFFFF"
-                        />
-                        <Text style={[styles.endTripButtonText, { color: '#FFFFFF' }]}>
-                          Terminer le trajet
-                        </Text>
-                      </TouchableOpacity>
+                      {!isStarted && (
+                        <TouchableOpacity
+                          style={[
+                            styles.startTripButton, 
+                            { 
+                              backgroundColor: colors.primary,
+                              opacity: isStarting ? 0.5 : 1,
+                            }
+                          ]}
+                          onPress={() => {
+                            console.log('Start trip button pressed for ride:', ride.id);
+                            handleStartRide(ride.id);
+                          }}
+                          activeOpacity={0.7}
+                          disabled={isStarting}
+                        >
+                          {isStarting ? (
+                            <ActivityIndicator size="small" color="#FFFFFF" />
+                          ) : (
+                            <React.Fragment>
+                              <IconSymbol
+                                ios_icon_name="play.circle.fill"
+                                android_material_icon_name="play-circle"
+                                size={16}
+                                color="#FFFFFF"
+                              />
+                              <Text style={[styles.startTripButtonText, { color: '#FFFFFF' }]}>
+                                Démarrer le trajet
+                              </Text>
+                            </React.Fragment>
+                          )}
+                        </TouchableOpacity>
+                      )}
+
+                      {isStarted && (
+                        <TouchableOpacity
+                          style={[
+                            styles.endTripButton, 
+                            { 
+                              backgroundColor: colors.primary,
+                            }
+                          ]}
+                          onPress={() => {
+                            console.log('End trip button pressed for ride:', ride.id);
+                            router.push(`/covoiturage/end-trip-payment?rideId=${ride.id}`);
+                          }}
+                          activeOpacity={0.7}
+                        >
+                          <IconSymbol
+                            ios_icon_name="checkmark.circle.fill"
+                            android_material_icon_name="check-circle"
+                            size={16}
+                            color="#FFFFFF"
+                          />
+                          <Text style={[styles.endTripButtonText, { color: '#FFFFFF' }]}>
+                            Terminer le trajet
+                          </Text>
+                        </TouchableOpacity>
+                      )}
 
                       <TouchableOpacity
                         style={[
@@ -724,6 +832,19 @@ const styles = StyleSheet.create({
   actionButtonsContainer: {
     gap: 8,
     marginBottom: 12,
+  },
+  startTripButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+  },
+  startTripButtonText: {
+    fontSize: 14,
+    fontWeight: '700',
   },
   endTripButton: {
     flexDirection: 'row',
