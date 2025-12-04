@@ -1,0 +1,52 @@
+
+# Supabase Configuration File
+# Copy this file to config.toml and update with your project ID
+
+project_id = "drxtaxepofuoelplgrei"
+
+# Edge Functions Configuration
+# Disable JWT verification for functions called from database triggers
+# These functions are invoked by Postgres triggers using pg_net.http_post
+
+[functions.on-ride-created]
+verify_jwt = false
+# Called when a driver publishes a new ride (trigger: tg_on_ride_created)
+
+[functions.on-reservation-requested]
+verify_jwt = false
+# Called when a passenger requests a reservation (trigger: tg_on_reservation_requested)
+
+[functions.on-reservation-status-changed]
+verify_jwt = false
+# Called when reservation status changes (trigger: tg_on_reservation_status_changed)
+
+[functions.on-ride-status-changed]
+verify_jwt = false
+# Called when ride status changes (trigger: tg_on_ride_status_changed)
+
+[functions.on-driver-arrived]
+verify_jwt = false
+# Called when driver arrives at pickup location (trigger: tg_on_driver_arrived)
+
+[functions.on-ride-reminders]
+verify_jwt = false
+# Called by cron job to send ride reminders
+
+[functions.on-rating-request]
+verify_jwt = false
+# Called by cron job to request ratings after completed rides
+
+# Functions that SHOULD keep JWT verification enabled
+# These are called from client applications and need authentication
+
+# [functions.send-notification-unified]
+# verify_jwt = true (default)
+# Called by other Edge Functions with SERVICE_ROLE_KEY
+
+# [functions.google-places-proxy]
+# verify_jwt = true (default)
+# Called from mobile/web app
+
+# [functions.send-otp-twilio]
+# verify_jwt = true (default)
+# Called from mobile/web app
