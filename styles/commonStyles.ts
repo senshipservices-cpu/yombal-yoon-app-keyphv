@@ -1,5 +1,5 @@
 
-import { StyleSheet } from 'react-native';
+import { StyleSheet, Platform } from 'react-native';
 
 // Couleurs globales Yombal Yoon (drapeau Sénégal)
 export const colors = {
@@ -42,6 +42,22 @@ export const colors = {
   covoiturage: '#00853F',
   livraison: '#E31B23',
   colis: '#0066CC',
+};
+
+// Font family with fallbacks for when custom fonts fail to load
+export const fontFamily = {
+  regular: Platform.select({
+    ios: 'System',
+    android: 'Roboto',
+    web: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+    default: 'System',
+  }),
+  bold: Platform.select({
+    ios: 'System',
+    android: 'Roboto',
+    web: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+    default: 'System',
+  }),
 };
 
 export const commonStyles = StyleSheet.create({
@@ -92,28 +108,33 @@ export const commonStyles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '700',
+    fontFamily: fontFamily.bold,
   },
   title: {
     fontSize: 24,
     fontWeight: '800',
     color: colors.text,
     marginBottom: 8,
+    fontFamily: fontFamily.bold,
   },
   darkTitle: {
     fontSize: 24,
     fontWeight: '800',
     color: colors.darkText,
     marginBottom: 8,
+    fontFamily: fontFamily.bold,
   },
   subtitle: {
     fontSize: 16,
     color: colors.textSecondary,
     marginBottom: 16,
+    fontFamily: fontFamily.regular,
   },
   darkSubtitle: {
     fontSize: 16,
     color: colors.darkTextSecondary,
     marginBottom: 16,
+    fontFamily: fontFamily.regular,
   },
   input: {
     backgroundColor: colors.card,
@@ -123,6 +144,7 @@ export const commonStyles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     marginBottom: 16,
+    fontFamily: fontFamily.regular,
   },
   darkInput: {
     backgroundColor: colors.darkCard,
@@ -133,6 +155,7 @@ export const commonStyles = StyleSheet.create({
     borderColor: colors.darkBorder,
     marginBottom: 16,
     color: colors.darkText,
+    fontFamily: fontFamily.regular,
   },
   shadow: {
     shadowColor: '#000',

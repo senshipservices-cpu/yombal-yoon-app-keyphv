@@ -15,16 +15,33 @@ import { OTPProvider } from '@/contexts/OTPContext';
 import * as Network from 'expo-network';
 import { initializeNotificationHandlers } from '@/utils/notificationSetup';
 
-SplashScreen.preventAutoHideAsync();
+// Prevent splash screen from auto-hiding
+SplashScreen.preventAutoHideAsync().catch((error) => {
+  console.log('SplashScreen.preventAutoHideAsync error:', error);
+});
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
   const [networkError, setNetworkError] = useState(false);
   const [isCheckingNetwork, setIsCheckingNetwork] = useState(true);
+  const [fontError, setFontError] = useState(false);
 
-  const [loaded] = useFonts({
+  // Load fonts with error handling
+  const [loaded, error] = useFonts({
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
   });
+
+  // Handle font loading errors
+  useEffect(() => {
+    if (error) {
+      console.error('Font loading error:', error);
+      setFontError(true);
+      // Continue anyway - the app will use system fonts as fallback
+      SplashScreen.hideAsync().catch((err) => {
+        console.log('SplashScreen.hideAsync error:', err);
+      });
+    }
+  }, [error]);
 
   // Initialize notification system on app start
   useEffect(() => {
@@ -33,6 +50,7 @@ export default function RootLayout() {
     console.log('✅ Notification system initialized');
   }, []);
 
+  // Check network connectivity
   useEffect(() => {
     const checkNetwork = async () => {
       try {
@@ -56,16 +74,26 @@ export default function RootLayout() {
     checkNetwork();
   }, []);
 
+  // Hide splash screen when fonts are loaded and network check is complete
   useEffect(() => {
-    if (loaded && !isCheckingNetwork) {
-      SplashScreen.hideAsync();
+    if ((loaded || fontError) && !isCheckingNetwork) {
+      const hideSplash = async () => {
+        try {
+          await SplashScreen.hideAsync();
+        } catch (err) {
+          console.log('Error hiding splash screen:', err);
+        }
+      };
+      hideSplash();
     }
-  }, [loaded, isCheckingNetwork]);
+  }, [loaded, fontError, isCheckingNetwork]);
 
-  if (!loaded || isCheckingNetwork) {
+  // Show loading state while fonts are loading or network is being checked
+  if ((!loaded && !fontError) || isCheckingNetwork) {
     return null;
   }
 
+  // Show network error if no connection
   if (networkError) {
     return (
       <View style={styles.errorContainer}>
@@ -76,6 +104,11 @@ export default function RootLayout() {
         <ActivityIndicator size="large" color="#008000" style={styles.loader} />
       </View>
     );
+  }
+
+  // Log if fonts failed to load but continue with system fonts
+  if (fontError) {
+    console.warn('⚠️ Custom fonts failed to load. Using system fonts as fallback.');
   }
 
   return (
