@@ -25,11 +25,12 @@ export default function MyRidesScreen() {
   const theme = useTheme();
   const isDark = theme.dark;
   const router = useRouter();
-  const { rides, getReservationsByRide, updateReservationStatus, cancelRide, startRide, isLoading, refreshData } = useCovoiturage();
+  const { rides, getReservationsByRide, updateReservationStatus, cancelRide, startRide, markDriverArrived, isLoading, refreshData } = useCovoiturage();
   const { sendLocalNotification, registerForPushNotifications } = useNotifications();
   const [refreshing, setRefreshing] = React.useState(false);
   const [cancellingRideId, setCancellingRideId] = React.useState<string | null>(null);
   const [startingRideId, setStartingRideId] = React.useState<string | null>(null);
+  const [arrivingRideId, setArrivingRideId] = React.useState<string | null>(null);
   const [passengerPhones, setPassengerPhones] = React.useState<{ [key: string]: string }>({});
 
   const registerNotifications = useCallback(() => {
@@ -217,6 +218,73 @@ export default function MyRidesScreen() {
                 }
               } catch (error) {
                 console.error('Error refusing reservation:', error);
+                Alert.alert('Erreur', 'Une erreur est survenue');
+              }
+            },
+          },
+        ]
+      );
+    }
+  };
+
+  const handleDriverArrived = async (rideId: string) => {
+    console.log('=== handleDriverArrived CALLED ===');
+    console.log('Ride ID:', rideId);
+
+    if (Platform.OS === 'web') {
+      const confirmed = window.confirm('Confirmez-vous que vous êtes arrivé au point de rencontre ?');
+      
+      if (!confirmed) {
+        console.log('User cancelled the action');
+        return;
+      }
+
+      try {
+        console.log('Marking driver as arrived...');
+        setArrivingRideId(rideId);
+
+        const result = await markDriverArrived(rideId);
+
+        console.log('Arrival result:', result);
+        setArrivingRideId(null);
+
+        if (result.success) {
+          window.alert('Les passagers ont été notifiés de votre arrivée.');
+          await refreshData();
+        } else {
+          window.alert(result.message || 'Impossible de notifier les passagers');
+        }
+      } catch (error) {
+        console.error('Error in handleDriverArrived:', error);
+        setArrivingRideId(null);
+        window.alert('Une erreur est survenue');
+      }
+    } else {
+      Alert.alert(
+        'Je suis arrivé',
+        'Confirmez-vous que vous êtes arrivé au point de rencontre ?',
+        [
+          { text: 'Non', style: 'cancel' },
+          {
+            text: 'Oui, je suis arrivé',
+            onPress: async () => {
+              try {
+                console.log('User confirmed arrival for ride:', rideId);
+                setArrivingRideId(rideId);
+
+                const result = await markDriverArrived(rideId);
+
+                setArrivingRideId(null);
+
+                if (result.success) {
+                  Alert.alert('Succès', 'Les passagers ont été notifiés de votre arrivée.');
+                  await refreshData();
+                } else {
+                  Alert.alert('Erreur', result.message || 'Impossible de notifier les passagers');
+                }
+              } catch (error) {
+                console.error('Error in handleDriverArrived:', error);
+                setArrivingRideId(null);
                 Alert.alert('Erreur', 'Une erreur est survenue');
               }
             },
@@ -470,6 +538,7 @@ export default function MyRidesScreen() {
               const isCancelled = ride.status === 'cancelled';
               const isCancelling = cancellingRideId === ride.id;
               const isStarting = startingRideId === ride.id;
+              const isArriving = arrivingRideId === ride.id;
               const rideStatus = ride.rideStatus || 'pending';
               const isStarted = rideStatus === 'started';
               const isEnded = rideStatus === 'ended';
@@ -559,37 +628,71 @@ export default function MyRidesScreen() {
                   {!isCancelled && !isEnded && (
                     <View style={styles.actionButtonsContainer}>
                       {!isStarted && (
-                        <TouchableOpacity
-                          style={[
-                            styles.startTripButton, 
-                            { 
-                              backgroundColor: colors.primary,
-                              opacity: isStarting ? 0.5 : 1,
-                            }
-                          ]}
-                          onPress={() => {
-                            console.log('Start trip button pressed for ride:', ride.id);
-                            handleStartRide(ride.id);
-                          }}
-                          activeOpacity={0.7}
-                          disabled={isStarting}
-                        >
-                          {isStarting ? (
-                            <ActivityIndicator size="small" color="#FFFFFF" />
-                          ) : (
-                            <React.Fragment>
-                              <IconSymbol
-                                ios_icon_name="play.circle.fill"
-                                android_material_icon_name="play-circle"
-                                size={16}
-                                color="#FFFFFF"
-                              />
-                              <Text style={[styles.startTripButtonText, { color: '#FFFFFF' }]}>
-                                Démarrer le trajet
-                              </Text>
-                            </React.Fragment>
-                          )}
-                        </TouchableOpacity>
+                        <React.Fragment>
+                          <TouchableOpacity
+                            style={[
+                              styles.arrivedButton, 
+                              { 
+                                backgroundColor: '#4CAF50',
+                                opacity: isArriving ? 0.5 : 1,
+                              }
+                            ]}
+                            onPress={() => {
+                              console.log('Driver arrived button pressed for ride:', ride.id);
+                              handleDriverArrived(ride.id);
+                            }}
+                            activeOpacity={0.7}
+                            disabled={isArriving}
+                          >
+                            {isArriving ? (
+                              <ActivityIndicator size="small" color="#FFFFFF" />
+                            ) : (
+                              <React.Fragment>
+                                <IconSymbol
+                                  ios_icon_name="location.fill"
+                                  android_material_icon_name="location-on"
+                                  size={16}
+                                  color="#FFFFFF"
+                                />
+                                <Text style={[styles.arrivedButtonText, { color: '#FFFFFF' }]}>
+                                  Je suis arrivé
+                                </Text>
+                              </React.Fragment>
+                            )}
+                          </TouchableOpacity>
+
+                          <TouchableOpacity
+                            style={[
+                              styles.startTripButton, 
+                              { 
+                                backgroundColor: colors.primary,
+                                opacity: isStarting ? 0.5 : 1,
+                              }
+                            ]}
+                            onPress={() => {
+                              console.log('Start trip button pressed for ride:', ride.id);
+                              handleStartRide(ride.id);
+                            }}
+                            activeOpacity={0.7}
+                            disabled={isStarting}
+                          >
+                            {isStarting ? (
+                              <ActivityIndicator size="small" color="#FFFFFF" />
+                            ) : (
+                              <React.Fragment>
+                                <IconSymbol
+                                  ios_icon_name="play.circle.fill"
+                                  android_material_icon_name="play-circle"
+                                  size={16}
+                                  color="#FFFFFF"
+                                />
+                                <Text style={[styles.startTripButtonText, { color: '#FFFFFF' }]}>
+                                  Démarrer le trajet
+                                </Text>
+                              </React.Fragment>
+                            )}
+                          </TouchableOpacity>
+                        </React.Fragment>
                       )}
 
                       {isStarted && (
@@ -871,6 +974,19 @@ const styles = StyleSheet.create({
   actionButtonsContainer: {
     gap: 8,
     marginBottom: 12,
+  },
+  arrivedButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+  },
+  arrivedButtonText: {
+    fontSize: 14,
+    fontWeight: '700',
   },
   startTripButton: {
     flexDirection: 'row',

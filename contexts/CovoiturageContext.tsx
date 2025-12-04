@@ -82,6 +82,7 @@ interface CovoiturageContextType {
     rideId: string,
     onNotify?: (type: 'ride_cancelled', passengerIds: string[], rideDetails: any) => void
   ) => Promise<{ success: boolean; message?: string }>;
+  markDriverArrived: (rideId: string) => Promise<{ success: boolean; message?: string }>;
   startRide: (rideId: string) => Promise<{ success: boolean; message?: string }>;
   endRide: (rideId: string) => Promise<{ success: boolean; message?: string }>;
   submitRating: (
@@ -681,7 +682,7 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
 
       const { error: updateError } = await supabase
         .from('carpool_bookings')
-        .update({ status: 'cancelled' })
+        .update({ status: 'cancelled_by_passenger' })
         .eq('id', reservationId);
 
       if (updateError) {
@@ -689,7 +690,7 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
         throw updateError;
       }
 
-      if (reservation.status === 'pending') {
+      if (reservation.status === 'pending' || reservation.status === 'accepted') {
         const ride = rides.find(r => r && r.id === reservation.rideId);
         if (ride) {
           const newSeatsAvailable = ride.availableSeats + reservation.numberOfPassengers;
@@ -712,16 +713,29 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
           setRides(updatedRides);
           await AsyncStorage.setItem(RIDES_STORAGE_KEY, JSON.stringify(updatedRides));
 
-          // Notify driver of passenger cancellation
+          // Call Edge Function to notify driver
           try {
-            await notifyDriverPassengerCancelled(
-              ride.driverName,
-              reservation.passengerName,
-              reservation.numberOfPassengers,
-              ride.id
-            );
-          } catch (notifyError) {
-            console.error('Error sending notification (non-critical):', notifyError);
+            const { error: efError } = await supabase.functions.invoke('on-ride-status-changed', {
+              body: {
+                rideId: ride.id,
+                status: 'cancelled',
+                driverId: ride.driverId,
+                driverName: ride.driverName,
+                origin: ride.departureCity,
+                destination: ride.arrivalCity,
+                dateDeparture: ride.date,
+                timeDeparture: ride.time,
+                cancelledBy: 'passenger',
+                cancelledPassengerId: reservation.passengerId,
+                cancelledPassengerName: reservation.passengerName,
+              },
+            });
+
+            if (efError) {
+              console.error('Error calling on-ride-status-changed:', efError);
+            }
+          } catch (efErr) {
+            console.error('Exception calling on-ride-status-changed:', efErr);
           }
         }
       }
@@ -841,6 +855,29 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
         }
       }
 
+      // Call Edge Function to notify passengers
+      try {
+        const { error: efError } = await supabase.functions.invoke('on-ride-status-changed', {
+          body: {
+            rideId: rideId,
+            status: 'cancelled',
+            driverId: ride.driverId,
+            driverName: ride.driverName,
+            origin: ride.departureCity,
+            destination: ride.arrivalCity,
+            dateDeparture: ride.date,
+            timeDeparture: ride.time,
+            cancelledBy: 'driver',
+          },
+        });
+
+        if (efError) {
+          console.error('Error calling on-ride-status-changed:', efError);
+        }
+      } catch (efErr) {
+        console.error('Exception calling on-ride-status-changed:', efErr);
+      }
+
       console.log('Updating local state...');
       const updatedRides = rides.map(r => {
         if (r && r.id === rideId) {
@@ -894,6 +931,52 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
     }
   }, [rides, reservations]);
 
+  const markDriverArrived = useCallback(async (rideId: string): Promise<{ success: boolean; message?: string }> => {
+    try {
+      console.log('=== MARK DRIVER ARRIVED ===');
+      console.log('Ride ID:', rideId);
+
+      const ride = rides.find(r => r && r.id === rideId);
+      
+      if (!ride) {
+        return { success: false, message: 'Trajet introuvable' };
+      }
+
+      // Get ride details from Supabase
+      const { data: rideData, error: rideError } = await supabase
+        .from('carpool_rides')
+        .select('*')
+        .eq('id', rideId)
+        .single();
+
+      if (rideError || !rideData) {
+        console.error('Error fetching ride:', rideError);
+        return { success: false, message: 'Erreur lors de la récupération du trajet' };
+      }
+
+      // Call Edge Function to notify passengers
+      const { data: result, error: efError } = await supabase.functions.invoke('on-driver-arrived', {
+        body: {
+          rideId: rideId,
+          driverId: ride.driverId,
+          driverName: ride.driverName,
+          meetingPoint: rideData.meeting_point || `${ride.departureCity}`,
+        },
+      });
+
+      if (efError) {
+        console.error('Error calling on-driver-arrived:', efError);
+        return { success: false, message: 'Erreur lors de la notification des passagers' };
+      }
+
+      console.log('✅ Driver arrival notifications sent:', result);
+      return { success: true };
+    } catch (error) {
+      console.error('Error marking driver arrived:', error);
+      return { success: false, message: 'Erreur lors de la notification' };
+    }
+  }, [rides]);
+
   const startRide = useCallback(async (rideId: string): Promise<{ success: boolean; message?: string }> => {
     try {
       console.log('=== START RIDE ===');
@@ -932,23 +1015,26 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
       setRides(updatedRides);
       await AsyncStorage.setItem(RIDES_STORAGE_KEY, JSON.stringify(updatedRides));
 
-      // Notify all passengers
-      const rideReservations = reservations.filter(r => r && r.rideId === rideId && r.status === 'accepted');
-      for (const reservation of rideReservations) {
-        try {
-          await notifyPassengersRideStarted(
-            reservation.passengerName,
-            {
-              from: ride.departureCity,
-              to: ride.arrivalCity,
-              date: new Date(ride.date).toLocaleDateString('fr-FR'),
-              time: ride.time,
-            },
-            ride.id
-          );
-        } catch (notifyError) {
-          console.error('Error sending notification (non-critical):', notifyError);
+      // Call Edge Function to notify passengers
+      try {
+        const { error: efError } = await supabase.functions.invoke('on-ride-status-changed', {
+          body: {
+            rideId: rideId,
+            status: 'started',
+            driverId: ride.driverId,
+            driverName: ride.driverName,
+            origin: ride.departureCity,
+            destination: ride.arrivalCity,
+            dateDeparture: ride.date,
+            timeDeparture: ride.time,
+          },
+        });
+
+        if (efError) {
+          console.error('Error calling on-ride-status-changed:', efError);
         }
+      } catch (efErr) {
+        console.error('Exception calling on-ride-status-changed:', efErr);
       }
 
       console.log('✅ Ride started successfully');
@@ -1011,81 +1097,27 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
       setRides(updatedRides);
       await AsyncStorage.setItem(RIDES_STORAGE_KEY, JSON.stringify(updatedRides));
 
-      // Notify all participants
-      const rideReservations = reservations.filter(r => r && r.rideId === rideId && r.status === 'accepted');
-      
-      const tripSummary = {
-        duration: `${durationActualMinutes} min`,
-        price: ride.pricePerPassenger
-      };
-
-      // Notify driver
+      // Call Edge Function to handle ride completion
       try {
-        await notifyRideEnded(
-          ride.driverName,
-          {
-            from: ride.departureCity,
-            to: ride.arrivalCity,
-            date: new Date(ride.date).toLocaleDateString('fr-FR'),
-            time: ride.time,
+        const { error: efError } = await supabase.functions.invoke('on-ride-status-changed', {
+          body: {
+            rideId: rideId,
+            status: 'ended',
+            driverId: ride.driverId,
+            driverName: ride.driverName,
+            origin: ride.departureCity,
+            destination: ride.arrivalCity,
+            dateDeparture: ride.date,
+            timeDeparture: ride.time,
           },
-          tripSummary,
-          ride.id,
-          true
-        );
-      } catch (notifyError) {
-        console.error('Error sending notification (non-critical):', notifyError);
+        });
+
+        if (efError) {
+          console.error('Error calling on-ride-status-changed:', efError);
+        }
+      } catch (efErr) {
+        console.error('Exception calling on-ride-status-changed:', efErr);
       }
-
-      // Notify passengers
-      for (const reservation of rideReservations) {
-        try {
-          await notifyRideEnded(
-            reservation.passengerName,
-            {
-              from: ride.departureCity,
-              to: ride.arrivalCity,
-              date: new Date(ride.date).toLocaleDateString('fr-FR'),
-              time: ride.time,
-            },
-            tripSummary,
-            ride.id,
-            false
-          );
-        } catch (notifyError) {
-          console.error('Error sending notification (non-critical):', notifyError);
-        }
-      }
-
-      // Schedule rating requests (10-30 minutes after)
-      // In a real app, this would be done via a scheduled job or Edge Function
-      // For now, we'll send them immediately
-      setTimeout(async () => {
-        // Request rating from driver
-        try {
-          await requestDriverRating(ride.driverName, ride.id);
-        } catch (notifyError) {
-          console.error('Error sending rating request (non-critical):', notifyError);
-        }
-
-        // Request rating from passengers
-        for (const reservation of rideReservations) {
-          try {
-            await requestPassengerRating(
-              reservation.passengerName,
-              {
-                from: ride.departureCity,
-                to: ride.arrivalCity,
-                date: new Date(ride.date).toLocaleDateString('fr-FR'),
-                time: ride.time,
-              },
-              ride.id
-            );
-          } catch (notifyError) {
-            console.error('Error sending rating request (non-critical):', notifyError);
-          }
-        }
-      }, 10 * 60 * 1000); // 10 minutes
 
       console.log('✅ Ride ended successfully');
       return { success: true };
@@ -1170,6 +1202,7 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
         updateReservationStatus,
         cancelReservation,
         cancelRide,
+        markDriverArrived,
         startRide,
         endRide,
         submitRating,
