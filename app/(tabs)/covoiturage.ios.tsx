@@ -31,6 +31,10 @@ export default function CovoiturageScreen() {
     router.push('/covoiturage/my-reservations');
   };
 
+  const handleMyAlerts = () => {
+    router.push('/covoiturage/my-alerts');
+  };
+
   // Show loading state
   if (profileLoading || covoiturageLoading) {
     return (
@@ -238,6 +242,37 @@ export default function CovoiturageScreen() {
                     </Text>
                     <Text style={[styles.cardDescription, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
                       Consultez vos réservations en cours
+                    </Text>
+                  </View>
+                  <IconSymbol
+                    ios_icon_name="chevron.right"
+                    android_material_icon_name="chevron-right"
+                    size={24}
+                    color={colors.textSecondary}
+                  />
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.card, { backgroundColor: isDark ? colors.darkCard : colors.card }]}
+                onPress={handleMyAlerts}
+                activeOpacity={0.7}
+              >
+                <View style={styles.cardContent}>
+                  <View style={[styles.iconCircle, { backgroundColor: colors.accent + '20' }]}>
+                    <IconSymbol
+                      ios_icon_name="bell.badge"
+                      android_material_icon_name="notifications-active"
+                      size={32}
+                      color={colors.accent}
+                    />
+                  </View>
+                  <View style={styles.cardText}>
+                    <Text style={[styles.cardTitle, { color: isDark ? colors.darkText : colors.text }]}>
+                      Mes alertes de trajet
+                    </Text>
+                    <Text style={[styles.cardDescription, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+                      Soyez notifié des nouveaux trajets
                     </Text>
                   </View>
                   <IconSymbol
