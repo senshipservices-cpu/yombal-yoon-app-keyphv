@@ -298,6 +298,33 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
       setRides(updatedRides);
       await AsyncStorage.setItem(RIDES_STORAGE_KEY, JSON.stringify(updatedRides));
       console.log('Ride added to Supabase:', newRide);
+
+      // Call Edge Function to match ride with alerts and send notifications
+      try {
+        console.log('🔔 Calling match-ride-alerts Edge Function...');
+        const { data: matchResult, error: matchError } = await supabase.functions.invoke('match-ride-alerts', {
+          body: {
+            id: data.id,
+            driver_name: data.driver_name,
+            driver_phone: data.driver_phone,
+            departure_city: data.departure_city,
+            arrival_city: data.arrival_city,
+            departure_datetime: data.departure_datetime,
+            seats_available: data.seats_available,
+            price_per_seat: data.price_per_seat,
+            vehicle_type: data.vehicle_type,
+          },
+        });
+
+        if (matchError) {
+          console.error('❌ Error calling match-ride-alerts:', matchError);
+        } else {
+          console.log('✅ Match-ride-alerts result:', matchResult);
+        }
+      } catch (matchErr) {
+        console.error('❌ Exception calling match-ride-alerts:', matchErr);
+        // Non-critical error - don't throw
+      }
     } catch (error) {
       console.error('Error adding ride:', error);
       throw error;

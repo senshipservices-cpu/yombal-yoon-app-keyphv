@@ -410,11 +410,38 @@ export default function SearchResultsScreen() {
           ) : error ? (
             <ErrorState message={error} onRetry={searchRides} />
           ) : rides.length === 0 ? (
-            <EmptyState
-              icon={{ ios: 'car.fill', android: 'directions-car' }}
-              title="Aucun trajet trouvé"
-              message="Aucun trajet ne correspond à votre recherche. Essayez de modifier vos critères ou revenez plus tard."
-            />
+            <>
+              <EmptyState
+                icon={{ ios: 'car.fill', android: 'directions-car' }}
+                title="Aucun trajet trouvé"
+                message="Aucun trajet ne correspond à votre recherche. Essayez de modifier vos critères ou revenez plus tard."
+              />
+              
+              {/* Create Alert Button */}
+              <View style={[styles.alertSuggestion, { backgroundColor: colors.primary + '15', borderColor: colors.primary }]}>
+                <IconSymbol
+                  ios_icon_name="bell.badge.fill"
+                  android_material_icon_name="notifications-active"
+                  size={32}
+                  color={colors.primary}
+                />
+                <View style={styles.alertSuggestionText}>
+                  <Text style={[styles.alertSuggestionTitle, { color: isDark ? colors.darkText : colors.text }]}>
+                    Créer une alerte
+                  </Text>
+                  <Text style={[styles.alertSuggestionDescription, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+                    Soyez notifié dès qu'un trajet correspondant est publié
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  style={[styles.createAlertButton, { backgroundColor: colors.primary }]}
+                  onPress={() => router.push('/covoiturage/create-alert')}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.createAlertButtonText}>Créer</Text>
+                </TouchableOpacity>
+              </View>
+            </>
           ) : (
             rides.map((ride, index) => {
               const { date, time } = formatDateTime(ride.departure_datetime);
@@ -857,6 +884,37 @@ const styles = StyleSheet.create({
   bookButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
+    fontWeight: '700',
+  },
+  alertSuggestion: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 16,
+    padding: 16,
+    marginTop: 20,
+    gap: 12,
+    borderWidth: 2,
+  },
+  alertSuggestionText: {
+    flex: 1,
+  },
+  alertSuggestionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  alertSuggestionDescription: {
+    fontSize: 14,
+    lineHeight: 18,
+  },
+  createAlertButton: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  createAlertButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
     fontWeight: '700',
   },
 });
