@@ -33,7 +33,11 @@ export default function MyRidesScreen() {
   const [passengerPhones, setPassengerPhones] = React.useState<{ [key: string]: string }>({});
 
   const registerNotifications = useCallback(() => {
-    registerForPushNotifications();
+    try {
+      registerForPushNotifications();
+    } catch (error) {
+      console.error('Error registering for push notifications:', error);
+    }
   }, [registerForPushNotifications]);
 
   useEffect(() => {
@@ -57,7 +61,9 @@ export default function MyRidesScreen() {
       if (bookings) {
         const phoneMap: { [key: string]: string } = {};
         bookings.forEach(booking => {
-          phoneMap[booking.id] = booking.passenger_phone;
+          if (booking.passenger_phone) {
+            phoneMap[booking.id] = booking.passenger_phone;
+          }
         });
         setPassengerPhones(phoneMap);
       }
@@ -68,37 +74,47 @@ export default function MyRidesScreen() {
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    await refreshData();
-    await loadPassengerPhones();
-    setTimeout(() => setRefreshing(false), 1000);
+    try {
+      await refreshData();
+      await loadPassengerPhones();
+    } catch (error) {
+      console.error('Error refreshing data:', error);
+    } finally {
+      setTimeout(() => setRefreshing(false), 1000);
+    }
   };
 
-  // For demo purposes, we'll show all rides. In production, filter by driverId
-  const myRides = rides;
+  // Safely get rides array
+  const myRides = Array.isArray(rides) ? rides : [];
 
   const handleAcceptReservation = async (reservationId: string, passengerName: string) => {
     if (Platform.OS === 'web') {
       const confirmed = window.confirm(`Voulez-vous accepter la réservation de ${passengerName} ?`);
       if (!confirmed) return;
 
-      const result = await updateReservationStatus(
-        reservationId,
-        'accepted',
-        (type, passengerId, rideDetails) => {
-          // Send notification to passenger
-          sendLocalNotification(
-            'Réservation acceptée ! 🎉',
-            `Votre réservation pour ${rideDetails.ride.departureCity} → ${rideDetails.ride.arrivalCity} a été acceptée`,
-            { type, reservationId, ...rideDetails }
-          );
-        }
-      );
+      try {
+        const result = await updateReservationStatus(
+          reservationId,
+          'accepted',
+          (type, passengerId, rideDetails) => {
+            // Send notification to passenger
+            sendLocalNotification(
+              'Réservation acceptée ! 🎉',
+              `Votre réservation pour ${rideDetails.ride.departureCity} → ${rideDetails.ride.arrivalCity} a été acceptée`,
+              { type, reservationId, ...rideDetails }
+            );
+          }
+        );
 
-      if (result.success) {
-        window.alert('Réservation acceptée !');
-        await refreshData();
-      } else {
-        window.alert(result.message || 'Impossible d\'accepter la réservation');
+        if (result.success) {
+          window.alert('Réservation acceptée !');
+          await refreshData();
+        } else {
+          window.alert(result.message || 'Impossible d\'accepter la réservation');
+        }
+      } catch (error) {
+        console.error('Error accepting reservation:', error);
+        window.alert('Une erreur est survenue');
       }
     } else {
       Alert.alert(
@@ -109,24 +125,29 @@ export default function MyRidesScreen() {
           {
             text: 'Accepter',
             onPress: async () => {
-              const result = await updateReservationStatus(
-                reservationId,
-                'accepted',
-                (type, passengerId, rideDetails) => {
-                  // Send notification to passenger
-                  sendLocalNotification(
-                    'Réservation acceptée ! 🎉',
-                    `Votre réservation pour ${rideDetails.ride.departureCity} → ${rideDetails.ride.arrivalCity} a été acceptée`,
-                    { type, reservationId, ...rideDetails }
-                  );
-                }
-              );
+              try {
+                const result = await updateReservationStatus(
+                  reservationId,
+                  'accepted',
+                  (type, passengerId, rideDetails) => {
+                    // Send notification to passenger
+                    sendLocalNotification(
+                      'Réservation acceptée ! 🎉',
+                      `Votre réservation pour ${rideDetails.ride.departureCity} → ${rideDetails.ride.arrivalCity} a été acceptée`,
+                      { type, reservationId, ...rideDetails }
+                    );
+                  }
+                );
 
-              if (result.success) {
-                Alert.alert('Succès', 'Réservation acceptée !');
-                await refreshData();
-              } else {
-                Alert.alert('Erreur', result.message || 'Impossible d\'accepter la réservation');
+                if (result.success) {
+                  Alert.alert('Succès', 'Réservation acceptée !');
+                  await refreshData();
+                } else {
+                  Alert.alert('Erreur', result.message || 'Impossible d\'accepter la réservation');
+                }
+              } catch (error) {
+                console.error('Error accepting reservation:', error);
+                Alert.alert('Erreur', 'Une erreur est survenue');
               }
             },
           },
@@ -140,24 +161,29 @@ export default function MyRidesScreen() {
       const confirmed = window.confirm(`Voulez-vous refuser la réservation de ${passengerName} ?`);
       if (!confirmed) return;
 
-      const result = await updateReservationStatus(
-        reservationId,
-        'refused',
-        (type, passengerId, rideDetails) => {
-          // Send notification to passenger
-          sendLocalNotification(
-            'Réservation refusée',
-            `Votre réservation pour ${rideDetails.ride.departureCity} → ${rideDetails.ride.arrivalCity} a été refusée`,
-            { type, reservationId, ...rideDetails }
-          );
-        }
-      );
+      try {
+        const result = await updateReservationStatus(
+          reservationId,
+          'refused',
+          (type, passengerId, rideDetails) => {
+            // Send notification to passenger
+            sendLocalNotification(
+              'Réservation refusée',
+              `Votre réservation pour ${rideDetails.ride.departureCity} → ${rideDetails.ride.arrivalCity} a été refusée`,
+              { type, reservationId, ...rideDetails }
+            );
+          }
+        );
 
-      if (result.success) {
-        window.alert('Réservation refusée.');
-        await refreshData();
-      } else {
-        window.alert(result.message || 'Impossible de refuser la réservation');
+        if (result.success) {
+          window.alert('Réservation refusée.');
+          await refreshData();
+        } else {
+          window.alert(result.message || 'Impossible de refuser la réservation');
+        }
+      } catch (error) {
+        console.error('Error refusing reservation:', error);
+        window.alert('Une erreur est survenue');
       }
     } else {
       Alert.alert(
@@ -169,24 +195,29 @@ export default function MyRidesScreen() {
             text: 'Refuser',
             style: 'destructive',
             onPress: async () => {
-              const result = await updateReservationStatus(
-                reservationId,
-                'refused',
-                (type, passengerId, rideDetails) => {
-                  // Send notification to passenger
-                  sendLocalNotification(
-                    'Réservation refusée',
-                    `Votre réservation pour ${rideDetails.ride.departureCity} → ${rideDetails.ride.arrivalCity} a été refusée`,
-                    { type, reservationId, ...rideDetails }
-                  );
-                }
-              );
+              try {
+                const result = await updateReservationStatus(
+                  reservationId,
+                  'refused',
+                  (type, passengerId, rideDetails) => {
+                    // Send notification to passenger
+                    sendLocalNotification(
+                      'Réservation refusée',
+                      `Votre réservation pour ${rideDetails.ride.departureCity} → ${rideDetails.ride.arrivalCity} a été refusée`,
+                      { type, reservationId, ...rideDetails }
+                    );
+                  }
+                );
 
-              if (result.success) {
-                Alert.alert('Succès', 'Réservation refusée.');
-                await refreshData();
-              } else {
-                Alert.alert('Erreur', result.message || 'Impossible de refuser la réservation');
+                if (result.success) {
+                  Alert.alert('Succès', 'Réservation refusée.');
+                  await refreshData();
+                } else {
+                  Alert.alert('Erreur', result.message || 'Impossible de refuser la réservation');
+                }
+              } catch (error) {
+                console.error('Error refusing reservation:', error);
+                Alert.alert('Erreur', 'Une erreur est survenue');
               }
             },
           },
@@ -426,7 +457,15 @@ export default function MyRidesScreen() {
             </View>
           ) : (
             myRides.map((ride, index) => {
-              const reservations = getReservationsByRide(ride.id);
+              // Safely get reservations
+              let reservations = [];
+              try {
+                reservations = getReservationsByRide(ride.id) || [];
+              } catch (error) {
+                console.error('Error getting reservations for ride:', ride.id, error);
+                reservations = [];
+              }
+
               const isFull = ride.availableSeats === 0;
               const isCancelled = ride.status === 'cancelled';
               const isCancelling = cancellingRideId === ride.id;
@@ -448,7 +487,7 @@ export default function MyRidesScreen() {
                   <View style={styles.rideHeader}>
                     <View style={styles.routeContainer}>
                       <Text style={[styles.cityText, { color: isDark ? colors.darkText : colors.text }]}>
-                        {ride.departureCity}
+                        {ride.departureCity || 'N/A'}
                       </Text>
                       <IconSymbol
                         ios_icon_name="arrow.right"
@@ -457,7 +496,7 @@ export default function MyRidesScreen() {
                         color={colors.primary}
                       />
                       <Text style={[styles.cityText, { color: isDark ? colors.darkText : colors.text }]}>
-                        {ride.arrivalCity}
+                        {ride.arrivalCity || 'N/A'}
                       </Text>
                     </View>
                     {isCancelled ? (
@@ -487,7 +526,7 @@ export default function MyRidesScreen() {
                         color={colors.textSecondary}
                       />
                       <Text style={[styles.detailText, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-                        {new Date(ride.date).toLocaleDateString('fr-FR')} à {ride.time}
+                        {ride.date ? new Date(ride.date).toLocaleDateString('fr-FR') : 'N/A'} à {ride.time || 'N/A'}
                       </Text>
                     </View>
 
@@ -499,7 +538,7 @@ export default function MyRidesScreen() {
                         color={colors.textSecondary}
                       />
                       <Text style={[styles.detailText, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-                        {ride.availableSeats} / {ride.totalSeats} places disponibles
+                        {ride.availableSeats || 0} / {ride.totalSeats || 0} places disponibles
                       </Text>
                     </View>
 
@@ -511,7 +550,7 @@ export default function MyRidesScreen() {
                         color={colors.textSecondary}
                       />
                       <Text style={[styles.detailText, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-                        {ride.pricePerPassenger} FCFA / place
+                        {ride.pricePerPassenger || 0} FCFA / place
                       </Text>
                     </View>
                   </View>
@@ -636,7 +675,7 @@ export default function MyRidesScreen() {
                           >
                             <View style={styles.reservationHeader}>
                               <Text style={[styles.passengerName, { color: isDark ? colors.darkText : colors.text }]}>
-                                {reservation.passengerName}
+                                {reservation.passengerName || 'N/A'}
                               </Text>
                               <View style={[styles.statusBadge, { backgroundColor: getStatusColor(reservation.status) + '20' }]}>
                                 <Text style={[styles.statusText, { color: getStatusColor(reservation.status) }]}>
@@ -654,7 +693,7 @@ export default function MyRidesScreen() {
                                   color={colors.textSecondary}
                                 />
                                 <Text style={[styles.passengersCount, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-                                  {reservation.numberOfPassengers} passager(s)
+                                  {reservation.numberOfPassengers || 0} passager(s)
                                 </Text>
                               </View>
 
