@@ -107,15 +107,33 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const getUserId = useCallback(async (): Promise<string> => {
+    const USER_ID_KEY = '@yombal_yoon_user_id';
+    let userId = await AsyncStorage.getItem(USER_ID_KEY);
+    
+    if (!userId) {
+      userId = `user_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+      await AsyncStorage.setItem(USER_ID_KEY, userId);
+      console.log('Created new user ID:', userId);
+    }
+
+    return userId;
+  }, []);
+
   const loadData = useCallback(async () => {
     try {
       console.log('Loading covoiturage data from Supabase...');
       setError(null);
       
-      // Fetch rides from Supabase
+      // Get current user ID
+      const currentUserId = await getUserId();
+      console.log('Current user ID:', currentUserId);
+      
+      // Fetch rides from Supabase - filter by driver_id
       const { data: supabaseRides, error: ridesError } = await supabase
         .from('carpool_rides')
         .select('*')
+        .eq('driver_id', currentUserId)
         .order('created_at', { ascending: false });
 
       if (ridesError) {
@@ -128,7 +146,7 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
             const departureDate = new Date(ride.departure_datetime);
             return {
               id: ride.id,
-              driverId: 'driver_' + ride.id.substring(0, 8),
+              driverId: ride.driver_id || currentUserId,
               driverName: ride.driver_name || 'N/A',
               departureCity: ride.departure_city || 'N/A',
               arrivalCity: ride.arrival_city || 'N/A',
@@ -180,7 +198,7 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
             return {
               id: booking.id,
               rideId: booking.ride_id,
-              passengerId: 'passenger_' + booking.id.substring(0, 8),
+              passengerId: booking.passenger_id || 'passenger_' + booking.id.substring(0, 8),
               passengerName: booking.passenger_name || 'N/A',
               numberOfPassengers: booking.number_of_passengers || 1,
               status: (booking.status as 'pending' | 'accepted' | 'refused') || 'pending',
@@ -231,7 +249,7 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [getUserId]);
 
   useEffect(() => {
     loadData();
@@ -243,20 +261,12 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
     await loadData();
   }, [loadData]);
 
-  const getUserId = useCallback(async (): Promise<string> => {
-    const USER_ID_KEY = '@yombal_yoon_user_id';
-    let userId = await AsyncStorage.getItem(USER_ID_KEY);
-    
-    if (!userId) {
-      userId = `user_${Date.now()}_${Math.random().toString(36).substring(7)}`;
-      await AsyncStorage.setItem(USER_ID_KEY, userId);
-    }
-
-    return userId;
-  }, []);
-
   const addRide = useCallback(async (rideData: Omit<Ride, 'id' | 'createdAt' | 'status'>) => {
     try {
+      // Get current user ID
+      const currentUserId = await getUserId();
+      console.log('Adding ride for user:', currentUserId);
+
       const totalSeats = rideData.totalSeats;
       const pricePerSeat = rideData.pricePerPassenger;
       const prixTotal = totalSeats * pricePerSeat;
@@ -272,8 +282,9 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
       const departureDatetime = new Date(`${rideData.date}T${rideData.time}`).toISOString();
 
       const supabaseData: TablesInsert<'carpool_rides'> = {
+        driver_id: currentUserId,
         driver_name: rideData.driverName,
-        driver_phone: '221' + (rideData.driverId || '000000000'),
+        driver_phone: '221' + (currentUserId.substring(5, 14) || '000000000'),
         departure_city: rideData.departureCity,
         arrival_city: rideData.arrivalCity,
         departure_datetime: departureDatetime,
@@ -295,6 +306,8 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
         statut_paiement: 'en_attente',
       };
 
+      console.log('Inserting ride into Supabase:', supabaseData);
+
       const { data, error } = await supabase
         .from('carpool_rides')
         .insert(supabaseData)
@@ -309,8 +322,7 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
       console.log('Ride created in Supabase:', data);
 
       try {
-        const userId = await getUserId();
-        await blockCommission(userId, commissionYombal);
+        await blockCommission(currentUserId, commissionYombal);
         console.log('Commission blocked in wallet');
       } catch (walletError) {
         console.error('Error blocking commission (non-critical):', walletError);
@@ -318,7 +330,7 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
 
       const newRide: Ride = {
         id: data.id,
-        driverId: rideData.driverId,
+        driverId: currentUserId,
         driverName: data.driver_name,
         departureCity: data.departure_city,
         arrivalCity: data.arrival_city,
@@ -343,7 +355,7 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
       const updatedRides = [newRide, ...rides];
       setRides(updatedRides);
       await AsyncStorage.setItem(RIDES_STORAGE_KEY, JSON.stringify(updatedRides));
-      console.log('Ride added to Supabase:', newRide);
+      console.log('Ride added to local state and AsyncStorage');
 
       // Call Edge Function to match ride with alerts and send notifications
       try {

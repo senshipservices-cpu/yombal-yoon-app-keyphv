@@ -30,6 +30,7 @@ import { checkDebtStatus, calculateAmounts } from '@/utils/walletUtils';
 import { IS_TEST_MODE } from '@/config/testMode';
 
 const FAVORITE_ROUTE_KEY = '@yombal_yoon_favorite_route';
+const USER_ID_KEY = '@yombal_yoon_user_id';
 
 interface FavoriteRoute {
   departureCity: string;
@@ -470,7 +471,6 @@ export default function PublishRideScreen() {
 
     // Check debt status before publishing
     try {
-      const USER_ID_KEY = '@yombal_yoon_user_id';
       let userId = await AsyncStorage.getItem(USER_ID_KEY);
       
       if (!userId) {
@@ -497,8 +497,15 @@ export default function PublishRideScreen() {
       const seats = parseInt(availableSeats);
       const price = parseInt(pricePerPassenger);
 
+      // Get user ID for driverId
+      let userId = await AsyncStorage.getItem(USER_ID_KEY);
+      if (!userId) {
+        userId = `user_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+        await AsyncStorage.setItem(USER_ID_KEY, userId);
+      }
+
       console.log('Publishing ride with data:', {
-        driverId: 'driver_' + Date.now(),
+        driverId: userId,
         driverName: profile.fullName || 'Conducteur',
         departureCity: departureCity.trim(),
         arrivalCity: arrivalCity.trim(),
@@ -518,7 +525,7 @@ export default function PublishRideScreen() {
       });
 
       await addRide({
-        driverId: 'driver_' + Date.now(),
+        driverId: userId,
         driverName: profile.fullName || 'Conducteur',
         departureCity: departureCity.trim(),
         arrivalCity: arrivalCity.trim(),
