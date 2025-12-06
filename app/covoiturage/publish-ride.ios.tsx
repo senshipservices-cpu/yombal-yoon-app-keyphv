@@ -28,6 +28,7 @@ import PhoneVerificationModal from '@/components/PhoneVerificationModal';
 import DebtBlockModal from '@/components/DebtBlockModal';
 import { supabase } from '@/config/supabase';
 import { checkDebtStatus, calculateAmounts } from '@/utils/walletUtils';
+import { ensureProfileAndWallet } from '@/utils/profileWalletUtils';
 import { IS_TEST_MODE } from '@/config/testMode';
 
 const FAVORITE_ROUTE_KEY = '@yombal_yoon_favorite_route';
@@ -103,6 +104,7 @@ export default function PublishRideScreen() {
   const [showVerificationModal, setShowVerificationModal] = useState(false);
   const [showDebtModal, setShowDebtModal] = useState(false);
   const [debtAmount, setDebtAmount] = useState(0);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const calculateDistanceAndDuration = useCallback(async () => {
     if (!departureLat || !departureLng || !arrivalLat || !arrivalLng) {
@@ -320,8 +322,8 @@ export default function PublishRideScreen() {
     const price = parseInt(pricePerPassenger);
     const hasValidPrice = pricePerPassenger.trim() !== '' && !isNaN(price) && price > 0;
 
-    return hasValidDepartureCity && hasValidArrivalCity && hasValidDate && hasValidTime && hasValidSeats && hasValidPrice;
-  }, [departureCity, departureLat, departureLng, arrivalCity, arrivalLat, arrivalLng, departureDate, departureTime, availableSeats, pricePerPassenger]);
+    return hasValidDepartureCity && hasValidArrivalCity && hasValidDate && hasValidTime && hasValidSeats && hasValidPrice && !isSubmitting;
+  }, [departureCity, departureLat, departureLng, arrivalCity, arrivalLat, arrivalLng, departureDate, departureTime, availableSeats, pricePerPassenger, isSubmitting]);
 
   const validateForm = (): { isValid: boolean; errors: string[] } => {
     const errors: string[] = [];
@@ -399,21 +401,13 @@ export default function PublishRideScreen() {
   };
 
   const handleSubmit = async () => {
-    console.log('[publish-ride.ios] Submit button pressed');
-    console.log('[publish-ride.ios] Platform:', Platform.OS);
+    if (isSubmitting) {
+      console.log('[publish-ride.ios] Already submitting, ignoring duplicate request');
+      return;
+    }
 
-    console.log('[publish-ride.ios] Form state:', {
-      departureCity,
-      arrivalCity,
-      departureDate,
-      departureTime,
-      availableSeats,
-      pricePerPassenger,
-      departureLat,
-      departureLng,
-      arrivalLat,
-      arrivalLng,
-    });
+    console.log('[publish-ride.ios] ========== SUBMIT STARTED ==========');
+    console.log('[publish-ride.ios] Platform:', Platform.OS);
 
     const validation = validateForm();
     
@@ -436,34 +430,57 @@ export default function PublishRideScreen() {
       return;
     }
 
+    setIsSubmitting(true);
+
     try {
-      // Use centralized function to get user ID
+      // Step 1: Get or create user ID
       const userId = await getOrCreateUserId();
-      console.log('[publish-ride.ios] User ID for debt check:', userId);
+      console.log('[publish-ride.ios] Step 1: User ID obtained:', userId);
 
-      const debtStatus = await checkDebtStatus(userId);
-      
-      if (debtStatus.isBlocked) {
-        console.log('[publish-ride.ios] User is blocked due to debt:', debtStatus.debtAmount);
-        setDebtAmount(debtStatus.debtAmount);
-        setShowDebtModal(true);
-        return;
+      // Step 2: Ensure profile and wallet exist BEFORE creating ride
+      console.log('[publish-ride.ios] Step 2: Ensuring profile and wallet exist...');
+      try {
+        const profileWalletResult = await ensureProfileAndWallet(userId, {
+          name: profile.fullName || 'Conducteur',
+          phone: profile.phoneNumber || '',
+        });
+        
+        if (profileWalletResult) {
+          console.log('[publish-ride.ios] ✅ Profile and wallet ensured:', {
+            profileId: profileWalletResult.profile.id,
+            walletId: profileWalletResult.wallet.id,
+          });
+        } else {
+          console.log('[publish-ride.ios] ⚠️ Profile/wallet result is null, but continuing...');
+        }
+      } catch (ensureError) {
+        console.error('[publish-ride.ios] ❌ Error ensuring profile/wallet:', ensureError);
+        // Continue anyway - the addRide function will handle this
       }
-    } catch (error) {
-      console.error('[publish-ride.ios] Error checking debt status:', error);
-    }
 
-    setValidationErrors([]);
+      // Step 3: Check debt status
+      console.log('[publish-ride.ios] Step 3: Checking debt status...');
+      try {
+        const debtStatus = await checkDebtStatus(userId);
+        
+        if (debtStatus.isBlocked) {
+          console.log('[publish-ride.ios] User is blocked due to debt:', debtStatus.debtAmount);
+          setDebtAmount(debtStatus.debtAmount);
+          setShowDebtModal(true);
+          setIsSubmitting(false);
+          return;
+        }
+      } catch (debtError) {
+        console.error('[publish-ride.ios] Error checking debt status (non-critical):', debtError);
+      }
 
-    try {
+      setValidationErrors([]);
+
+      // Step 4: Prepare ride data
       const seats = parseInt(availableSeats);
       const price = parseInt(pricePerPassenger);
 
-      // Use centralized function to get user ID
-      const userId = await getOrCreateUserId();
-      console.log('[publish-ride.ios] User ID for ride creation:', userId);
-
-      console.log('[publish-ride.ios] Publishing ride with data:', {
+      const rideData = {
         driverId: userId,
         driverName: profile.fullName || 'Conducteur',
         departureCity: departureCity.trim(),
@@ -481,38 +498,43 @@ export default function PublishRideScreen() {
         arrivalLng: arrivalLng!,
         distanceKm: rideDistanceKm,
         durationMinutes: rideDurationMinutes,
-      });
+      };
 
-      await addRide({
-        driverId: userId,
-        driverName: profile.fullName || 'Conducteur',
-        departureCity: departureCity.trim(),
-        arrivalCity: arrivalCity.trim(),
-        date: departureDate!.toISOString().split('T')[0],
-        time: formatTime(departureTime!),
-        availableSeats: seats,
-        totalSeats: seats,
-        pricePerPassenger: price,
-        vehicleType: vehicleType.trim() || undefined,
-        intermediateStops: intermediateStops.trim() || undefined,
-        departureLat: departureLat!,
-        departureLng: departureLng!,
-        arrivalLat: arrivalLat!,
-        arrivalLng: arrivalLng!,
-        distanceKm: rideDistanceKm,
-        durationMinutes: rideDurationMinutes,
-      });
+      console.log('[publish-ride.ios] Step 4: Publishing ride with data:', rideData);
 
+      // Step 5: Add ride
+      await addRide(rideData);
+
+      console.log('[publish-ride.ios] Step 5: ✅ Ride published successfully!');
+
+      // Step 6: Save favorite route
       await saveFavoriteRoute();
 
-      console.log('[publish-ride.ios] Ride published successfully!');
+      console.log('[publish-ride.ios] ========== SUBMIT COMPLETED ==========');
       showSuccessMessage();
-    } catch (error) {
-      console.error('[publish-ride.ios] Error publishing ride:', error);
+    } catch (error: any) {
+      console.error('[publish-ride.ios] ========== SUBMIT FAILED ==========');
+      console.error('[publish-ride.ios] Error details:', {
+        message: error.message,
+        code: error.code,
+        details: error.details,
+        hint: error.hint,
+        stack: error.stack,
+      });
       
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       
-      Alert.alert('Erreur', 'Erreur lors de la publication du trajet. Veuillez réessayer.');
+      let errorMessage = 'Erreur lors de la publication du trajet. Veuillez réessayer.';
+      
+      if (error.message?.includes('foreign key')) {
+        errorMessage = 'Erreur de profil utilisateur. Veuillez vous reconnecter et réessayer.';
+      } else if (error.message?.includes('duplicate')) {
+        errorMessage = 'Ce trajet existe déjà. Veuillez modifier les détails.';
+      }
+      
+      Alert.alert('Erreur', errorMessage);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -1032,25 +1054,6 @@ export default function PublishRideScreen() {
             />
           </View>
 
-          {showSuccessModal && (
-            <View style={[styles.inlineSuccessCard, { backgroundColor: colors.success + '20' }]}>
-              <IconSymbol
-                ios_icon_name="checkmark.circle.fill"
-                android_material_icon_name="check-circle"
-                size={32}
-                color={colors.success}
-              />
-              <View style={styles.inlineSuccessTextContainer}>
-                <Text style={[styles.inlineSuccessTitle, { color: colors.success }]}>
-                  Trajet publié avec succès !
-                </Text>
-                <Text style={[styles.inlineSuccessText, { color: isDark ? colors.darkText : colors.text }]}>
-                  Votre trajet est maintenant visible
-                </Text>
-              </View>
-            </View>
-          )}
-
           <TouchableOpacity
             style={[
               styles.submitButton,
@@ -1064,9 +1067,9 @@ export default function PublishRideScreen() {
             activeOpacity={0.7}
           >
             <Text style={[styles.submitButtonText, { color: isButtonEnabled ? '#FFFFFF' : colors.textSecondary }]}>
-              {!isPhoneVerified ? 'Vérifier le numéro pour publier' : 'Publier un trajet'}
+              {isSubmitting ? 'Publication en cours...' : (!isPhoneVerified ? 'Vérifier le numéro pour publier' : 'Publier un trajet')}
             </Text>
-            {isButtonEnabled && (
+            {isButtonEnabled && !isSubmitting && (
               <IconSymbol
                 ios_icon_name="checkmark.circle.fill"
                 android_material_icon_name="check-circle"
@@ -1076,7 +1079,7 @@ export default function PublishRideScreen() {
             )}
           </TouchableOpacity>
 
-          {!isButtonEnabled && (
+          {!isButtonEnabled && !isSubmitting && (
             <View style={styles.helpTextContainer}>
               <IconSymbol
                 ios_icon_name="info.circle"
@@ -1233,28 +1236,6 @@ const styles = StyleSheet.create({
   },
   pickerText: {
     fontSize: 16,
-  },
-  inlineSuccessCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    gap: 12,
-    borderWidth: 2,
-    borderColor: colors.success,
-  },
-  inlineSuccessTextContainer: {
-    flex: 1,
-  },
-  inlineSuccessTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    marginBottom: 4,
-  },
-  inlineSuccessText: {
-    fontSize: 13,
-    lineHeight: 18,
   },
   submitButton: {
     borderRadius: 12,
