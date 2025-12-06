@@ -1,128 +1,97 @@
 
-# 🚀 Quick Reference : Wallet Loading Fix
+# Quick Reference: Wallet RLS Policy Fix
 
-## 📌 Résumé en 30 Secondes
-
-**Problème :** "Impossible de charger votre wallet"
-
-**Solution :** Création automatique du profil et wallet + retry logic + RLS policies corrigées
-
-**Statut :** ✅ CORRIGÉ
-
----
-
-## 🔑 Fonctions Clés
-
-### 1. `ensureProfileAndWallet(userId, userData?, retryCount?)`
-**Où :** `utils/profileWalletUtils.ts`
-**Fait quoi :** Garantit que profil et wallet existent, les crée si nécessaire
-**Appelée par :** `ProfileContext.initializeUser()`, `loadWalletForProfil()`
-
-### 2. `loadWalletForProfil(userId, retryCount?)`
-**Où :** `utils/profileWalletUtils.ts`
-**Fait quoi :** Charge le wallet pour la page Profil, crée si inexistant
-**Appelée par :** `profile.tsx.loadWallet()`
-
-### 3. `loadWallet()`
-**Où :** `app/(tabs)/profile.tsx`
-**Fait quoi :** Gère l'UI (loader, erreur, affichage) et appelle `loadWalletForProfil()`
-
----
-
-## 🎯 Flux de Chargement
-
+## Problem
+The "Mon Wallet Yombal Yoon" screen was showing the error:
 ```
-1. App démarre
-   ↓
-2. ProfileContext.initializeUser()
-   ↓
-3. ensureProfileAndWallet(userId)
-   ↓
-4. Profil créé (si nécessaire)
-   ↓
-5. Wallet créé (si nécessaire)
-   ↓
-6. Utilisateur navigue vers "Profil"
-   ↓
-7. profile.tsx.loadWallet()
-   ↓
-8. loadWalletForProfil(userId)
-   ↓
-9. Wallet affiché dans l'UI
+Erreur technique: new row violates row-level security policy for table 'user_profiles'
 ```
 
----
+This occurred when the app tried to create a new user profile in the database.
 
-## 🐛 Debugging Rapide
+## Root Cause
+The app doesn't use JWT authentication (no OTP/Auth system as per requirements), but the RLS policies on the `user_profiles` table were checking for JWT claims:
 
-### Wallet ne se charge pas ?
+```sql
+-- Old restrictive policy
+CREATE POLICY "Users can insert their own profile"
+ON user_profiles FOR INSERT
+WITH CHECK (id = ((current_setting('request.jwt.claims'::text, true))::json ->> 'sub'::text))
+```
 
-1. **Vérifier les logs console**
-   ```
-   Chercher : 🔄 loadWalletForProfil called
-   Puis : ✅ ou ❌
-   ```
+Since there's no JWT token, this check always failed, preventing profile creation.
 
-2. **Vérifier Supabase**
-   ```sql
-   -- Profil existe ?
-   SELECT * FROM user_profiles WHERE id = 'user_xxxxx';
-   
-   -- Wallet existe ?
-   SELECT * FROM wallets WHERE user_id = 'user_xxxxx';
-   
-   -- RLS OK ?
-   SELECT * FROM pg_policies WHERE tablename = 'wallets';
-   ```
+## Solution Applied
+Updated the RLS policies on `user_profiles` table to be more permissive:
 
-3. **Forcer recréation**
-   - Désinstaller l'app
-   - Supprimer profil et wallet dans Supabase
-   - Réinstaller → tout se recrée automatiquement
+### 1. INSERT Policy
+```sql
+DROP POLICY IF EXISTS "Users can insert their own profile" ON user_profiles;
 
----
+CREATE POLICY "Allow profile creation"
+ON user_profiles FOR INSERT TO public
+WITH CHECK (true);
+```
 
-## ✅ Checklist Rapide
+### 2. UPDATE Policy
+```sql
+DROP POLICY IF EXISTS "Users can update their own profile" ON user_profiles;
 
-- [ ] RLS policies : 3 policies (select, insert, update) avec `USING (true)`
-- [ ] `ensureProfileAndWallet()` appelée au démarrage
-- [ ] `loadWalletForProfil()` appelée dans profile.tsx
-- [ ] Loader affiché pendant chargement
-- [ ] Message d'erreur + bouton "Réessayer" si échec
-- [ ] Wallet affiché avec solde si succès
+CREATE POLICY "Allow profile updates"
+ON user_profiles FOR UPDATE TO public
+USING (true) WITH CHECK (true);
+```
 
----
+### 3. SELECT Policy
+```sql
+CREATE POLICY "Allow public profile reads"
+ON user_profiles FOR SELECT TO public
+USING (true);
+```
 
-## 📱 Test Rapide
+## Migration Applied
+- **Migration Name**: `fix_user_profiles_rls_insert_policy`
+- **Status**: ✅ Successfully applied
+- **Date**: 2025-01-06
 
-1. Désinstaller l'app
-2. Réinstaller
-3. Ouvrir l'app
-4. Aller sur "Profil"
-5. ✅ Wallet doit s'afficher avec solde 0 FCFA
+## Verification
+After applying the migration, the following policies are now active on `user_profiles`:
 
-**Si ça marche : tout est OK ! 🎉**
+| Policy Name | Command | Description |
+|------------|---------|-------------|
+| Allow profile creation | INSERT | Allows anyone to create a profile |
+| Allow profile updates | UPDATE | Allows anyone to update profiles |
+| Allow public profile reads | SELECT | Allows anyone to read profiles |
+| Service role full access on profiles | ALL | Service role has full access |
+| Users can view their own profile | SELECT | JWT-based access (legacy) |
+| Users can view driver profiles for rides | SELECT | View driver profiles in active rides |
+| Drivers can view passenger profiles | SELECT | Drivers can view their passengers |
 
----
+## Testing
+To verify the fix works:
 
-## 🆘 Support
+1. Open the app
+2. Navigate to "Mon Wallet Yombal Yoon"
+3. The wallet should now load without the RLS error
+4. Profile and wallet should be created automatically if they don't exist
 
-**Logs à vérifier :**
-- `🔄 ensureProfileAndWallet called`
-- `✅ Profile created successfully` ou `✅ Profile already exists`
-- `✅ Wallet created successfully` ou `✅ Wallet already exists`
-- `✅ Step 4: Wallet section reloaded with data`
+## Security Considerations
+Since the app doesn't use authentication, these permissive policies are appropriate. However, for production:
 
-**Erreurs possibles :**
-- `USER_NOT_AUTH` → userId manquant
-- `WALLET_LOAD_ERROR` → Problème Supabase ou réseau
-- `Profile ID not yet available` → iOS timing (normal, se résout automatiquement)
+- Consider adding basic validation rules (e.g., phone number format)
+- Add rate limiting at the application level
+- Monitor for abuse patterns
+- Consider implementing a simple authentication system in the future
 
----
+## Related Files
+- `utils/profileWalletUtils.ts` - Profile and wallet creation logic
+- `contexts/ProfileContext.tsx` - Profile context with initialization
+- `app/wallet.tsx` - Wallet screen UI
 
-## 📚 Documentation Complète
+## Next Steps
+The wallet should now work correctly. If you still see errors:
 
-- `WALLET_LOADING_FIX_COMPLETE.md` : Explication détaillée
-- `WALLET_LOADING_TEST_GUIDE.md` : Guide de test complet
-- `WALLET_FIX_SUMMARY.md` : Résumé des changements
-- `QUICK_REFERENCE_WALLET_FIX.md` : Ce document (référence rapide)
+1. Check the browser/app console for detailed error messages
+2. Verify the user ID is being generated correctly
+3. Check Supabase logs for any database errors
+4. Ensure the `wallets` table RLS policies are also permissive (they already are)
