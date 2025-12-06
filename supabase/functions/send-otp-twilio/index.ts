@@ -147,22 +147,51 @@ Deno.serve(async (req) => {
         
         if (deleteError) {
           console.error("⚠️ Error cleaning old OTP entries:", deleteError);
+          // Don't fail here, just log the error
+        } else {
+          console.log('✅ Old OTP entries cleaned successfully');
         }
       }
 
       // Save OTP to database
-      const { error: saveErr } = await supabase.from("phone_verifications").insert({
-        phone_number: phoneNumber,
-        otp_code: otp,
-        expires_at: expiresAt.toISOString(),
-        user_id: userId ?? null,
-        verification_method: method ?? "whatsapp",
-      });
+      console.log('💾 Saving OTP to database...');
+      const { data: insertData, error: saveErr } = await supabase
+        .from("phone_verifications")
+        .insert({
+          phone_number: phoneNumber,
+          otp_code: otp,
+          expires_at: expiresAt.toISOString(),
+          user_id: userId ?? null,
+          verification_method: method ?? "whatsapp",
+        })
+        .select();
 
       if (saveErr) {
-        console.error("❌ DB ERROR:", saveErr);
-        return response({ success: false, error: "Erreur de sauvegarde" }, 500);
+        console.error("❌ DB SAVE ERROR:", {
+          code: saveErr.code,
+          message: saveErr.message,
+          details: saveErr.details,
+          hint: saveErr.hint,
+        });
+        
+        // Provide more detailed error message
+        let errorMessage = "Erreur de sauvegarde";
+        if (saveErr.code === '23505') {
+          errorMessage = "Une vérification est déjà en cours pour ce numéro. Veuillez réessayer dans quelques minutes.";
+        } else if (saveErr.code === '23503') {
+          errorMessage = "Erreur de référence utilisateur. Veuillez vous reconnecter.";
+        } else {
+          errorMessage = `Erreur de sauvegarde: ${saveErr.message}`;
+        }
+        
+        return response({ 
+          success: false, 
+          error: errorMessage,
+          details: IS_PRODUCTION_MODE ? undefined : saveErr.message 
+        }, 500);
       }
+
+      console.log('✅ OTP saved to database:', insertData);
 
       // Send OTP via Twilio
       const sent = await sendViaTwilio(phoneNumber, otp, method);
@@ -202,7 +231,7 @@ Deno.serve(async (req) => {
 
       if (error || !data || data.length === 0) {
         console.error("❌ DB FETCH ERROR:", error);
-        return response({ success: false, error: "OTP introuvable" }, 400);
+        return response({ success: false, error: "OTP introuvable. Veuillez demander un nouveau code." }, 400);
       }
 
       const entry = data[0];
@@ -254,92 +283,100 @@ Deno.serve(async (req) => {
 
         if (fetchError) {
           console.error("❌ Error fetching profile:", fetchError);
-          return response({ 
-            success: false, 
-            error: "Erreur lors de la récupération du profil" 
-          }, 500);
-        }
-
-        console.log("📋 Existing profile:", existingProfile);
-
-        // In production mode, check if phone number is already used by another user
-        // In test mode, allow phone number reuse
-        if (IS_PRODUCTION_MODE && existingProfile.phone_number !== phoneNumber) {
-          const { data: phoneCheck, error: phoneCheckError } = await supabase
-            .from("user_profiles")
-            .select("id")
-            .eq("phone_number", phoneNumber)
-            .neq("id", userId);
-
-          if (phoneCheckError) {
-            console.error("❌ Error checking phone:", phoneCheckError);
-          } else if (phoneCheck && phoneCheck.length > 0) {
-            console.error("❌ Phone number already in use");
+          
+          // If profile doesn't exist, create it
+          if (fetchError.code === 'PGRST116') {
+            console.log("📝 Profile doesn't exist, creating new profile...");
+            const { error: createError } = await supabase
+              .from("user_profiles")
+              .insert({
+                id: userId,
+                phone_number: phoneNumber,
+                is_phone_verified: true,
+                phone_verified_at: new Date().toISOString(),
+                full_name: 'Utilisateur',
+                roles: {
+                  driver: true,
+                  passenger: true,
+                  delivery: false,
+                  sender: false,
+                },
+              });
+            
+            if (createError) {
+              console.error("❌ Error creating profile:", createError);
+              return response({ 
+                success: false, 
+                error: "Erreur lors de la création du profil: " + createError.message 
+              }, 500);
+            }
+            
+            console.log("✅ Profile created successfully");
+          } else {
             return response({ 
               success: false, 
-              error: "Ce numéro est déjà utilisé par un autre compte" 
-            }, 400);
+              error: "Erreur lors de la récupération du profil: " + fetchError.message 
+            }, 500);
           }
-        } else if (!IS_PRODUCTION_MODE) {
-          console.log('🧪 Test mode: Skipping duplicate phone check');
-        }
+        } else {
+          console.log("📋 Existing profile:", existingProfile);
 
-        // Update the profile
-        const { error: updateUserError } = await supabase
-          .from("user_profiles")
-          .update({
-            is_phone_verified: true,
-            phone_verified_at: new Date().toISOString(),
-            phone_number: phoneNumber,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", userId);
+          // In production mode, check if phone number is already used by another user
+          // In test mode, allow phone number reuse
+          if (IS_PRODUCTION_MODE && existingProfile.phone_number !== phoneNumber) {
+            const { data: phoneCheck, error: phoneCheckError } = await supabase
+              .from("user_profiles")
+              .select("id")
+              .eq("phone_number", phoneNumber)
+              .neq("id", userId);
 
-        if (updateUserError) {
-          console.error("❌ Error updating user profile:", updateUserError);
-          
-          // In test mode, if there's a unique constraint error, try to update anyway
-          if (!IS_PRODUCTION_MODE && updateUserError.code === '23505') {
-            console.log('🧪 Test mode: Attempting to bypass unique constraint...');
+            if (phoneCheckError) {
+              console.error("❌ Error checking phone:", phoneCheckError);
+            } else if (phoneCheck && phoneCheck.length > 0) {
+              console.error("❌ Phone number already in use");
+              return response({ 
+                success: false, 
+                error: "Ce numéro est déjà utilisé par un autre compte" 
+              }, 400);
+            }
+          } else if (!IS_PRODUCTION_MODE) {
+            console.log('🧪 Test mode: Skipping duplicate phone check');
             
-            // First, clear the phone number from any other profile
+            // In test mode, clear the phone number from any other profile
             const { error: clearError } = await supabase
               .from("user_profiles")
-              .update({ phone_number: null })
+              .update({ phone_number: null, is_phone_verified: false })
               .eq("phone_number", phoneNumber)
               .neq("id", userId);
             
             if (clearError) {
-              console.error("❌ Error clearing phone from other profiles:", clearError);
+              console.error("⚠️ Error clearing phone from other profiles:", clearError);
+            } else {
+              console.log('✅ Phone cleared from other profiles');
             }
-            
-            // Try updating again
-            const { error: retryError } = await supabase
-              .from("user_profiles")
-              .update({
-                is_phone_verified: true,
-                phone_verified_at: new Date().toISOString(),
-                phone_number: phoneNumber,
-                updated_at: new Date().toISOString(),
-              })
-              .eq("id", userId);
-            
-            if (retryError) {
-              console.error("❌ Error on retry:", retryError);
-              return response({ 
-                success: false, 
-                error: "Erreur lors de la mise à jour du profil: " + retryError.message 
-              }, 500);
-            }
-          } else {
+          }
+
+          // Update the profile
+          const { error: updateUserError } = await supabase
+            .from("user_profiles")
+            .update({
+              is_phone_verified: true,
+              phone_verified_at: new Date().toISOString(),
+              phone_number: phoneNumber,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", userId);
+
+          if (updateUserError) {
+            console.error("❌ Error updating user profile:", updateUserError);
             return response({ 
               success: false, 
               error: "Erreur lors de la mise à jour du profil: " + updateUserError.message 
             }, 500);
           }
-        }
 
-        console.log("✅ User profile updated successfully");
+          console.log("✅ User profile updated successfully");
+        }
       }
 
       console.log("✅ OTP verified successfully");
