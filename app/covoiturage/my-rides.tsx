@@ -37,7 +37,7 @@ export default function MyRidesScreen() {
     try {
       registerForPushNotifications();
     } catch (error) {
-      console.error('Error registering for push notifications:', error);
+      console.error('[my-rides] Error registering for push notifications:', error);
     }
   }, [registerForPushNotifications]);
 
@@ -55,7 +55,7 @@ export default function MyRidesScreen() {
         .select('id, passenger_phone');
 
       if (error) {
-        console.error('Error fetching passenger phones:', error);
+        console.error('[my-rides] Error fetching passenger phones:', error);
         return;
       }
 
@@ -69,17 +69,18 @@ export default function MyRidesScreen() {
         setPassengerPhones(phoneMap);
       }
     } catch (error) {
-      console.error('Error loading passenger phones:', error);
+      console.error('[my-rides] Error loading passenger phones:', error);
     }
   };
 
   const handleRefresh = async () => {
+    console.log('[my-rides] Refreshing data...');
     setRefreshing(true);
     try {
       await refreshData();
       await loadPassengerPhones();
     } catch (error) {
-      console.error('Error refreshing data:', error);
+      console.error('[my-rides] Error refreshing data:', error);
     } finally {
       setTimeout(() => setRefreshing(false), 1000);
     }
@@ -87,6 +88,7 @@ export default function MyRidesScreen() {
 
   // Safely get rides array
   const myRides = Array.isArray(rides) ? rides : [];
+  console.log('[my-rides] Total rides:', myRides.length);
 
   const handleAcceptReservation = async (reservationId: string, passengerName: string) => {
     if (Platform.OS === 'web') {
@@ -114,7 +116,7 @@ export default function MyRidesScreen() {
           window.alert(result.message || 'Impossible d\'accepter la réservation');
         }
       } catch (error) {
-        console.error('Error accepting reservation:', error);
+        console.error('[my-rides] Error accepting reservation:', error);
         window.alert('Une erreur est survenue');
       }
     } else {
@@ -147,7 +149,7 @@ export default function MyRidesScreen() {
                   Alert.alert('Erreur', result.message || 'Impossible d\'accepter la réservation');
                 }
               } catch (error) {
-                console.error('Error accepting reservation:', error);
+                console.error('[my-rides] Error accepting reservation:', error);
                 Alert.alert('Erreur', 'Une erreur est survenue');
               }
             },
@@ -183,7 +185,7 @@ export default function MyRidesScreen() {
           window.alert(result.message || 'Impossible de refuser la réservation');
         }
       } catch (error) {
-        console.error('Error refusing reservation:', error);
+        console.error('[my-rides] Error refusing reservation:', error);
         window.alert('Une erreur est survenue');
       }
     } else {
@@ -217,7 +219,7 @@ export default function MyRidesScreen() {
                   Alert.alert('Erreur', result.message || 'Impossible de refuser la réservation');
                 }
               } catch (error) {
-                console.error('Error refusing reservation:', error);
+                console.error('[my-rides] Error refusing reservation:', error);
                 Alert.alert('Erreur', 'Une erreur est survenue');
               }
             },
@@ -228,24 +230,24 @@ export default function MyRidesScreen() {
   };
 
   const handleDriverArrived = async (rideId: string) => {
-    console.log('=== handleDriverArrived CALLED ===');
-    console.log('Ride ID:', rideId);
+    console.log('[my-rides] === handleDriverArrived CALLED ===');
+    console.log('[my-rides] Ride ID:', rideId);
 
     if (Platform.OS === 'web') {
       const confirmed = window.confirm('Confirmez-vous que vous êtes arrivé au point de rencontre ?');
       
       if (!confirmed) {
-        console.log('User cancelled the action');
+        console.log('[my-rides] User cancelled the action');
         return;
       }
 
       try {
-        console.log('Marking driver as arrived...');
+        console.log('[my-rides] Marking driver as arrived...');
         setArrivingRideId(rideId);
 
         const result = await markDriverArrived(rideId);
 
-        console.log('Arrival result:', result);
+        console.log('[my-rides] Arrival result:', result);
         setArrivingRideId(null);
 
         if (result.success) {
@@ -255,7 +257,7 @@ export default function MyRidesScreen() {
           window.alert(result.message || 'Impossible de notifier les passagers');
         }
       } catch (error) {
-        console.error('Error in handleDriverArrived:', error);
+        console.error('[my-rides] Error in handleDriverArrived:', error);
         setArrivingRideId(null);
         window.alert('Une erreur est survenue');
       }
@@ -269,7 +271,7 @@ export default function MyRidesScreen() {
             text: 'Oui, je suis arrivé',
             onPress: async () => {
               try {
-                console.log('User confirmed arrival for ride:', rideId);
+                console.log('[my-rides] User confirmed arrival for ride:', rideId);
                 setArrivingRideId(rideId);
 
                 const result = await markDriverArrived(rideId);
@@ -283,7 +285,7 @@ export default function MyRidesScreen() {
                   Alert.alert('Erreur', result.message || 'Impossible de notifier les passagers');
                 }
               } catch (error) {
-                console.error('Error in handleDriverArrived:', error);
+                console.error('[my-rides] Error in handleDriverArrived:', error);
                 setArrivingRideId(null);
                 Alert.alert('Erreur', 'Une erreur est survenue');
               }
@@ -295,24 +297,24 @@ export default function MyRidesScreen() {
   };
 
   const handleStartRide = async (rideId: string) => {
-    console.log('=== handleStartRide CALLED ===');
-    console.log('Ride ID:', rideId);
+    console.log('[my-rides] === handleStartRide CALLED ===');
+    console.log('[my-rides] Ride ID:', rideId);
 
     if (Platform.OS === 'web') {
       const confirmed = window.confirm('Voulez-vous démarrer ce trajet ?');
       
       if (!confirmed) {
-        console.log('User cancelled the action');
+        console.log('[my-rides] User cancelled the action');
         return;
       }
 
       try {
-        console.log('Starting ride...');
+        console.log('[my-rides] Starting ride...');
         setStartingRideId(rideId);
 
         const result = await startRide(rideId);
 
-        console.log('Start result:', result);
+        console.log('[my-rides] Start result:', result);
         setStartingRideId(null);
 
         if (result.success) {
@@ -322,7 +324,7 @@ export default function MyRidesScreen() {
           window.alert(result.message || 'Impossible de démarrer le trajet');
         }
       } catch (error) {
-        console.error('Error in handleStartRide:', error);
+        console.error('[my-rides] Error in handleStartRide:', error);
         setStartingRideId(null);
         window.alert('Une erreur est survenue lors du démarrage du trajet');
       }
@@ -336,7 +338,7 @@ export default function MyRidesScreen() {
             text: 'Oui, démarrer',
             onPress: async () => {
               try {
-                console.log('User confirmed start for ride:', rideId);
+                console.log('[my-rides] User confirmed start for ride:', rideId);
                 setStartingRideId(rideId);
 
                 const result = await startRide(rideId);
@@ -350,7 +352,7 @@ export default function MyRidesScreen() {
                   Alert.alert('Erreur', result.message || 'Impossible de démarrer le trajet');
                 }
               } catch (error) {
-                console.error('Error in handleStartRide:', error);
+                console.error('[my-rides] Error in handleStartRide:', error);
                 setStartingRideId(null);
                 Alert.alert('Erreur', 'Une erreur est survenue lors du démarrage du trajet');
               }
@@ -362,10 +364,10 @@ export default function MyRidesScreen() {
   };
 
   const handleCancelRide = async (rideId: string, rideDetails: any) => {
-    console.log('=== handleCancelRide CALLED ===');
-    console.log('Platform:', Platform.OS);
-    console.log('Ride ID:', rideId);
-    console.log('Ride details:', rideDetails);
+    console.log('[my-rides] === handleCancelRide CALLED ===');
+    console.log('[my-rides] Platform:', Platform.OS);
+    console.log('[my-rides] Ride ID:', rideId);
+    console.log('[my-rides] Ride details:', rideDetails);
 
     if (Platform.OS === 'web') {
       // Use native browser confirm for web
@@ -373,15 +375,15 @@ export default function MyRidesScreen() {
         'Êtes-vous sûr de vouloir annuler ce trajet ? Toutes les réservations seront refusées et les passagers seront notifiés.'
       );
       
-      console.log('User confirmation (web):', confirmed);
+      console.log('[my-rides] User confirmation (web):', confirmed);
       
       if (!confirmed) {
-        console.log('User cancelled the action');
+        console.log('[my-rides] User cancelled the action');
         return;
       }
 
       try {
-        console.log('Starting cancellation process...');
+        console.log('[my-rides] Starting cancellation process...');
         setCancellingRideId(rideId);
 
         const result = await cancelRide(rideId, (type, passengerIds, details) => {
@@ -395,7 +397,7 @@ export default function MyRidesScreen() {
           });
         });
 
-        console.log('Cancel result:', result);
+        console.log('[my-rides] Cancel result:', result);
         setCancellingRideId(null);
 
         if (result.success) {
@@ -405,7 +407,7 @@ export default function MyRidesScreen() {
           window.alert(result.message || 'Impossible d\'annuler le trajet');
         }
       } catch (error) {
-        console.error('Error in handleCancelRide:', error);
+        console.error('[my-rides] Error in handleCancelRide:', error);
         setCancellingRideId(null);
         window.alert('Une erreur est survenue lors de l\'annulation du trajet');
       }
@@ -421,7 +423,7 @@ export default function MyRidesScreen() {
             style: 'destructive',
             onPress: async () => {
               try {
-                console.log('User confirmed cancellation for ride:', rideId);
+                console.log('[my-rides] User confirmed cancellation for ride:', rideId);
                 setCancellingRideId(rideId);
 
                 const result = await cancelRide(rideId, (type, passengerIds, details) => {
@@ -444,7 +446,7 @@ export default function MyRidesScreen() {
                   Alert.alert('Erreur', result.message || 'Impossible d\'annuler le trajet');
                 }
               } catch (error) {
-                console.error('Error in handleCancelRide:', error);
+                console.error('[my-rides] Error in handleCancelRide:', error);
                 setCancellingRideId(null);
                 Alert.alert('Erreur', 'Une erreur est survenue lors de l\'annulation du trajet');
               }
@@ -525,12 +527,12 @@ export default function MyRidesScreen() {
             </View>
           ) : (
             myRides.map((ride, index) => {
-              // Safely get reservations
+              // Safely get reservations with error handling
               let reservations = [];
               try {
                 reservations = getReservationsByRide(ride.id) || [];
               } catch (error) {
-                console.error('Error getting reservations for ride:', ride.id, error);
+                console.error('[my-rides] Error getting reservations for ride:', ride.id, error);
                 reservations = [];
               }
 
@@ -638,7 +640,7 @@ export default function MyRidesScreen() {
                               }
                             ]}
                             onPress={() => {
-                              console.log('Driver arrived button pressed for ride:', ride.id);
+                              console.log('[my-rides] Driver arrived button pressed for ride:', ride.id);
                               handleDriverArrived(ride.id);
                             }}
                             activeOpacity={0.7}
@@ -670,7 +672,7 @@ export default function MyRidesScreen() {
                               }
                             ]}
                             onPress={() => {
-                              console.log('Start trip button pressed for ride:', ride.id);
+                              console.log('[my-rides] Start trip button pressed for ride:', ride.id);
                               handleStartRide(ride.id);
                             }}
                             activeOpacity={0.7}
@@ -704,7 +706,7 @@ export default function MyRidesScreen() {
                             }
                           ]}
                           onPress={() => {
-                            console.log('End trip button pressed for ride:', ride.id);
+                            console.log('[my-rides] End trip button pressed for ride:', ride.id);
                             router.push(`/covoiturage/end-trip-payment?rideId=${ride.id}`);
                           }}
                           activeOpacity={0.7}
@@ -732,7 +734,7 @@ export default function MyRidesScreen() {
                           }
                         ]}
                         onPress={() => {
-                          console.log('Cancel button pressed for ride:', ride.id);
+                          console.log('[my-rides] Cancel button pressed for ride:', ride.id);
                           handleCancelRide(ride.id, ride);
                         }}
                         activeOpacity={0.7}
