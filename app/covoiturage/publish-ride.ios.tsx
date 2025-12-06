@@ -40,6 +40,27 @@ interface FavoriteRoute {
   vehicleType?: string;
 }
 
+// Centralized function to get or create user ID
+const getOrCreateUserId = async (): Promise<string> => {
+  try {
+    let userId = await AsyncStorage.getItem(USER_ID_KEY);
+    
+    if (!userId) {
+      userId = `user_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+      await AsyncStorage.setItem(USER_ID_KEY, userId);
+      console.log('[publish-ride.ios] Created new user ID:', userId);
+    } else {
+      console.log('[publish-ride.ios] Retrieved existing user ID:', userId);
+    }
+
+    return userId;
+  } catch (error) {
+    console.error('[publish-ride.ios] Error getting/creating user ID:', error);
+    // Fallback to a temporary ID
+    return `user_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+  }
+};
+
 export default function PublishRideScreen() {
   const theme = useTheme();
   const isDark = theme.dark;
@@ -378,9 +399,10 @@ export default function PublishRideScreen() {
   };
 
   const handleSubmit = async () => {
-    console.log('Submit button pressed');
+    console.log('[publish-ride.ios] Submit button pressed');
+    console.log('[publish-ride.ios] Platform:', Platform.OS);
 
-    console.log('Form state:', {
+    console.log('[publish-ride.ios] Form state:', {
       departureCity,
       arrivalCity,
       departureDate,
@@ -396,7 +418,7 @@ export default function PublishRideScreen() {
     const validation = validateForm();
     
     if (!validation.isValid) {
-      console.log('Validation errors:', validation.errors);
+      console.log('[publish-ride.ios] Validation errors:', validation.errors);
       setValidationErrors(validation.errors);
       
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
@@ -415,24 +437,20 @@ export default function PublishRideScreen() {
     }
 
     try {
-      let userId = await AsyncStorage.getItem(USER_ID_KEY);
-      
-      if (!userId) {
-        userId = `user_${Date.now()}_${Math.random().toString(36).substring(7)}`;
-        await AsyncStorage.setItem(USER_ID_KEY, userId);
-        console.log('Created new user ID:', userId);
-      }
+      // Use centralized function to get user ID
+      const userId = await getOrCreateUserId();
+      console.log('[publish-ride.ios] User ID for debt check:', userId);
 
       const debtStatus = await checkDebtStatus(userId);
       
       if (debtStatus.isBlocked) {
-        console.log('User is blocked due to debt:', debtStatus.debtAmount);
+        console.log('[publish-ride.ios] User is blocked due to debt:', debtStatus.debtAmount);
         setDebtAmount(debtStatus.debtAmount);
         setShowDebtModal(true);
         return;
       }
     } catch (error) {
-      console.error('Error checking debt status:', error);
+      console.error('[publish-ride.ios] Error checking debt status:', error);
     }
 
     setValidationErrors([]);
@@ -441,15 +459,11 @@ export default function PublishRideScreen() {
       const seats = parseInt(availableSeats);
       const price = parseInt(pricePerPassenger);
 
-      // Get user ID for driverId - MUST use the same USER_ID_KEY as in the context
-      let userId = await AsyncStorage.getItem(USER_ID_KEY);
-      if (!userId) {
-        userId = `user_${Date.now()}_${Math.random().toString(36).substring(7)}`;
-        await AsyncStorage.setItem(USER_ID_KEY, userId);
-        console.log('Created new user ID for ride:', userId);
-      }
+      // Use centralized function to get user ID
+      const userId = await getOrCreateUserId();
+      console.log('[publish-ride.ios] User ID for ride creation:', userId);
 
-      console.log('Publishing ride with data:', {
+      console.log('[publish-ride.ios] Publishing ride with data:', {
         driverId: userId,
         driverName: profile.fullName || 'Conducteur',
         departureCity: departureCity.trim(),
@@ -491,10 +505,10 @@ export default function PublishRideScreen() {
 
       await saveFavoriteRoute();
 
-      console.log('Ride published successfully!');
+      console.log('[publish-ride.ios] Ride published successfully!');
       showSuccessMessage();
     } catch (error) {
-      console.error('Error publishing ride:', error);
+      console.error('[publish-ride.ios] Error publishing ride:', error);
       
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       
