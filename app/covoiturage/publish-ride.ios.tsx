@@ -31,6 +31,7 @@ import { checkDebtStatus, calculateAmounts } from '@/utils/walletUtils';
 import { IS_TEST_MODE } from '@/config/testMode';
 
 const FAVORITE_ROUTE_KEY = '@yombal_yoon_favorite_route';
+const USER_ID_KEY = '@yombal_yoon_user_id';
 
 interface FavoriteRoute {
   departureCity: string;
@@ -379,6 +380,19 @@ export default function PublishRideScreen() {
   const handleSubmit = async () => {
     console.log('Submit button pressed');
 
+    console.log('Form state:', {
+      departureCity,
+      arrivalCity,
+      departureDate,
+      departureTime,
+      availableSeats,
+      pricePerPassenger,
+      departureLat,
+      departureLng,
+      arrivalLat,
+      arrivalLng,
+    });
+
     const validation = validateForm();
     
     if (!validation.isValid) {
@@ -401,12 +415,12 @@ export default function PublishRideScreen() {
     }
 
     try {
-      const USER_ID_KEY = '@yombal_yoon_user_id';
       let userId = await AsyncStorage.getItem(USER_ID_KEY);
       
       if (!userId) {
         userId = `user_${Date.now()}_${Math.random().toString(36).substring(7)}`;
         await AsyncStorage.setItem(USER_ID_KEY, userId);
+        console.log('Created new user ID:', userId);
       }
 
       const debtStatus = await checkDebtStatus(userId);
@@ -427,8 +441,36 @@ export default function PublishRideScreen() {
       const seats = parseInt(availableSeats);
       const price = parseInt(pricePerPassenger);
 
+      // Get user ID for driverId - MUST use the same USER_ID_KEY as in the context
+      let userId = await AsyncStorage.getItem(USER_ID_KEY);
+      if (!userId) {
+        userId = `user_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+        await AsyncStorage.setItem(USER_ID_KEY, userId);
+        console.log('Created new user ID for ride:', userId);
+      }
+
+      console.log('Publishing ride with data:', {
+        driverId: userId,
+        driverName: profile.fullName || 'Conducteur',
+        departureCity: departureCity.trim(),
+        arrivalCity: arrivalCity.trim(),
+        date: departureDate!.toISOString().split('T')[0],
+        time: formatTime(departureTime!),
+        availableSeats: seats,
+        totalSeats: seats,
+        pricePerPassenger: price,
+        vehicleType: vehicleType.trim() || undefined,
+        intermediateStops: intermediateStops.trim() || undefined,
+        departureLat: departureLat!,
+        departureLng: departureLng!,
+        arrivalLat: arrivalLat!,
+        arrivalLng: arrivalLng!,
+        distanceKm: rideDistanceKm,
+        durationMinutes: rideDurationMinutes,
+      });
+
       await addRide({
-        driverId: 'driver_' + Date.now(),
+        driverId: userId,
         driverName: profile.fullName || 'Conducteur',
         departureCity: departureCity.trim(),
         arrivalCity: arrivalCity.trim(),
