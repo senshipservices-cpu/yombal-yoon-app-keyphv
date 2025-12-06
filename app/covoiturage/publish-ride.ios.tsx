@@ -49,14 +49,14 @@ const getOrCreateUserId = async (): Promise<string> => {
     if (!userId) {
       userId = `user_${Date.now()}_${Math.random().toString(36).substring(7)}`;
       await AsyncStorage.setItem(USER_ID_KEY, userId);
-      console.log('[publish-ride.ios] Created new user ID:', userId);
+      console.log('[publish-ride.ios] ✅ Created new user ID:', userId);
     } else {
-      console.log('[publish-ride.ios] Retrieved existing user ID:', userId);
+      console.log('[publish-ride.ios] ✅ Retrieved existing user ID:', userId);
     }
 
     return userId;
   } catch (error) {
-    console.error('[publish-ride.ios] Error getting/creating user ID:', error);
+    console.error('[publish-ride.ios] ❌ Error getting/creating user ID:', error);
     // Fallback to a temporary ID
     return `user_${Date.now()}_${Math.random().toString(36).substring(7)}`;
   }
@@ -114,7 +114,7 @@ export default function PublishRideScreen() {
     setIsCalculatingDistance(true);
 
     try {
-      console.log('Calculating distance and duration...');
+      console.log('[publish-ride.ios] 📍 Calculating distance and duration...');
 
       const { data, error } = await supabase.functions.invoke('google-places-proxy', {
         body: {
@@ -127,7 +127,7 @@ export default function PublishRideScreen() {
       });
 
       if (error) {
-        console.error('Error calculating distance:', error);
+        console.error('[publish-ride.ios] ❌ Error calculating distance:', error);
         return;
       }
 
@@ -144,18 +144,18 @@ export default function PublishRideScreen() {
           setRideDistanceKm(distanceKm);
           setRideDurationMinutes(durationMinutes);
 
-          console.log('Distance and duration calculated:', {
+          console.log('[publish-ride.ios] ✅ Distance and duration calculated:', {
             distanceKm,
             durationMinutes,
           });
         } else {
-          console.error('Distance Matrix element error:', element.status);
+          console.error('[publish-ride.ios] ❌ Distance Matrix element error:', element.status);
         }
       } else {
-        console.error('Distance Matrix API error:', data.status);
+        console.error('[publish-ride.ios] ❌ Distance Matrix API error:', data.status);
       }
     } catch (error) {
-      console.error('Error calculating distance and duration:', error);
+      console.error('[publish-ride.ios] ❌ Error calculating distance and duration:', error);
     } finally {
       setIsCalculatingDistance(false);
     }
@@ -178,10 +178,10 @@ export default function PublishRideScreen() {
       if (storedRoute) {
         const route: FavoriteRoute = JSON.parse(storedRoute);
         setFavoriteRoute(route);
-        console.log('Favorite route loaded:', route);
+        console.log('[publish-ride.ios] ✅ Favorite route loaded:', route);
       }
     } catch (error) {
-      console.error('Error loading favorite route:', error);
+      console.error('[publish-ride.ios] ❌ Error loading favorite route:', error);
     }
   };
 
@@ -198,9 +198,9 @@ export default function PublishRideScreen() {
 
       await AsyncStorage.setItem(FAVORITE_ROUTE_KEY, JSON.stringify(route));
       setFavoriteRoute(route);
-      console.log('Favorite route saved:', route);
+      console.log('[publish-ride.ios] ✅ Favorite route saved:', route);
     } catch (error) {
-      console.error('Error saving favorite route:', error);
+      console.error('[publish-ride.ios] ❌ Error saving favorite route:', error);
     }
   };
 
@@ -232,11 +232,11 @@ export default function PublishRideScreen() {
       [{ text: 'OK' }]
     );
 
-    console.log('Usual route loaded into form');
+    console.log('[publish-ride.ios] ✅ Usual route loaded into form');
   };
 
   const handleSelectDepartureCity = (city: string, placeId: string, lat: number, lng: number) => {
-    console.log('Departure city selected:', { city, placeId, lat, lng });
+    console.log('[publish-ride.ios] ✅ Departure city selected:', { city, placeId, lat, lng });
     setDepartureCity(city);
     setDeparturePlaceId(placeId);
     setDepartureLat(lat);
@@ -245,7 +245,7 @@ export default function PublishRideScreen() {
   };
 
   const handleSelectArrivalCity = (city: string, placeId: string, lat: number, lng: number) => {
-    console.log('Arrival city selected:', { city, placeId, lat, lng });
+    console.log('[publish-ride.ios] ✅ Arrival city selected:', { city, placeId, lat, lng });
     setArrivalCity(city);
     setArrivalPlaceId(placeId);
     setArrivalLat(lat);
@@ -254,35 +254,35 @@ export default function PublishRideScreen() {
   };
 
   const handleDateChange = (event: any, selectedDate?: Date) => {
-    console.log('Date picker event:', event.type, selectedDate);
+    console.log('[publish-ride.ios] 📅 Date picker event:', event.type, selectedDate);
     
     setShowDatePicker(false);
     
     if (event.type === 'set' && selectedDate) {
       setDepartureDate(selectedDate);
-      console.log('Date selected:', selectedDate);
+      console.log('[publish-ride.ios] ✅ Date selected:', selectedDate);
     }
   };
 
   const handleTimeChange = (event: any, selectedTime?: Date) => {
-    console.log('Time picker event:', event.type, selectedTime);
+    console.log('[publish-ride.ios] ⏰ Time picker event:', event.type, selectedTime);
     
     setShowTimePicker(false);
     
     if (event.type === 'set' && selectedTime) {
       setDepartureTime(selectedTime);
-      console.log('Time selected:', selectedTime);
+      console.log('[publish-ride.ios] ✅ Time selected:', selectedTime);
     }
   };
 
   const confirmDateSelection = () => {
     setShowDatePicker(false);
-    console.log('Date confirmed:', departureDate);
+    console.log('[publish-ride.ios] ✅ Date confirmed:', departureDate);
   };
 
   const confirmTimeSelection = () => {
     setShowTimePicker(false);
-    console.log('Time confirmed:', departureTime);
+    console.log('[publish-ride.ios] ✅ Time confirmed:', departureTime);
   };
 
   const formatDate = (date: Date): string => {
@@ -402,17 +402,20 @@ export default function PublishRideScreen() {
 
   const handleSubmit = async () => {
     if (isSubmitting) {
-      console.log('[publish-ride.ios] Already submitting, ignoring duplicate request');
+      console.log('[publish-ride.ios] ⚠️ Already submitting, ignoring duplicate request');
       return;
     }
 
-    console.log('[publish-ride.ios] ========== SUBMIT STARTED ==========');
-    console.log('[publish-ride.ios] Platform:', Platform.OS);
+    console.log('[publish-ride.ios] ========================================');
+    console.log('[publish-ride.ios] 🚀 SUBMIT STARTED');
+    console.log('[publish-ride.ios] ========================================');
+    console.log('[publish-ride.ios] 📱 Platform:', Platform.OS);
+    console.log('[publish-ride.ios] 📅 Date:', new Date().toISOString());
 
     const validation = validateForm();
     
     if (!validation.isValid) {
-      console.log('[publish-ride.ios] Validation errors:', validation.errors);
+      console.log('[publish-ride.ios] ❌ Validation errors:', validation.errors);
       setValidationErrors(validation.errors);
       
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
@@ -426,19 +429,26 @@ export default function PublishRideScreen() {
     }
 
     if (!isPhoneVerified) {
+      console.log('[publish-ride.ios] ⚠️ Phone not verified, showing verification modal');
       setShowVerificationModal(true);
       return;
     }
 
     setIsSubmitting(true);
+    console.log('[publish-ride.ios] 🔒 isSubmitting set to true');
 
     try {
       // Step 1: Get or create user ID
+      console.log('[publish-ride.ios] ========================================');
+      console.log('[publish-ride.ios] 📝 STEP 1: Getting/Creating User ID');
+      console.log('[publish-ride.ios] ========================================');
       const userId = await getOrCreateUserId();
-      console.log('[publish-ride.ios] Step 1: User ID obtained:', userId);
+      console.log('[publish-ride.ios] ✅ User ID obtained:', userId);
 
       // Step 2: Ensure profile and wallet exist BEFORE creating ride
-      console.log('[publish-ride.ios] Step 2: Ensuring profile and wallet exist...');
+      console.log('[publish-ride.ios] ========================================');
+      console.log('[publish-ride.ios] 👤 STEP 2: Ensuring Profile and Wallet');
+      console.log('[publish-ride.ios] ========================================');
       try {
         const profileWalletResult = await ensureProfileAndWallet(userId, {
           name: profile.fullName || 'Conducteur',
@@ -453,30 +463,43 @@ export default function PublishRideScreen() {
         } else {
           console.log('[publish-ride.ios] ⚠️ Profile/wallet result is null, but continuing...');
         }
-      } catch (ensureError) {
-        console.error('[publish-ride.ios] ❌ Error ensuring profile/wallet:', ensureError);
+      } catch (ensureError: any) {
+        console.error('[publish-ride.ios] ========================================');
+        console.error('[publish-ride.ios] ❌ ERROR ENSURING PROFILE/WALLET');
+        console.error('[publish-ride.ios] ========================================');
+        console.error('[publish-ride.ios] Error message:', ensureError?.message);
+        console.error('[publish-ride.ios] Error code:', ensureError?.code);
+        console.error('[publish-ride.ios] Error details:', ensureError?.details);
+        console.error('[publish-ride.ios] Error hint:', ensureError?.hint);
+        console.error('[publish-ride.ios] Full error:', JSON.stringify(ensureError, null, 2));
         // Continue anyway - the addRide function will handle this
       }
 
       // Step 3: Check debt status
-      console.log('[publish-ride.ios] Step 3: Checking debt status...');
+      console.log('[publish-ride.ios] ========================================');
+      console.log('[publish-ride.ios] 💰 STEP 3: Checking Debt Status');
+      console.log('[publish-ride.ios] ========================================');
       try {
         const debtStatus = await checkDebtStatus(userId);
+        console.log('[publish-ride.ios] ✅ Debt status checked:', debtStatus);
         
         if (debtStatus.isBlocked) {
-          console.log('[publish-ride.ios] User is blocked due to debt:', debtStatus.debtAmount);
+          console.log('[publish-ride.ios] ⚠️ User is blocked due to debt:', debtStatus.debtAmount);
           setDebtAmount(debtStatus.debtAmount);
           setShowDebtModal(true);
           setIsSubmitting(false);
           return;
         }
-      } catch (debtError) {
-        console.error('[publish-ride.ios] Error checking debt status (non-critical):', debtError);
+      } catch (debtError: any) {
+        console.error('[publish-ride.ios] ⚠️ Error checking debt status (non-critical):', debtError?.message);
       }
 
       setValidationErrors([]);
 
       // Step 4: Prepare ride data
+      console.log('[publish-ride.ios] ========================================');
+      console.log('[publish-ride.ios] 📦 STEP 4: Preparing Ride Data');
+      console.log('[publish-ride.ios] ========================================');
       const seats = parseInt(availableSeats);
       const price = parseInt(pricePerPassenger);
 
@@ -500,41 +523,101 @@ export default function PublishRideScreen() {
         durationMinutes: rideDurationMinutes,
       };
 
-      console.log('[publish-ride.ios] Step 4: Publishing ride with data:', rideData);
+      console.log('[publish-ride.ios] 📋 Ride data prepared:', JSON.stringify(rideData, null, 2));
 
       // Step 5: Add ride
+      console.log('[publish-ride.ios] ========================================');
+      console.log('[publish-ride.ios] 🚗 STEP 5: Publishing Ride to Supabase');
+      console.log('[publish-ride.ios] ========================================');
       await addRide(rideData);
 
-      console.log('[publish-ride.ios] Step 5: ✅ Ride published successfully!');
+      console.log('[publish-ride.ios] ========================================');
+      console.log('[publish-ride.ios] ✅ RIDE PUBLISHED SUCCESSFULLY!');
+      console.log('[publish-ride.ios] ========================================');
 
       // Step 6: Save favorite route
+      console.log('[publish-ride.ios] 📝 STEP 6: Saving favorite route...');
       await saveFavoriteRoute();
 
-      console.log('[publish-ride.ios] ========== SUBMIT COMPLETED ==========');
+      console.log('[publish-ride.ios] ========================================');
+      console.log('[publish-ride.ios] ✅ SUBMIT COMPLETED SUCCESSFULLY');
+      console.log('[publish-ride.ios] ========================================');
       showSuccessMessage();
     } catch (error: any) {
-      console.error('[publish-ride.ios] ========== SUBMIT FAILED ==========');
-      console.error('[publish-ride.ios] Error details:', {
-        message: error.message,
-        code: error.code,
-        details: error.details,
-        hint: error.hint,
-        stack: error.stack,
-      });
+      console.error('[publish-ride.ios] ========================================');
+      console.error('[publish-ride.ios] ❌❌❌ SUBMIT FAILED ❌❌❌');
+      console.error('[publish-ride.ios] ========================================');
+      console.error('[publish-ride.ios] 🔴 Error Type:', typeof error);
+      console.error('[publish-ride.ios] 🔴 Error Name:', error?.name);
+      console.error('[publish-ride.ios] 🔴 Error Message:', error?.message);
+      console.error('[publish-ride.ios] 🔴 Error Code:', error?.code);
+      console.error('[publish-ride.ios] 🔴 Error Details:', error?.details);
+      console.error('[publish-ride.ios] 🔴 Error Hint:', error?.hint);
+      console.error('[publish-ride.ios] 🔴 Error Status:', error?.status);
+      console.error('[publish-ride.ios] 🔴 Error StatusCode:', error?.statusCode);
+      console.error('[publish-ride.ios] 🔴 Full Error Object:', JSON.stringify(error, null, 2));
+      console.error('[publish-ride.ios] 🔴 Error Stack:', error?.stack);
+      console.error('[publish-ride.ios] ========================================');
       
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       
-      let errorMessage = 'Erreur lors de la publication du trajet. Veuillez réessayer.';
+      // Build detailed error message for user
+      let errorTitle = 'Erreur Supabase';
+      let errorMessage = 'Erreur lors de la publication du trajet.\n\n';
       
-      if (error.message?.includes('foreign key')) {
-        errorMessage = 'Erreur de profil utilisateur. Veuillez vous reconnecter et réessayer.';
-      } else if (error.message?.includes('duplicate')) {
-        errorMessage = 'Ce trajet existe déjà. Veuillez modifier les détails.';
+      // Add all available error information
+      if (error?.message) {
+        errorMessage += `Message: ${error.message}\n\n`;
       }
       
-      Alert.alert('Erreur', errorMessage);
+      if (error?.code) {
+        errorMessage += `Code: ${error.code}\n\n`;
+      }
+      
+      if (error?.details) {
+        errorMessage += `Détails: ${error.details}\n\n`;
+      }
+      
+      if (error?.hint) {
+        errorMessage += `Suggestion: ${error.hint}\n\n`;
+      }
+      
+      // Check for specific error types
+      if (error?.message?.includes('foreign key') || error?.code === '23503') {
+        errorTitle = 'Erreur de Clé Étrangère';
+        errorMessage += '⚠️ Problème de contrainte de base de données (foreign key).\n\n';
+        errorMessage += 'Cela signifie généralement que votre profil utilisateur n\'existe pas dans la base de données.\n\n';
+      } else if (error?.message?.includes('duplicate') || error?.code === '23505') {
+        errorTitle = 'Erreur de Duplication';
+        errorMessage += '⚠️ Ce trajet existe déjà.\n\n';
+      } else if (error?.message?.includes('NOT NULL') || error?.code === '23502') {
+        errorTitle = 'Erreur de Champ Requis';
+        errorMessage += '⚠️ Un champ obligatoire est manquant.\n\n';
+      } else if (error?.message?.includes('permission') || error?.message?.includes('RLS')) {
+        errorTitle = 'Erreur de Permission';
+        errorMessage += '⚠️ Problème de sécurité RLS (Row Level Security).\n\n';
+      }
+      
+      errorMessage += 'Veuillez copier ce message et le partager avec le support technique.';
+      
+      // Show detailed error alert
+      Alert.alert(
+        errorTitle,
+        errorMessage,
+        [
+          { 
+            text: 'Copier l\'erreur', 
+            onPress: () => {
+              // In a real app, you would copy to clipboard here
+              console.log('[publish-ride.ios] 📋 User requested to copy error');
+            }
+          },
+          { text: 'OK' }
+        ]
+      );
     } finally {
       setIsSubmitting(false);
+      console.log('[publish-ride.ios] 🔓 isSubmitting set to false');
     }
   };
 
@@ -912,7 +995,7 @@ export default function PublishRideScreen() {
                 },
               ]}
               onPress={() => {
-                console.log('Date picker button pressed');
+                console.log('[publish-ride.ios] 📅 Date picker button pressed');
                 setShowDatePicker(true);
               }}
               activeOpacity={0.7}
@@ -948,7 +1031,7 @@ export default function PublishRideScreen() {
                 },
               ]}
               onPress={() => {
-                console.log('Time picker button pressed');
+                console.log('[publish-ride.ios] ⏰ Time picker button pressed');
                 setShowTimePicker(true);
               }}
               activeOpacity={0.7}
