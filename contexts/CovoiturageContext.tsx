@@ -21,7 +21,6 @@ export interface Ride {
   id: string;
   driverId: string;
   driverName: string;
-  driverPhone?: string;
   departureCity: string;
   arrivalCity: string;
   date: string;
@@ -129,9 +128,8 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
             const departureDate = new Date(ride.departure_datetime);
             return {
               id: ride.id,
-              driverId: ride.driver_id || 'driver_' + ride.id.substring(0, 8),
+              driverId: 'driver_' + ride.id.substring(0, 8),
               driverName: ride.driver_name || 'N/A',
-              driverPhone: ride.driver_phone || undefined,
               departureCity: ride.departure_city || 'N/A',
               arrivalCity: ride.arrival_city || 'N/A',
               date: departureDate.toISOString().split('T')[0],
@@ -182,7 +180,7 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
             return {
               id: booking.id,
               rideId: booking.ride_id,
-              passengerId: booking.passenger_id || 'passenger_' + booking.id.substring(0, 8),
+              passengerId: 'passenger_' + booking.id.substring(0, 8),
               passengerName: booking.passenger_name || 'N/A',
               numberOfPassengers: booking.number_of_passengers || 1,
               status: (booking.status as 'pending' | 'accepted' | 'refused') || 'pending',
@@ -273,16 +271,9 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
 
       const departureDatetime = new Date(`${rideData.date}T${rideData.time}`).toISOString();
 
-      // Get the actual driver phone number from rideData
-      // The phone number should be passed from the publish-ride screen
-      const driverPhone = rideData.driverPhone || '';
-
-      console.log('Creating ride with driver phone:', driverPhone);
-
       const supabaseData: TablesInsert<'carpool_rides'> = {
         driver_name: rideData.driverName,
-        driver_phone: driverPhone,
-        driver_id: rideData.driverId,
+        driver_phone: '221' + (rideData.driverId || '000000000'),
         departure_city: rideData.departureCity,
         arrival_city: rideData.arrivalCity,
         departure_datetime: departureDatetime,
@@ -329,7 +320,6 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
         id: data.id,
         driverId: rideData.driverId,
         driverName: data.driver_name,
-        driverPhone: data.driver_phone || undefined,
         departureCity: data.departure_city,
         arrivalCity: data.arrival_city,
         date: rideData.date,

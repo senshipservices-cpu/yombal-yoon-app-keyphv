@@ -497,13 +497,9 @@ export default function PublishRideScreen() {
       const seats = parseInt(availableSeats);
       const price = parseInt(pricePerPassenger);
 
-      // Get the driver's phone number from profile
-      const driverPhone = profile.phoneNumber || '';
-
       console.log('Publishing ride with data:', {
         driverId: 'driver_' + Date.now(),
         driverName: profile.fullName || 'Conducteur',
-        driverPhone: driverPhone,
         departureCity: departureCity.trim(),
         arrivalCity: arrivalCity.trim(),
         date: departureDate!.toISOString().split('T')[0],
@@ -524,7 +520,6 @@ export default function PublishRideScreen() {
       await addRide({
         driverId: 'driver_' + Date.now(),
         driverName: profile.fullName || 'Conducteur',
-        driverPhone: driverPhone,
         departureCity: departureCity.trim(),
         arrivalCity: arrivalCity.trim(),
         date: departureDate!.toISOString().split('T')[0],
