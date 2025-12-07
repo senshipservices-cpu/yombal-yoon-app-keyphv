@@ -401,6 +401,7 @@ export default function PublishRideScreen() {
   };
 
   const handleSubmit = async () => {
+    // iOS FIX: Check if already submitting to prevent double-tap
     if (isSubmitting) {
       console.log('[publish-ride.ios] ⚠️ Already submitting, ignoring duplicate request');
       return;
@@ -434,6 +435,7 @@ export default function PublishRideScreen() {
       return;
     }
 
+    // iOS FIX: Set submitting state BEFORE any async operations
     setIsSubmitting(true);
     console.log('[publish-ride.ios] 🔒 isSubmitting set to true');
 
@@ -450,10 +452,11 @@ export default function PublishRideScreen() {
       console.log('[publish-ride.ios] 👤 STEP 2: Ensuring Profile and Wallet');
       console.log('[publish-ride.ios] ========================================');
       try {
+        // iOS FIX: Use retry logic with longer delays
         const profileWalletResult = await ensureProfileAndWallet(userId, {
           name: profile.fullName || 'Conducteur',
           phone: profile.phoneNumber || '',
-        });
+        }, 3); // iOS: Use 3 retries instead of 2
         
         if (profileWalletResult) {
           console.log('[publish-ride.ios] ✅ Profile and wallet ensured:', {
@@ -463,6 +466,9 @@ export default function PublishRideScreen() {
         } else {
           console.log('[publish-ride.ios] ⚠️ Profile/wallet result is null, but continuing...');
         }
+        
+        // iOS FIX: Add a small delay to ensure database consistency
+        await new Promise(resolve => setTimeout(resolve, 500));
       } catch (ensureError: any) {
         console.error('[publish-ride.ios] ========================================');
         console.error('[publish-ride.ios] ❌ ERROR ENSURING PROFILE/WALLET');
@@ -472,7 +478,24 @@ export default function PublishRideScreen() {
         console.error('[publish-ride.ios] Error details:', ensureError?.details);
         console.error('[publish-ride.ios] Error hint:', ensureError?.hint);
         console.error('[publish-ride.ios] Full error:', JSON.stringify(ensureError, null, 2));
-        // Continue anyway - the addRide function will handle this
+        
+        // iOS FIX: Show specific error to user
+        if (ensureError?.code === '23505') {
+          Alert.alert(
+            'Profil existant',
+            'Un profil avec ce numéro de téléphone existe déjà. Veuillez réessayer.',
+            [{ text: 'OK' }]
+          );
+        } else {
+          Alert.alert(
+            'Erreur de profil',
+            `Impossible de créer/vérifier votre profil.\n\nErreur: ${ensureError?.message || 'Inconnue'}`,
+            [{ text: 'OK' }]
+          );
+        }
+        
+        setIsSubmitting(false);
+        return;
       }
 
       // Step 3: Check debt status
@@ -616,6 +639,7 @@ export default function PublishRideScreen() {
         ]
       );
     } finally {
+      // iOS FIX: Always reset submitting state in finally block
       setIsSubmitting(false);
       console.log('[publish-ride.ios] 🔓 isSubmitting set to false');
     }
