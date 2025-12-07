@@ -378,6 +378,24 @@ export default function PublishRideScreen() {
   };
 
   const showSuccessMessage = () => {
+    console.log('[publish-ride.ios] 🎉 Showing success message...');
+    
+    // iOS FIX: Show Alert first for immediate feedback
+    Alert.alert(
+      '✅ Trajet publié !',
+      `Votre trajet ${departureCity} → ${arrivalCity} a été publié avec succès.\n\nVous pouvez le retrouver dans "Mes trajets publiés".`,
+      [
+        {
+          text: 'Voir mes trajets',
+          onPress: () => {
+            console.log('[publish-ride.ios] Navigating to my-rides...');
+            router.push('/covoiturage/my-rides');
+          }
+        }
+      ]
+    );
+
+    // Also show the animated modal
     setShowSuccessModal(true);
 
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -388,7 +406,7 @@ export default function PublishRideScreen() {
         duration: 300,
         useNativeDriver: true,
       }),
-      Animated.delay(2000),
+      Animated.delay(2500),
       Animated.timing(successAnimation, {
         toValue: 0,
         duration: 300,
@@ -396,7 +414,6 @@ export default function PublishRideScreen() {
       }),
     ]).start(() => {
       setShowSuccessModal(false);
-      router.push('/covoiturage/my-rides');
     });
   };
 
@@ -565,6 +582,8 @@ export default function PublishRideScreen() {
       console.log('[publish-ride.ios] ========================================');
       console.log('[publish-ride.ios] ✅ SUBMIT COMPLETED SUCCESSFULLY');
       console.log('[publish-ride.ios] ========================================');
+      
+      // iOS FIX: Show success message IMMEDIATELY after successful submission
       showSuccessMessage();
     } catch (error: any) {
       console.error('[publish-ride.ios] ========================================');
