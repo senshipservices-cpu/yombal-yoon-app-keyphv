@@ -27,6 +27,7 @@ import PhoneVerificationModal from '@/components/PhoneVerificationModal';
 import DebtBlockModal from '@/components/DebtBlockModal';
 import { supabase } from '@/config/supabase';
 import { checkDebtStatus, calculateAmounts } from '@/utils/walletUtils';
+import { ensureProfileAndWallet } from '@/utils/profileWalletUtils';
 import { IS_TEST_MODE } from '@/config/testMode';
 
 const FAVORITE_ROUTE_KEY = '@yombal_yoon_favorite_route';
@@ -47,14 +48,14 @@ const getOrCreateUserId = async (): Promise<string> => {
     if (!userId) {
       userId = `user_${Date.now()}_${Math.random().toString(36).substring(7)}`;
       await AsyncStorage.setItem(USER_ID_KEY, userId);
-      console.log('[publish-ride] Created new user ID:', userId);
+      console.log('[publish-ride] ✅ Created new user ID:', userId);
     } else {
-      console.log('[publish-ride] Retrieved existing user ID:', userId);
+      console.log('[publish-ride] ✅ Retrieved existing user ID:', userId);
     }
 
     return userId;
   } catch (error) {
-    console.error('[publish-ride] Error getting/creating user ID:', error);
+    console.error('[publish-ride] ❌ Error getting/creating user ID:', error);
     // Fallback to a temporary ID
     return `user_${Date.now()}_${Math.random().toString(36).substring(7)}`;
   }
@@ -102,6 +103,7 @@ export default function PublishRideScreen() {
   const [showVerificationModal, setShowVerificationModal] = useState(false);
   const [showDebtModal, setShowDebtModal] = useState(false);
   const [debtAmount, setDebtAmount] = useState(0);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const calculateDistanceAndDuration = useCallback(async () => {
     if (!departureLat || !departureLng || !arrivalLat || !arrivalLng) {
@@ -111,7 +113,7 @@ export default function PublishRideScreen() {
     setIsCalculatingDistance(true);
 
     try {
-      console.log('Calculating distance and duration...');
+      console.log('[publish-ride] 📍 Calculating distance and duration...');
 
       const { data, error } = await supabase.functions.invoke('google-places-proxy', {
         body: {
@@ -124,7 +126,7 @@ export default function PublishRideScreen() {
       });
 
       if (error) {
-        console.error('Error calculating distance:', error);
+        console.error('[publish-ride] ❌ Error calculating distance:', error);
         return;
       }
 
@@ -141,18 +143,18 @@ export default function PublishRideScreen() {
           setRideDistanceKm(distanceKm);
           setRideDurationMinutes(durationMinutes);
 
-          console.log('Distance and duration calculated:', {
+          console.log('[publish-ride] ✅ Distance and duration calculated:', {
             distanceKm,
             durationMinutes,
           });
         } else {
-          console.error('Distance Matrix element error:', element.status);
+          console.error('[publish-ride] ❌ Distance Matrix element error:', element.status);
         }
       } else {
-        console.error('Distance Matrix API error:', data.status);
+        console.error('[publish-ride] ❌ Distance Matrix API error:', data.status);
       }
     } catch (error) {
-      console.error('Error calculating distance and duration:', error);
+      console.error('[publish-ride] ❌ Error calculating distance and duration:', error);
     } finally {
       setIsCalculatingDistance(false);
     }
@@ -175,10 +177,10 @@ export default function PublishRideScreen() {
       if (storedRoute) {
         const route: FavoriteRoute = JSON.parse(storedRoute);
         setFavoriteRoute(route);
-        console.log('Favorite route loaded:', route);
+        console.log('[publish-ride] ✅ Favorite route loaded:', route);
       }
     } catch (error) {
-      console.error('Error loading favorite route:', error);
+      console.error('[publish-ride] ❌ Error loading favorite route:', error);
     }
   };
 
@@ -195,9 +197,9 @@ export default function PublishRideScreen() {
 
       await AsyncStorage.setItem(FAVORITE_ROUTE_KEY, JSON.stringify(route));
       setFavoriteRoute(route);
-      console.log('Favorite route saved:', route);
+      console.log('[publish-ride] ✅ Favorite route saved:', route);
     } catch (error) {
-      console.error('Error saving favorite route:', error);
+      console.error('[publish-ride] ❌ Error saving favorite route:', error);
     }
   };
 
@@ -229,11 +231,11 @@ export default function PublishRideScreen() {
       [{ text: 'OK' }]
     );
 
-    console.log('Usual route loaded into form');
+    console.log('[publish-ride] ✅ Usual route loaded into form');
   };
 
   const handleSelectDepartureCity = (city: string, placeId: string, lat: number, lng: number) => {
-    console.log('Departure city selected:', { city, placeId, lat, lng });
+    console.log('[publish-ride] ✅ Departure city selected:', { city, placeId, lat, lng });
     setDepartureCity(city);
     setDeparturePlaceId(placeId);
     setDepartureLat(lat);
@@ -242,7 +244,7 @@ export default function PublishRideScreen() {
   };
 
   const handleSelectArrivalCity = (city: string, placeId: string, lat: number, lng: number) => {
-    console.log('Arrival city selected:', { city, placeId, lat, lng });
+    console.log('[publish-ride] ✅ Arrival city selected:', { city, placeId, lat, lng });
     setArrivalCity(city);
     setArrivalPlaceId(placeId);
     setArrivalLat(lat);
@@ -251,37 +253,37 @@ export default function PublishRideScreen() {
   };
 
   const handleDateChange = (event: any, selectedDate?: Date) => {
-    console.log('Date picker event:', event.type, selectedDate);
+    console.log('[publish-ride] 📅 Date picker event:', event.type, selectedDate);
     
     if (Platform.OS === 'android') {
       setShowDatePicker(false);
       
       if (event.type === 'set' && selectedDate) {
         setDepartureDate(selectedDate);
-        console.log('Date selected (Android):', selectedDate);
+        console.log('[publish-ride] ✅ Date selected (Android):', selectedDate);
       }
     } else {
       if (selectedDate) {
         setDepartureDate(selectedDate);
-        console.log('Date updated (iOS):', selectedDate);
+        console.log('[publish-ride] ✅ Date updated (iOS):', selectedDate);
       }
     }
   };
 
   const handleTimeChange = (event: any, selectedTime?: Date) => {
-    console.log('Time picker event:', event.type, selectedTime);
+    console.log('[publish-ride] ⏰ Time picker event:', event.type, selectedTime);
     
     if (Platform.OS === 'android') {
       setShowTimePicker(false);
       
       if (event.type === 'set' && selectedTime) {
         setDepartureTime(selectedTime);
-        console.log('Time selected (Android):', selectedTime);
+        console.log('[publish-ride] ✅ Time selected (Android):', selectedTime);
       }
     } else {
       if (selectedTime) {
         setDepartureTime(selectedTime);
-        console.log('Time updated (iOS):', selectedTime);
+        console.log('[publish-ride] ✅ Time updated (iOS):', selectedTime);
       }
     }
   };
@@ -291,7 +293,7 @@ export default function PublishRideScreen() {
     if (dateValue) {
       const date = new Date(dateValue + 'T00:00:00');
       setDepartureDate(date);
-      console.log('Web date selected:', date);
+      console.log('[publish-ride] ✅ Web date selected:', date);
     }
   };
 
@@ -303,18 +305,18 @@ export default function PublishRideScreen() {
       time.setHours(parseInt(hours, 10));
       time.setMinutes(parseInt(minutes, 10));
       setDepartureTime(time);
-      console.log('Web time selected:', time);
+      console.log('[publish-ride] ✅ Web time selected:', time);
     }
   };
 
   const confirmDateSelection = () => {
     setShowDatePicker(false);
-    console.log('Date confirmed:', departureDate);
+    console.log('[publish-ride] ✅ Date confirmed:', departureDate);
   };
 
   const confirmTimeSelection = () => {
     setShowTimePicker(false);
-    console.log('Time confirmed:', departureTime);
+    console.log('[publish-ride] ✅ Time confirmed:', departureTime);
   };
 
   const formatDate = (date: Date): string => {
@@ -355,9 +357,7 @@ export default function PublishRideScreen() {
     return `${mins} min`;
   };
 
-  // Calculate form validity using useMemo to avoid infinite loops
   const isButtonEnabled = useMemo(() => {
-    // Check all required fields
     const hasValidDepartureCity = departureCity.trim() !== '' && departureLat !== null && departureLng !== null;
     const hasValidArrivalCity = arrivalCity.trim() !== '' && arrivalLat !== null && arrivalLng !== null;
     const hasValidDate = departureDate !== null;
@@ -369,13 +369,12 @@ export default function PublishRideScreen() {
     const price = parseInt(pricePerPassenger);
     const hasValidPrice = pricePerPassenger.trim() !== '' && !isNaN(price) && price > 0;
 
-    return hasValidDepartureCity && hasValidArrivalCity && hasValidDate && hasValidTime && hasValidSeats && hasValidPrice;
-  }, [departureCity, departureLat, departureLng, arrivalCity, arrivalLat, arrivalLng, departureDate, departureTime, availableSeats, pricePerPassenger]);
+    return hasValidDepartureCity && hasValidArrivalCity && hasValidDate && hasValidTime && hasValidSeats && hasValidPrice && !isSubmitting;
+  }, [departureCity, departureLat, departureLng, arrivalCity, arrivalLat, arrivalLng, departureDate, departureTime, availableSeats, pricePerPassenger, isSubmitting]);
 
   const validateForm = (): { isValid: boolean; errors: string[] } => {
     const errors: string[] = [];
 
-    // Reset city errors
     setDepartureCityError('');
     setArrivalCityError('');
 
@@ -426,51 +425,49 @@ export default function PublishRideScreen() {
   };
 
   const showSuccessMessage = () => {
-    setShowSuccessModal(true);
+    console.log('[publish-ride] 🎉 Showing success message...');
+    
+    // ANDROID FIX: Show Alert immediately for user feedback
+    Alert.alert(
+      '✅ Trajet publié !',
+      `Votre trajet ${departureCity} → ${arrivalCity} a été publié avec succès.\n\nVous pouvez le retrouver dans "Mes trajets publiés".`,
+      [
+        {
+          text: 'OK',
+          onPress: () => {
+            console.log('[publish-ride] User acknowledged success, navigating to my-rides...');
+            // ANDROID FIX: Navigate after user acknowledges the alert
+            // This prevents navigation during state updates
+            setTimeout(() => {
+              router.push('/covoiturage/my-rides');
+            }, 100);
+          }
+        }
+      ]
+    );
 
     if (Platform.OS !== 'web') {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     }
-
-    Animated.sequence([
-      Animated.timing(successAnimation, {
-        toValue: 1,
-        duration: 300,
-        useNativeDriver: true,
-      }),
-      Animated.delay(2000),
-      Animated.timing(successAnimation, {
-        toValue: 0,
-        duration: 300,
-        useNativeDriver: true,
-      }),
-    ]).start(() => {
-      setShowSuccessModal(false);
-      router.push('/covoiturage/my-rides');
-    });
   };
 
   const handleSubmit = async () => {
-    console.log('[publish-ride] Submit button pressed');
-    console.log('[publish-ride] Platform:', Platform.OS);
+    // ANDROID FIX: Prevent double submissions
+    if (isSubmitting) {
+      console.log('[publish-ride] ⚠️ Already submitting, ignoring duplicate request');
+      return;
+    }
 
-    console.log('[publish-ride] Form state:', {
-      departureCity,
-      arrivalCity,
-      departureDate,
-      departureTime,
-      availableSeats,
-      pricePerPassenger,
-      departureLat,
-      departureLng,
-      arrivalLat,
-      arrivalLng,
-    });
+    console.log('[publish-ride] ========================================');
+    console.log('[publish-ride] 🚀 SUBMIT STARTED');
+    console.log('[publish-ride] ========================================');
+    console.log('[publish-ride] 📱 Platform:', Platform.OS);
+    console.log('[publish-ride] 📅 Date:', new Date().toISOString());
 
     const validation = validateForm();
     
     if (!validation.isValid) {
-      console.log('[publish-ride] Validation errors:', validation.errors);
+      console.log('[publish-ride] ❌ Validation errors:', validation.errors);
       setValidationErrors(validation.errors);
       
       if (Platform.OS !== 'web') {
@@ -485,42 +482,102 @@ export default function PublishRideScreen() {
       return;
     }
 
-    // Check phone verification after form validation
     if (!isPhoneVerified) {
+      console.log('[publish-ride] ⚠️ Phone not verified, showing verification modal');
       setShowVerificationModal(true);
       return;
     }
 
-    // Check debt status before publishing
-    try {
-      // Use centralized function to get user ID
-      const userId = await getOrCreateUserId();
-      console.log('[publish-ride] User ID for debt check:', userId);
+    // ANDROID FIX: Set submitting state BEFORE any async operations
+    setIsSubmitting(true);
+    console.log('[publish-ride] 🔒 isSubmitting set to true');
 
-      const debtStatus = await checkDebtStatus(userId);
-      
-      if (debtStatus.isBlocked) {
-        console.log('[publish-ride] User is blocked due to debt:', debtStatus.debtAmount);
-        setDebtAmount(debtStatus.debtAmount);
-        setShowDebtModal(true);
+    try {
+      // Step 1: Get or create user ID
+      console.log('[publish-ride] ========================================');
+      console.log('[publish-ride] 📝 STEP 1: Getting/Creating User ID');
+      console.log('[publish-ride] ========================================');
+      const userId = await getOrCreateUserId();
+      console.log('[publish-ride] ✅ User ID obtained:', userId);
+
+      // Step 2: Ensure profile and wallet exist BEFORE creating ride
+      console.log('[publish-ride] ========================================');
+      console.log('[publish-ride] 👤 STEP 2: Ensuring Profile and Wallet');
+      console.log('[publish-ride] ========================================');
+      try {
+        const profileWalletResult = await ensureProfileAndWallet(userId, {
+          name: profile.fullName || 'Conducteur',
+          phone: profile.phoneNumber || '',
+        }, 3);
+        
+        if (profileWalletResult) {
+          console.log('[publish-ride] ✅ Profile and wallet ensured:', {
+            profileId: profileWalletResult.profile.id,
+            walletId: profileWalletResult.wallet.id,
+          });
+        } else {
+          console.log('[publish-ride] ⚠️ Profile/wallet result is null, but continuing...');
+        }
+        
+        // ANDROID FIX: Add delay to ensure database consistency
+        await new Promise(resolve => setTimeout(resolve, 500));
+      } catch (ensureError: any) {
+        console.error('[publish-ride] ========================================');
+        console.error('[publish-ride] ❌ ERROR ENSURING PROFILE/WALLET');
+        console.error('[publish-ride] ========================================');
+        console.error('[publish-ride] Error message:', ensureError?.message);
+        console.error('[publish-ride] Error code:', ensureError?.code);
+        console.error('[publish-ride] Error details:', ensureError?.details);
+        console.error('[publish-ride] Error hint:', ensureError?.hint);
+        console.error('[publish-ride] Full error:', JSON.stringify(ensureError, null, 2));
+        
+        if (ensureError?.code === '23505') {
+          Alert.alert(
+            'Profil existant',
+            'Un profil avec ce numéro de téléphone existe déjà. Veuillez réessayer.',
+            [{ text: 'OK' }]
+          );
+        } else {
+          Alert.alert(
+            'Erreur de profil',
+            `Impossible de créer/vérifier votre profil.\n\nErreur: ${ensureError?.message || 'Inconnue'}`,
+            [{ text: 'OK' }]
+          );
+        }
+        
+        setIsSubmitting(false);
         return;
       }
-    } catch (error) {
-      console.error('[publish-ride] Error checking debt status:', error);
-      // Continue with ride creation even if debt check fails
-    }
 
-    setValidationErrors([]);
+      // Step 3: Check debt status
+      console.log('[publish-ride] ========================================');
+      console.log('[publish-ride] 💰 STEP 3: Checking Debt Status');
+      console.log('[publish-ride] ========================================');
+      try {
+        const debtStatus = await checkDebtStatus(userId);
+        console.log('[publish-ride] ✅ Debt status checked:', debtStatus);
+        
+        if (debtStatus.isBlocked) {
+          console.log('[publish-ride] ⚠️ User is blocked due to debt:', debtStatus.debtAmount);
+          setDebtAmount(debtStatus.debtAmount);
+          setShowDebtModal(true);
+          setIsSubmitting(false);
+          return;
+        }
+      } catch (debtError: any) {
+        console.error('[publish-ride] ⚠️ Error checking debt status (non-critical):', debtError?.message);
+      }
 
-    try {
+      setValidationErrors([]);
+
+      // Step 4: Prepare ride data
+      console.log('[publish-ride] ========================================');
+      console.log('[publish-ride] 📦 STEP 4: Preparing Ride Data');
+      console.log('[publish-ride] ========================================');
       const seats = parseInt(availableSeats);
       const price = parseInt(pricePerPassenger);
 
-      // Use centralized function to get user ID
-      const userId = await getOrCreateUserId();
-      console.log('[publish-ride] User ID for ride creation:', userId);
-
-      console.log('[publish-ride] Publishing ride with data:', {
+      const rideData = {
         driverId: userId,
         driverName: profile.fullName || 'Conducteur',
         departureCity: departureCity.trim(),
@@ -538,40 +595,112 @@ export default function PublishRideScreen() {
         arrivalLng: arrivalLng!,
         distanceKm: rideDistanceKm,
         durationMinutes: rideDurationMinutes,
-      });
+      };
 
-      await addRide({
-        driverId: userId,
-        driverName: profile.fullName || 'Conducteur',
-        departureCity: departureCity.trim(),
-        arrivalCity: arrivalCity.trim(),
-        date: departureDate!.toISOString().split('T')[0],
-        time: formatTime(departureTime!),
-        availableSeats: seats,
-        totalSeats: seats,
-        pricePerPassenger: price,
-        vehicleType: vehicleType.trim() || undefined,
-        intermediateStops: intermediateStops.trim() || undefined,
-        departureLat: departureLat!,
-        departureLng: departureLng!,
-        arrivalLat: arrivalLat!,
-        arrivalLng: arrivalLng!,
-        distanceKm: rideDistanceKm,
-        durationMinutes: rideDurationMinutes,
-      });
+      console.log('[publish-ride] 📋 Ride data prepared:', JSON.stringify(rideData, null, 2));
 
+      // Step 5: Add ride
+      console.log('[publish-ride] ========================================');
+      console.log('[publish-ride] 🚗 STEP 5: Publishing Ride to Supabase');
+      console.log('[publish-ride] ========================================');
+      await addRide(rideData);
+
+      console.log('[publish-ride] ========================================');
+      console.log('[publish-ride] ✅ RIDE PUBLISHED SUCCESSFULLY!');
+      console.log('[publish-ride] ========================================');
+
+      // Step 6: Save favorite route
+      console.log('[publish-ride] 📝 STEP 6: Saving favorite route...');
       await saveFavoriteRoute();
 
-      console.log('[publish-ride] Ride published successfully!');
+      console.log('[publish-ride] ========================================');
+      console.log('[publish-ride] ✅ SUBMIT COMPLETED SUCCESSFULLY');
+      console.log('[publish-ride] ========================================');
+      
+      // ANDROID FIX: Reset submitting state BEFORE showing success message
+      // This prevents state conflicts during navigation
+      setIsSubmitting(false);
+      console.log('[publish-ride] 🔓 isSubmitting set to false');
+      
+      // ANDROID FIX: Add small delay before showing success message
+      // This ensures all state updates are complete
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      // Show success message (which will handle navigation)
       showSuccessMessage();
-    } catch (error) {
-      console.error('[publish-ride] Error publishing ride:', error);
+    } catch (error: any) {
+      console.error('[publish-ride] ========================================');
+      console.error('[publish-ride] ❌❌❌ SUBMIT FAILED ❌❌❌');
+      console.error('[publish-ride] ========================================');
+      console.error('[publish-ride] 🔴 Error Type:', typeof error);
+      console.error('[publish-ride] 🔴 Error Name:', error?.name);
+      console.error('[publish-ride] 🔴 Error Message:', error?.message);
+      console.error('[publish-ride] 🔴 Error Code:', error?.code);
+      console.error('[publish-ride] 🔴 Error Details:', error?.details);
+      console.error('[publish-ride] 🔴 Error Hint:', error?.hint);
+      console.error('[publish-ride] 🔴 Error Status:', error?.status);
+      console.error('[publish-ride] 🔴 Error StatusCode:', error?.statusCode);
+      console.error('[publish-ride] 🔴 Full Error Object:', JSON.stringify(error, null, 2));
+      console.error('[publish-ride] 🔴 Error Stack:', error?.stack);
+      console.error('[publish-ride] ========================================');
       
       if (Platform.OS !== 'web') {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       }
       
-      Alert.alert('Erreur', 'Erreur lors de la publication du trajet. Veuillez réessayer.');
+      let errorTitle = 'Erreur Supabase';
+      let errorMessage = 'Erreur lors de la publication du trajet.\n\n';
+      
+      if (error?.message) {
+        errorMessage += `Message: ${error.message}\n\n`;
+      }
+      
+      if (error?.code) {
+        errorMessage += `Code: ${error.code}\n\n`;
+      }
+      
+      if (error?.details) {
+        errorMessage += `Détails: ${error.details}\n\n`;
+      }
+      
+      if (error?.hint) {
+        errorMessage += `Suggestion: ${error.hint}\n\n`;
+      }
+      
+      if (error?.message?.includes('foreign key') || error?.code === '23503') {
+        errorTitle = 'Erreur de Clé Étrangère';
+        errorMessage += '⚠️ Problème de contrainte de base de données (foreign key).\n\n';
+        errorMessage += 'Cela signifie généralement que votre profil utilisateur n\'existe pas dans la base de données.\n\n';
+      } else if (error?.message?.includes('duplicate') || error?.code === '23505') {
+        errorTitle = 'Erreur de Duplication';
+        errorMessage += '⚠️ Ce trajet existe déjà.\n\n';
+      } else if (error?.message?.includes('NOT NULL') || error?.code === '23502') {
+        errorTitle = 'Erreur de Champ Requis';
+        errorMessage += '⚠️ Un champ obligatoire est manquant.\n\n';
+      } else if (error?.message?.includes('permission') || error?.message?.includes('RLS')) {
+        errorTitle = 'Erreur de Permission';
+        errorMessage += '⚠️ Problème de sécurité RLS (Row Level Security).\n\n';
+      }
+      
+      errorMessage += 'Veuillez copier ce message et le partager avec le support technique.';
+      
+      Alert.alert(
+        errorTitle,
+        errorMessage,
+        [
+          { 
+            text: 'Copier l\'erreur', 
+            onPress: () => {
+              console.log('[publish-ride] 📋 User requested to copy error');
+            }
+          },
+          { text: 'OK' }
+        ]
+      );
+    } finally {
+      // ANDROID FIX: Always reset submitting state in finally block
+      setIsSubmitting(false);
+      console.log('[publish-ride] 🔓 isSubmitting set to false (finally)');
     }
   };
 
@@ -934,6 +1063,7 @@ export default function PublishRideScreen() {
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
         <View style={styles.content}>
           <TouchableOpacity
@@ -1065,7 +1195,7 @@ export default function PublishRideScreen() {
                 },
               ]}
               onPress={() => {
-                console.log('Date picker button pressed');
+                console.log('[publish-ride] 📅 Date picker button pressed');
                 setShowDatePicker(true);
               }}
               activeOpacity={0.7}
@@ -1101,7 +1231,7 @@ export default function PublishRideScreen() {
                 },
               ]}
               onPress={() => {
-                console.log('Time picker button pressed');
+                console.log('[publish-ride] ⏰ Time picker button pressed');
                 setShowTimePicker(true);
               }}
               activeOpacity={0.7}
@@ -1207,25 +1337,6 @@ export default function PublishRideScreen() {
             />
           </View>
 
-          {showSuccessModal && (
-            <View style={[styles.inlineSuccessCard, { backgroundColor: colors.success + '20' }]}>
-              <IconSymbol
-                ios_icon_name="checkmark.circle.fill"
-                android_material_icon_name="check-circle"
-                size={32}
-                color={colors.success}
-              />
-              <View style={styles.inlineSuccessTextContainer}>
-                <Text style={[styles.inlineSuccessTitle, { color: colors.success }]}>
-                  Trajet publié avec succès !
-                </Text>
-                <Text style={[styles.inlineSuccessText, { color: isDark ? colors.darkText : colors.text }]}>
-                  Votre trajet est maintenant visible
-                </Text>
-              </View>
-            </View>
-          )}
-
           <TouchableOpacity
             style={[
               styles.submitButton,
@@ -1239,9 +1350,9 @@ export default function PublishRideScreen() {
             activeOpacity={0.7}
           >
             <Text style={[styles.submitButtonText, { color: isButtonEnabled ? '#FFFFFF' : colors.textSecondary }]}>
-              {!isPhoneVerified ? 'Vérifier le numéro pour publier' : 'Publier un trajet'}
+              {isSubmitting ? 'Publication en cours...' : (!isPhoneVerified ? 'Vérifier le numéro pour publier' : 'Publier un trajet')}
             </Text>
-            {isButtonEnabled && (
+            {isButtonEnabled && !isSubmitting && (
               <IconSymbol
                 ios_icon_name="checkmark.circle.fill"
                 android_material_icon_name="check-circle"
@@ -1251,7 +1362,7 @@ export default function PublishRideScreen() {
             )}
           </TouchableOpacity>
 
-          {!isButtonEnabled && (
+          {!isButtonEnabled && !isSubmitting && (
             <View style={styles.helpTextContainer}>
               <IconSymbol
                 ios_icon_name="info.circle"
@@ -1408,28 +1519,6 @@ const styles = StyleSheet.create({
   },
   pickerText: {
     fontSize: 16,
-  },
-  inlineSuccessCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    gap: 12,
-    borderWidth: 2,
-    borderColor: colors.success,
-  },
-  inlineSuccessTextContainer: {
-    flex: 1,
-  },
-  inlineSuccessTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    marginBottom: 4,
-  },
-  inlineSuccessText: {
-    fontSize: 13,
-    lineHeight: 18,
   },
   submitButton: {
     borderRadius: 12,
