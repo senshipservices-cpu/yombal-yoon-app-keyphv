@@ -24,24 +24,25 @@ export default function RootLayout() {
   const colorScheme = useColorScheme();
   const [networkError, setNetworkError] = useState(false);
   const [isCheckingNetwork, setIsCheckingNetwork] = useState(true);
-  const [fontError, setFontError] = useState(false);
+  const [appReady, setAppReady] = useState(false);
 
-  // Load fonts with error handling
-  const [loaded, error] = useFonts({
+  // Load fonts with error handling - simplified to just SpaceMono Regular
+  const [fontsLoaded, fontError] = useFonts({
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
   });
 
-  // Handle font loading errors
+  // Handle font loading errors gracefully
   useEffect(() => {
-    if (error) {
-      console.error('Font loading error:', error);
-      setFontError(true);
-      // Continue anyway - the app will use system fonts as fallback
-      SplashScreen.hideAsync().catch((err) => {
-        console.log('SplashScreen.hideAsync error:', err);
-      });
+    if (fontError) {
+      console.error('❌ Font loading error:', fontError);
+      console.warn('⚠️ Continuing with system fonts as fallback');
+      // Mark app as ready even if fonts fail - we'll use system fonts
+      setAppReady(true);
+    } else if (fontsLoaded) {
+      console.log('✅ Fonts loaded successfully');
+      setAppReady(true);
     }
-  }, [error]);
+  }, [fontsLoaded, fontError]);
 
   // Initialize notification system on app start
   useEffect(() => {
@@ -74,22 +75,24 @@ export default function RootLayout() {
     checkNetwork();
   }, []);
 
-  // Hide splash screen when fonts are loaded and network check is complete
+  // Hide splash screen when everything is ready
   useEffect(() => {
-    if ((loaded || fontError) && !isCheckingNetwork) {
+    if (appReady && !isCheckingNetwork) {
       const hideSplash = async () => {
         try {
           await SplashScreen.hideAsync();
+          console.log('✅ Splash screen hidden');
         } catch (err) {
           console.log('Error hiding splash screen:', err);
         }
       };
-      hideSplash();
+      // Small delay to ensure smooth transition
+      setTimeout(hideSplash, 100);
     }
-  }, [loaded, fontError, isCheckingNetwork]);
+  }, [appReady, isCheckingNetwork]);
 
   // Show loading state while fonts are loading or network is being checked
-  if ((!loaded && !fontError) || isCheckingNetwork) {
+  if (!appReady || isCheckingNetwork) {
     return null;
   }
 
@@ -104,11 +107,6 @@ export default function RootLayout() {
         <ActivityIndicator size="large" color="#008000" style={styles.loader} />
       </View>
     );
-  }
-
-  // Log if fonts failed to load but continue with system fonts
-  if (fontError) {
-    console.warn('⚠️ Custom fonts failed to load. Using system fonts as fallback.');
   }
 
   return (
