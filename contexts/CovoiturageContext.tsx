@@ -21,6 +21,7 @@ export interface Ride {
   id: string;
   driverId: string;
   driverName: string;
+  driverPhone?: string;
   departureCity: string;
   arrivalCity: string;
   date: string;
@@ -153,6 +154,7 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
               id: ride.id,
               driverId: ride.driver_id || currentUserId,
               driverName: ride.driver_name || 'N/A',
+              driverPhone: ride.driver_phone || undefined,
               departureCity: ride.departure_city || 'N/A',
               arrivalCity: ride.arrival_city || 'N/A',
               date: departureDate.toISOString().split('T')[0],
@@ -277,6 +279,31 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
       const driverId = rideData.driverId || currentUserId;
       console.log('[CovoiturageContext] Final driverId to use:', driverId);
 
+      // FIX: Get the actual driver phone number from the ride data
+      // The phone number should be passed from the publish-ride screen via the profile context
+      let driverPhone = rideData.driverPhone || '';
+      
+      // If no phone number is provided, try to get it from the user profile
+      if (!driverPhone) {
+        console.log('[CovoiturageContext] ⚠️ No driver phone provided, fetching from user_profiles...');
+        const { data: profileData, error: profileError } = await supabase
+          .from('user_profiles')
+          .select('phone_number')
+          .eq('id', driverId)
+          .single();
+        
+        if (profileError) {
+          console.error('[CovoiturageContext] ❌ Error fetching driver phone:', profileError);
+          // Use a placeholder if we can't get the phone number
+          driverPhone = '';
+        } else if (profileData && profileData.phone_number) {
+          driverPhone = profileData.phone_number;
+          console.log('[CovoiturageContext] ✅ Driver phone fetched from profile:', driverPhone);
+        }
+      } else {
+        console.log('[CovoiturageContext] ✅ Driver phone provided:', driverPhone);
+      }
+
       const totalSeats = rideData.totalSeats;
       const pricePerSeat = rideData.pricePerPassenger;
       const prixTotal = totalSeats * pricePerSeat;
@@ -294,7 +321,7 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
       const supabaseData: TablesInsert<'carpool_rides'> = {
         driver_id: driverId,
         driver_name: rideData.driverName,
-        driver_phone: '221' + (driverId.substring(5, 14) || '000000000'),
+        driver_phone: driverPhone, // FIX: Use the actual driver phone number
         departure_city: rideData.departureCity,
         arrival_city: rideData.arrivalCity,
         departure_datetime: departureDatetime,
@@ -317,6 +344,7 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
       };
 
       console.log('[CovoiturageContext] Inserting ride into Supabase with driver_id:', supabaseData.driver_id);
+      console.log('[CovoiturageContext] Driver phone being saved:', supabaseData.driver_phone);
 
       const { data, error } = await supabase
         .from('carpool_rides')
@@ -337,6 +365,7 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
 
       console.log('[CovoiturageContext] Ride created in Supabase:', data);
       console.log('[CovoiturageContext] Created ride driver_id:', data.driver_id);
+      console.log('[CovoiturageContext] Created ride driver_phone:', data.driver_phone);
 
       try {
         await blockCommission(driverId, commissionYombal);
@@ -349,6 +378,7 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
         id: data.id,
         driverId: data.driver_id || driverId,
         driverName: data.driver_name,
+        driverPhone: data.driver_phone || undefined,
         departureCity: data.departure_city,
         arrivalCity: data.arrival_city,
         date: rideData.date,
@@ -370,6 +400,7 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
       };
 
       console.log('[CovoiturageContext] New ride object created with driverId:', newRide.driverId);
+      console.log('[CovoiturageContext] New ride object driverPhone:', newRide.driverPhone);
 
       const updatedRides = [newRide, ...rides];
       setRides(updatedRides);
