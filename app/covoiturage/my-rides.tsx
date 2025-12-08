@@ -32,6 +32,7 @@ export default function MyRidesScreen() {
   const [startingRideId, setStartingRideId] = React.useState<string | null>(null);
   const [arrivingRideId, setArrivingRideId] = React.useState<string | null>(null);
   const [passengerPhones, setPassengerPhones] = React.useState<{ [key: string]: string }>({});
+  const [isMounted, setIsMounted] = React.useState(false);
 
   const registerNotifications = useCallback(() => {
     try {
@@ -42,13 +43,24 @@ export default function MyRidesScreen() {
   }, [registerForPushNotifications]);
 
   useEffect(() => {
+    setIsMounted(true);
     // Register for push notifications when screen loads
     registerNotifications();
-    loadPassengerPhones();
+    
+    return () => {
+      setIsMounted(false);
+    };
   }, [registerNotifications]);
+
+  useEffect(() => {
+    if (isMounted) {
+      loadPassengerPhones();
+    }
+  }, [isMounted]);
 
   const loadPassengerPhones = async () => {
     try {
+      console.log('[my-rides] Loading passenger phones...');
       // Fetch all bookings to get passenger phone numbers
       const { data: bookings, error } = await supabase
         .from('carpool_bookings')
@@ -59,14 +71,17 @@ export default function MyRidesScreen() {
         return;
       }
 
-      if (bookings) {
+      if (bookings && Array.isArray(bookings)) {
         const phoneMap: { [key: string]: string } = {};
         bookings.forEach(booking => {
-          if (booking.passenger_phone) {
+          if (booking && booking.id && booking.passenger_phone) {
             phoneMap[booking.id] = booking.passenger_phone;
           }
         });
-        setPassengerPhones(phoneMap);
+        if (isMounted) {
+          setPassengerPhones(phoneMap);
+        }
+        console.log('[my-rides] Loaded passenger phones:', Object.keys(phoneMap).length);
       }
     } catch (error) {
       console.error('[my-rides] Error loading passenger phones:', error);
@@ -82,15 +97,31 @@ export default function MyRidesScreen() {
     } catch (error) {
       console.error('[my-rides] Error refreshing data:', error);
     } finally {
-      setTimeout(() => setRefreshing(false), 1000);
+      setTimeout(() => {
+        if (isMounted) {
+          setRefreshing(false);
+        }
+      }, 1000);
     }
   };
 
-  // Safely get rides array
-  const myRides = Array.isArray(rides) ? rides : [];
+  // Safely get rides array with null checks
+  const myRides = React.useMemo(() => {
+    if (!Array.isArray(rides)) {
+      console.warn('[my-rides] Rides is not an array:', rides);
+      return [];
+    }
+    return rides.filter(ride => ride && ride.id);
+  }, [rides]);
+
   console.log('[my-rides] Total rides:', myRides.length);
 
   const handleAcceptReservation = async (reservationId: string, passengerName: string) => {
+    if (!reservationId || !passengerName) {
+      console.error('[my-rides] Invalid reservation data');
+      return;
+    }
+
     if (Platform.OS === 'web') {
       const confirmed = window.confirm(`Voulez-vous accepter la réservation de ${passengerName} ?`);
       if (!confirmed) return;
@@ -160,6 +191,11 @@ export default function MyRidesScreen() {
   };
 
   const handleRefuseReservation = async (reservationId: string, passengerName: string) => {
+    if (!reservationId || !passengerName) {
+      console.error('[my-rides] Invalid reservation data');
+      return;
+    }
+
     if (Platform.OS === 'web') {
       const confirmed = window.confirm(`Voulez-vous refuser la réservation de ${passengerName} ?`);
       if (!confirmed) return;
@@ -230,6 +266,11 @@ export default function MyRidesScreen() {
   };
 
   const handleDriverArrived = async (rideId: string) => {
+    if (!rideId) {
+      console.error('[my-rides] Invalid ride ID');
+      return;
+    }
+
     console.log('[my-rides] === handleDriverArrived CALLED ===');
     console.log('[my-rides] Ride ID:', rideId);
 
@@ -248,7 +289,9 @@ export default function MyRidesScreen() {
         const result = await markDriverArrived(rideId);
 
         console.log('[my-rides] Arrival result:', result);
-        setArrivingRideId(null);
+        if (isMounted) {
+          setArrivingRideId(null);
+        }
 
         if (result.success) {
           window.alert('Les passagers ont été notifiés de votre arrivée.');
@@ -258,7 +301,9 @@ export default function MyRidesScreen() {
         }
       } catch (error) {
         console.error('[my-rides] Error in handleDriverArrived:', error);
-        setArrivingRideId(null);
+        if (isMounted) {
+          setArrivingRideId(null);
+        }
         window.alert('Une erreur est survenue');
       }
     } else {
@@ -276,7 +321,9 @@ export default function MyRidesScreen() {
 
                 const result = await markDriverArrived(rideId);
 
-                setArrivingRideId(null);
+                if (isMounted) {
+                  setArrivingRideId(null);
+                }
 
                 if (result.success) {
                   Alert.alert('Succès', 'Les passagers ont été notifiés de votre arrivée.');
@@ -286,7 +333,9 @@ export default function MyRidesScreen() {
                 }
               } catch (error) {
                 console.error('[my-rides] Error in handleDriverArrived:', error);
-                setArrivingRideId(null);
+                if (isMounted) {
+                  setArrivingRideId(null);
+                }
                 Alert.alert('Erreur', 'Une erreur est survenue');
               }
             },
@@ -297,6 +346,11 @@ export default function MyRidesScreen() {
   };
 
   const handleStartRide = async (rideId: string) => {
+    if (!rideId) {
+      console.error('[my-rides] Invalid ride ID');
+      return;
+    }
+
     console.log('[my-rides] === handleStartRide CALLED ===');
     console.log('[my-rides] Ride ID:', rideId);
 
@@ -315,7 +369,9 @@ export default function MyRidesScreen() {
         const result = await startRide(rideId);
 
         console.log('[my-rides] Start result:', result);
-        setStartingRideId(null);
+        if (isMounted) {
+          setStartingRideId(null);
+        }
 
         if (result.success) {
           window.alert('Trajet démarré ! Les passagers ont été notifiés.');
@@ -325,7 +381,9 @@ export default function MyRidesScreen() {
         }
       } catch (error) {
         console.error('[my-rides] Error in handleStartRide:', error);
-        setStartingRideId(null);
+        if (isMounted) {
+          setStartingRideId(null);
+        }
         window.alert('Une erreur est survenue lors du démarrage du trajet');
       }
     } else {
@@ -343,7 +401,9 @@ export default function MyRidesScreen() {
 
                 const result = await startRide(rideId);
 
-                setStartingRideId(null);
+                if (isMounted) {
+                  setStartingRideId(null);
+                }
 
                 if (result.success) {
                   Alert.alert('Succès', 'Trajet démarré ! Les passagers ont été notifiés.');
@@ -353,7 +413,9 @@ export default function MyRidesScreen() {
                 }
               } catch (error) {
                 console.error('[my-rides] Error in handleStartRide:', error);
-                setStartingRideId(null);
+                if (isMounted) {
+                  setStartingRideId(null);
+                }
                 Alert.alert('Erreur', 'Une erreur est survenue lors du démarrage du trajet');
               }
             },
@@ -364,10 +426,14 @@ export default function MyRidesScreen() {
   };
 
   const handleCancelRide = async (rideId: string, rideDetails: any) => {
+    if (!rideId || !rideDetails) {
+      console.error('[my-rides] Invalid ride data');
+      return;
+    }
+
     console.log('[my-rides] === handleCancelRide CALLED ===');
     console.log('[my-rides] Platform:', Platform.OS);
     console.log('[my-rides] Ride ID:', rideId);
-    console.log('[my-rides] Ride details:', rideDetails);
 
     if (Platform.OS === 'web') {
       // Use native browser confirm for web
@@ -398,7 +464,9 @@ export default function MyRidesScreen() {
         });
 
         console.log('[my-rides] Cancel result:', result);
-        setCancellingRideId(null);
+        if (isMounted) {
+          setCancellingRideId(null);
+        }
 
         if (result.success) {
           window.alert('Trajet annulé. Les passagers ont été notifiés.');
@@ -408,7 +476,9 @@ export default function MyRidesScreen() {
         }
       } catch (error) {
         console.error('[my-rides] Error in handleCancelRide:', error);
-        setCancellingRideId(null);
+        if (isMounted) {
+          setCancellingRideId(null);
+        }
         window.alert('Une erreur est survenue lors de l\'annulation du trajet');
       }
     } else {
@@ -437,7 +507,9 @@ export default function MyRidesScreen() {
                   });
                 });
 
-                setCancellingRideId(null);
+                if (isMounted) {
+                  setCancellingRideId(null);
+                }
 
                 if (result.success) {
                   Alert.alert('Succès', 'Trajet annulé. Les passagers ont été notifiés.');
@@ -447,7 +519,9 @@ export default function MyRidesScreen() {
                 }
               } catch (error) {
                 console.error('[my-rides] Error in handleCancelRide:', error);
-                setCancellingRideId(null);
+                if (isMounted) {
+                  setCancellingRideId(null);
+                }
                 Alert.alert('Erreur', 'Une erreur est survenue lors de l\'annulation du trajet');
               }
             },
@@ -530,9 +604,11 @@ export default function MyRidesScreen() {
               // Safely get reservations with error handling
               let reservations = [];
               try {
-                reservations = getReservationsByRide(ride.id) || [];
+                if (ride && ride.id) {
+                  reservations = getReservationsByRide(ride.id) || [];
+                }
               } catch (error) {
-                console.error('[my-rides] Error getting reservations for ride:', ride.id, error);
+                console.error('[my-rides] Error getting reservations for ride:', ride?.id, error);
                 reservations = [];
               }
 
@@ -547,7 +623,7 @@ export default function MyRidesScreen() {
 
               return (
                 <View
-                  key={index}
+                  key={`ride-${ride.id}-${index}`}
                   style={[
                     styles.rideCard,
                     { backgroundColor: isDark ? colors.darkCard : colors.card },
@@ -767,12 +843,16 @@ export default function MyRidesScreen() {
                       </Text>
 
                       {reservations.map((reservation, resIndex) => {
+                        if (!reservation || !reservation.id) {
+                          return null;
+                        }
+
                         const passengerPhone = passengerPhones[reservation.id] || '';
                         const maskedPhone = maskPhoneNumber(passengerPhone);
 
                         return (
                           <View
-                            key={resIndex}
+                            key={`reservation-${reservation.id}-${resIndex}`}
                             style={[
                               styles.reservationCard,
                               { backgroundColor: isDark ? colors.darkBackground : colors.background },
