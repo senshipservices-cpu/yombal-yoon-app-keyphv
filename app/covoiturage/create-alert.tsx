@@ -15,7 +15,7 @@ import { useRouter } from 'expo-router';
 import { useTheme } from '@react-navigation/native';
 import { colors } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
-import { CityAutocomplete } from '@/components/CityAutocomplete';
+import CityAutocomplete from '@/components/CityAutocomplete';
 import { supabase } from '@/app/integrations/supabase/client';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -43,6 +43,16 @@ export default function CreateAlertScreen() {
   const [showDateToPicker, setShowDateToPicker] = useState(false);
   const [showTimeStartPicker, setShowTimeStartPicker] = useState(false);
   const [showTimeEndPicker, setShowTimeEndPicker] = useState(false);
+
+  const handleSelectOriginCity = (city: string, placeId: string, lat: number, lng: number) => {
+    console.log('Selected origin city:', { city, placeId, lat, lng });
+    setOriginCity(city);
+  };
+
+  const handleSelectDestinationCity = (city: string, placeId: string, lat: number, lng: number) => {
+    console.log('Selected destination city:', { city, placeId, lat, lng });
+    setDestinationCity(city);
+  };
 
   const handleSubmit = async () => {
     // Validation
@@ -185,7 +195,7 @@ export default function CreateAlertScreen() {
             color={colors.primary}
           />
           <Text style={[styles.infoText, { color: isDark ? colors.darkText : colors.text }]}>
-            Vous recevrez une notification push dès qu'un trajet correspondant à vos critères sera publié
+            Vous recevrez une notification push dès qu&apos;un trajet correspondant à vos critères sera publié
           </Text>
         </View>
 
@@ -195,27 +205,21 @@ export default function CreateAlertScreen() {
             Trajet
           </Text>
 
-          <View style={styles.formGroup}>
-            <Text style={[styles.label, { color: isDark ? colors.darkText : colors.text }]}>
-              Ville de départ *
-            </Text>
-            <CityAutocomplete
-              value={originCity}
-              onChangeText={setOriginCity}
-              placeholder="Ex: Dakar"
-            />
-          </View>
+          <CityAutocomplete
+            value={originCity}
+            onChangeText={setOriginCity}
+            onSelectCity={handleSelectOriginCity}
+            placeholder="Ex: Dakar"
+            label="Ville de départ"
+          />
 
-          <View style={styles.formGroup}>
-            <Text style={[styles.label, { color: isDark ? colors.darkText : colors.text }]}>
-              Ville d'arrivée *
-            </Text>
-            <CityAutocomplete
-              value={destinationCity}
-              onChangeText={setDestinationCity}
-              placeholder="Ex: Thiès"
-            />
-          </View>
+          <CityAutocomplete
+            value={destinationCity}
+            onChangeText={setDestinationCity}
+            onSelectCity={handleSelectDestinationCity}
+            placeholder="Ex: Thiès"
+            label="Ville d'arrivée"
+          />
         </View>
 
         {/* Date Range Section */}
@@ -456,7 +460,7 @@ export default function CreateAlertScreen() {
                 size={24}
                 color="#FFFFFF"
               />
-              <Text style={styles.submitButtonText}>Créer l'alerte</Text>
+              <Text style={styles.submitButtonText}>Créer l&apos;alerte</Text>
             </>
           )}
         </TouchableOpacity>
