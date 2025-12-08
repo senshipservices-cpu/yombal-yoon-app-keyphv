@@ -382,38 +382,37 @@ export default function PublishRideScreen() {
     console.log('[publish-ride.ios] 🎉 SHOWING SUCCESS MESSAGE');
     console.log('[publish-ride.ios] 🎉 ========================================');
     
-    // iOS FIX: Trigger haptic feedback first
+    // iOS FIX: Trigger haptic feedback IMMEDIATELY
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     
-    // iOS FIX: Show Alert dialog IMMEDIATELY for user feedback
-    // This is the primary success notification on iOS
-    setTimeout(() => {
-      console.log('[publish-ride.ios] 🎉 Displaying Alert dialog...');
-      Alert.alert(
-        '🎉 Trajet publié avec succès !',
-        `Votre trajet de ${departureCity} vers ${arrivalCity} a été publié.\n\nVous pouvez maintenant le consulter dans "Mes trajets publiés".`,
-        [
-          {
-            text: 'Voir mes trajets',
-            style: 'default',
-            onPress: () => {
-              console.log('[publish-ride.ios] ✅ User chose to view rides, navigating...');
-              router.push('/covoiturage/my-rides');
-            }
-          },
-          {
-            text: 'OK',
-            style: 'cancel',
-            onPress: () => {
-              console.log('[publish-ride.ios] ✅ User acknowledged success');
-            }
+    // iOS FIX: Show Alert dialog IMMEDIATELY and SYNCHRONOUSLY
+    // This is the PRIMARY success notification on iOS - no delays!
+    console.log('[publish-ride.ios] 🎉 Displaying Alert dialog NOW...');
+    Alert.alert(
+      '🎉 Trajet publié avec succès !',
+      `Votre trajet de ${departureCity} vers ${arrivalCity} a été publié.\n\nVous pouvez maintenant le consulter dans "Mes trajets publiés".`,
+      [
+        {
+          text: 'Voir mes trajets',
+          style: 'default',
+          onPress: () => {
+            console.log('[publish-ride.ios] ✅ User chose to view rides, navigating...');
+            router.push('/covoiturage/my-rides');
           }
-        ],
-        { cancelable: false }
-      );
-    }, 100);
+        },
+        {
+          text: 'OK',
+          style: 'cancel',
+          onPress: () => {
+            console.log('[publish-ride.ios] ✅ User acknowledged success');
+          }
+        }
+      ],
+      { cancelable: false }
+    );
 
-    // iOS FIX: Also show the animated modal as a secondary visual confirmation
+    // iOS FIX: Also show the animated modal as a SECONDARY visual confirmation
+    // This runs in parallel with the Alert
     setShowSuccessModal(true);
 
     Animated.sequence([
@@ -606,7 +605,8 @@ export default function PublishRideScreen() {
       setIsSubmitting(false);
       console.log('[publish-ride.ios] 🔓 isSubmitting set to false');
       
-      // iOS FIX: Show success message IMMEDIATELY after successful submission
+      // iOS FIX: Show success message IMMEDIATELY - no delays!
+      // The Alert.alert call inside showSuccessMessage is synchronous
       showSuccessMessage();
     } catch (error: any) {
       console.error('[publish-ride.ios] ========================================');
