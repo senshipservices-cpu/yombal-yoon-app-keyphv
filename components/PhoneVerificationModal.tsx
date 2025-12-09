@@ -10,6 +10,10 @@ import {
   ActivityIndicator,
   Platform,
   Alert,
+  KeyboardAvoidingView,
+  ScrollView,
+  TouchableWithoutFeedback,
+  Keyboard,
 } from 'react-native';
 import { useTheme } from '@react-navigation/native';
 import { colors } from '@/styles/commonStyles';
@@ -166,295 +170,314 @@ export default function PhoneVerificationModal({
       animationType="fade"
       onRequestClose={handleClose}
     >
-      <View style={styles.overlay}>
-        <View style={[styles.modal, { backgroundColor: isDark ? colors.darkCard : '#FFFFFF' }]}>
-          {step !== 'success' && (
-            <TouchableOpacity style={styles.closeButton} onPress={handleClose}>
-              <IconSymbol
-                ios_icon_name="xmark.circle.fill"
-                android_material_icon_name="cancel"
-                size={28}
-                color={colors.textSecondary}
-              />
-            </TouchableOpacity>
-          )}
-
-          {step === 'success' ? (
-            <React.Fragment>
-              <View style={[styles.iconContainer, { backgroundColor: colors.primary + '20' }]}>
-                <IconSymbol
-                  ios_icon_name="checkmark.circle.fill"
-                  android_material_icon_name="check-circle"
-                  size={64}
-                  color={colors.primary}
-                />
-              </View>
-
-              <Text style={[styles.title, { color: isDark ? colors.darkText : colors.text }]}>
-                Vérification réussie !
-              </Text>
-
-              <Text style={[styles.description, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-                Votre numéro a été vérifié avec succès
-              </Text>
-
-              <View style={[styles.successCard, { backgroundColor: colors.primary + '10' }]}>
-                <IconSymbol
-                  ios_icon_name="phone.fill"
-                  android_material_icon_name="phone"
-                  size={20}
-                  color={colors.primary}
-                />
-                <Text style={[styles.successPhone, { color: isDark ? colors.darkText : colors.text }]}>
-                  {phone}
-                </Text>
-              </View>
-
-              <View style={styles.loadingContainer}>
-                <ActivityIndicator size="small" color={colors.primary} />
-                <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
-                  Fermeture automatique...
-                </Text>
-              </View>
-            </React.Fragment>
-          ) : (
-            <React.Fragment>
-              <View style={[styles.iconContainer, { backgroundColor: colors.primary + '20' }]}>
-                <IconSymbol
-                  ios_icon_name="phone.fill"
-                  android_material_icon_name="phone"
-                  size={48}
-                  color={colors.primary}
-                />
-              </View>
-
-              <Text style={[styles.title, { color: isDark ? colors.darkText : colors.text }]}>
-                {step === 'phone' ? 'Vérification du numéro' : 'Entrez le code OTP'}
-              </Text>
-
-              <Text style={[styles.description, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-                {step === 'phone'
-                  ? 'Nous allons vous envoyer un code de vérification'
-                  : `Code envoyé au ${phone} par ${sentViaMethod === 'sms' ? 'SMS' : 'WhatsApp'}`}
-              </Text>
-
-              {error ? (
-                <View style={[styles.errorContainer, { backgroundColor: colors.error + '20' }]}>
-                  <IconSymbol
-                    ios_icon_name="exclamationmark.triangle.fill"
-                    android_material_icon_name="error"
-                    size={20}
-                    color={colors.error}
-                  />
-                  <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>
-                </View>
-              ) : null}
-
-              {step === 'phone' ? (
-                <React.Fragment>
-                  <TextInput
-                    style={[
-                      styles.input,
-                      {
-                        backgroundColor: isDark ? colors.darkBackground : colors.background,
-                        color: isDark ? colors.darkText : colors.text,
-                        borderColor: colors.border,
-                      },
-                    ]}
-                    placeholder="+221 XX XXX XX XX"
-                    placeholderTextColor={colors.textSecondary}
-                    value={phone}
-                    onChangeText={setPhone}
-                    keyboardType="phone-pad"
-                    editable={!isLoading}
-                    autoFocus
-                  />
-
-                  <View style={styles.methodSelector}>
-                    <Text style={[styles.methodLabel, { color: isDark ? colors.darkText : colors.text }]}>
-                      Méthode d'envoi :
-                    </Text>
-                    <View style={styles.methodButtons}>
-                      <TouchableOpacity
-                        style={[
-                          styles.methodButton,
-                          selectedMethod === 'whatsapp' && styles.methodButtonActive,
-                          { borderColor: selectedMethod === 'whatsapp' ? colors.primary : colors.border },
-                        ]}
-                        onPress={() => setSelectedMethod('whatsapp')}
-                        disabled={isLoading}
-                      >
-                        <IconSymbol
-                          ios_icon_name="message.fill"
-                          android_material_icon_name="chat"
-                          size={20}
-                          color={selectedMethod === 'whatsapp' ? colors.primary : colors.textSecondary}
-                        />
-                        <Text
-                          style={[
-                            styles.methodButtonText,
-                            { color: selectedMethod === 'whatsapp' ? colors.primary : colors.textSecondary },
-                          ]}
-                        >
-                          WhatsApp
-                        </Text>
-                      </TouchableOpacity>
-
-                      <TouchableOpacity
-                        style={[
-                          styles.methodButton,
-                          selectedMethod === 'sms' && styles.methodButtonActive,
-                          { borderColor: selectedMethod === 'sms' ? colors.primary : colors.border },
-                        ]}
-                        onPress={() => setSelectedMethod('sms')}
-                        disabled={isLoading}
-                      >
-                        <IconSymbol
-                          ios_icon_name="envelope.fill"
-                          android_material_icon_name="sms"
-                          size={20}
-                          color={selectedMethod === 'sms' ? colors.primary : colors.textSecondary}
-                        />
-                        <Text
-                          style={[
-                            styles.methodButtonText,
-                            { color: selectedMethod === 'sms' ? colors.primary : colors.textSecondary },
-                          ]}
-                        >
-                          SMS
-                        </Text>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-
-                  <View style={[styles.infoBox, { backgroundColor: colors.primary + '10' }]}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.keyboardAvoidingView}
+      >
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+          <View style={styles.overlay}>
+            <TouchableWithoutFeedback>
+              <View style={[styles.modal, { backgroundColor: isDark ? colors.darkCard : '#FFFFFF' }]}>
+                {step !== 'success' && (
+                  <TouchableOpacity style={styles.closeButton} onPress={handleClose}>
                     <IconSymbol
-                      ios_icon_name="info.circle"
-                      android_material_icon_name="info"
-                      size={16}
-                      color={colors.primary}
-                    />
-                    <Text style={[styles.infoText, { color: isDark ? colors.darkText : colors.text }]}>
-                      Ce numéro servira de relais pour le covoiturage
-                    </Text>
-                  </View>
-
-                  <View style={[styles.warningBox, { backgroundColor: colors.warning + '10' }]}>
-                    <IconSymbol
-                      ios_icon_name="exclamationmark.triangle"
-                      android_material_icon_name="warning"
-                      size={16}
-                      color={colors.warning}
-                    />
-                    <Text style={[styles.warningText, { color: isDark ? colors.darkText : colors.text }]}>
-                      Pour WhatsApp : Le numéro doit être enregistré sur WhatsApp
-                    </Text>
-                  </View>
-
-                  <TouchableOpacity
-                    style={[
-                      styles.button,
-                      { backgroundColor: colors.primary },
-                      isLoading && styles.buttonDisabled,
-                    ]}
-                    onPress={handleSendOTP}
-                    disabled={isLoading}
-                    activeOpacity={0.7}
-                  >
-                    {isLoading ? (
-                      <ActivityIndicator color="#FFFFFF" />
-                    ) : (
-                      <Text style={styles.buttonText}>Envoyer le code</Text>
-                    )}
-                  </TouchableOpacity>
-                </React.Fragment>
-              ) : (
-                <React.Fragment>
-                  <TextInput
-                    style={[
-                      styles.input,
-                      styles.otpInput,
-                      {
-                        backgroundColor: isDark ? colors.darkBackground : colors.background,
-                        color: isDark ? colors.darkText : colors.text,
-                        borderColor: colors.border,
-                      },
-                    ]}
-                    placeholder="000000"
-                    placeholderTextColor={colors.textSecondary}
-                    value={otp}
-                    onChangeText={setOtp}
-                    keyboardType="number-pad"
-                    maxLength={6}
-                    editable={!isLoading}
-                    autoFocus
-                  />
-
-                  <View style={styles.otpHint}>
-                    <IconSymbol
-                      ios_icon_name="clock"
-                      android_material_icon_name="schedule"
-                      size={16}
+                      ios_icon_name="xmark.circle.fill"
+                      android_material_icon_name="cancel"
+                      size={28}
                       color={colors.textSecondary}
                     />
-                    <Text style={[styles.otpHintText, { color: colors.textSecondary }]}>
-                      Le code expire dans 10 minutes
-                    </Text>
-                  </View>
-
-                  <TouchableOpacity
-                    style={[
-                      styles.button,
-                      { backgroundColor: colors.primary },
-                      isLoading && styles.buttonDisabled,
-                    ]}
-                    onPress={handleVerifyOTP}
-                    disabled={isLoading}
-                    activeOpacity={0.7}
-                  >
-                    {isLoading ? (
-                      <ActivityIndicator color="#FFFFFF" />
-                    ) : (
-                      <Text style={styles.buttonText}>Vérifier</Text>
-                    )}
                   </TouchableOpacity>
+                )}
 
-                  <TouchableOpacity
-                    style={styles.resendButton}
-                    onPress={handleResendOTP}
-                    disabled={isLoading}
-                  >
-                    <IconSymbol
-                      ios_icon_name="arrow.clockwise"
-                      android_material_icon_name="refresh"
-                      size={16}
-                      color={colors.primary}
-                    />
-                    <Text style={[styles.resendButtonText, { color: colors.primary }]}>
-                      Renvoyer le code
-                    </Text>
-                  </TouchableOpacity>
+                <ScrollView
+                  contentContainerStyle={styles.scrollContent}
+                  keyboardShouldPersistTaps="handled"
+                  showsVerticalScrollIndicator={false}
+                  bounces={false}
+                >
+                  {step === 'success' ? (
+                    <React.Fragment>
+                      <View style={[styles.iconContainer, { backgroundColor: colors.primary + '20' }]}>
+                        <IconSymbol
+                          ios_icon_name="checkmark.circle.fill"
+                          android_material_icon_name="check-circle"
+                          size={64}
+                          color={colors.primary}
+                        />
+                      </View>
 
-                  <TouchableOpacity
-                    style={styles.changeNumberButton}
-                    onPress={() => setStep('phone')}
-                    disabled={isLoading}
-                  >
-                    <Text style={[styles.changeNumberText, { color: colors.textSecondary }]}>
-                      Changer de numéro
-                    </Text>
-                  </TouchableOpacity>
-                </React.Fragment>
-              )}
-            </React.Fragment>
-          )}
-        </View>
-      </View>
+                      <Text style={[styles.title, { color: isDark ? colors.darkText : colors.text }]}>
+                        Vérification réussie !
+                      </Text>
+
+                      <Text style={[styles.description, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+                        Votre numéro a été vérifié avec succès
+                      </Text>
+
+                      <View style={[styles.successCard, { backgroundColor: colors.primary + '10' }]}>
+                        <IconSymbol
+                          ios_icon_name="phone.fill"
+                          android_material_icon_name="phone"
+                          size={20}
+                          color={colors.primary}
+                        />
+                        <Text style={[styles.successPhone, { color: isDark ? colors.darkText : colors.text }]}>
+                          {phone}
+                        </Text>
+                      </View>
+
+                      <View style={styles.loadingContainer}>
+                        <ActivityIndicator size="small" color={colors.primary} />
+                        <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
+                          Fermeture automatique...
+                        </Text>
+                      </View>
+                    </React.Fragment>
+                  ) : (
+                    <React.Fragment>
+                      <View style={[styles.iconContainer, { backgroundColor: colors.primary + '20' }]}>
+                        <IconSymbol
+                          ios_icon_name="phone.fill"
+                          android_material_icon_name="phone"
+                          size={48}
+                          color={colors.primary}
+                        />
+                      </View>
+
+                      <Text style={[styles.title, { color: isDark ? colors.darkText : colors.text }]}>
+                        {step === 'phone' ? 'Vérification du numéro' : 'Entrez le code OTP'}
+                      </Text>
+
+                      <Text style={[styles.description, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+                        {step === 'phone'
+                          ? 'Nous allons vous envoyer un code de vérification'
+                          : `Code envoyé au ${phone} par ${sentViaMethod === 'sms' ? 'SMS' : 'WhatsApp'}`}
+                      </Text>
+
+                      {error ? (
+                        <View style={[styles.errorContainer, { backgroundColor: colors.error + '20' }]}>
+                          <IconSymbol
+                            ios_icon_name="exclamationmark.triangle.fill"
+                            android_material_icon_name="error"
+                            size={20}
+                            color={colors.error}
+                          />
+                          <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>
+                        </View>
+                      ) : null}
+
+                      {step === 'phone' ? (
+                        <React.Fragment>
+                          <TextInput
+                            style={[
+                              styles.input,
+                              {
+                                backgroundColor: isDark ? colors.darkBackground : colors.background,
+                                color: isDark ? colors.darkText : colors.text,
+                                borderColor: colors.border,
+                              },
+                            ]}
+                            placeholder="+221 XX XXX XX XX"
+                            placeholderTextColor={colors.textSecondary}
+                            value={phone}
+                            onChangeText={setPhone}
+                            keyboardType="phone-pad"
+                            editable={!isLoading}
+                            autoFocus
+                          />
+
+                          <View style={styles.methodSelector}>
+                            <Text style={[styles.methodLabel, { color: isDark ? colors.darkText : colors.text }]}>
+                              Méthode d'envoi :
+                            </Text>
+                            <View style={styles.methodButtons}>
+                              <TouchableOpacity
+                                style={[
+                                  styles.methodButton,
+                                  selectedMethod === 'whatsapp' && styles.methodButtonActive,
+                                  { borderColor: selectedMethod === 'whatsapp' ? colors.primary : colors.border },
+                                ]}
+                                onPress={() => setSelectedMethod('whatsapp')}
+                                disabled={isLoading}
+                              >
+                                <IconSymbol
+                                  ios_icon_name="message.fill"
+                                  android_material_icon_name="chat"
+                                  size={20}
+                                  color={selectedMethod === 'whatsapp' ? colors.primary : colors.textSecondary}
+                                />
+                                <Text
+                                  style={[
+                                    styles.methodButtonText,
+                                    { color: selectedMethod === 'whatsapp' ? colors.primary : colors.textSecondary },
+                                  ]}
+                                >
+                                  WhatsApp
+                                </Text>
+                              </TouchableOpacity>
+
+                              <TouchableOpacity
+                                style={[
+                                  styles.methodButton,
+                                  selectedMethod === 'sms' && styles.methodButtonActive,
+                                  { borderColor: selectedMethod === 'sms' ? colors.primary : colors.border },
+                                ]}
+                                onPress={() => setSelectedMethod('sms')}
+                                disabled={isLoading}
+                              >
+                                <IconSymbol
+                                  ios_icon_name="envelope.fill"
+                                  android_material_icon_name="sms"
+                                  size={20}
+                                  color={selectedMethod === 'sms' ? colors.primary : colors.textSecondary}
+                                />
+                                <Text
+                                  style={[
+                                    styles.methodButtonText,
+                                    { color: selectedMethod === 'sms' ? colors.primary : colors.textSecondary },
+                                  ]}
+                                >
+                                  SMS
+                                </Text>
+                              </TouchableOpacity>
+                            </View>
+                          </View>
+
+                          <View style={[styles.infoBox, { backgroundColor: colors.primary + '10' }]}>
+                            <IconSymbol
+                              ios_icon_name="info.circle"
+                              android_material_icon_name="info"
+                              size={16}
+                              color={colors.primary}
+                            />
+                            <Text style={[styles.infoText, { color: isDark ? colors.darkText : colors.text }]}>
+                              Ce numéro servira de relais pour le covoiturage
+                            </Text>
+                          </View>
+
+                          <View style={[styles.warningBox, { backgroundColor: colors.warning + '10' }]}>
+                            <IconSymbol
+                              ios_icon_name="exclamationmark.triangle"
+                              android_material_icon_name="warning"
+                              size={16}
+                              color={colors.warning}
+                            />
+                            <Text style={[styles.warningText, { color: isDark ? colors.darkText : colors.text }]}>
+                              Pour WhatsApp : Le numéro doit être enregistré sur WhatsApp
+                            </Text>
+                          </View>
+
+                          <TouchableOpacity
+                            style={[
+                              styles.button,
+                              { backgroundColor: colors.primary },
+                              isLoading && styles.buttonDisabled,
+                            ]}
+                            onPress={handleSendOTP}
+                            disabled={isLoading}
+                            activeOpacity={0.7}
+                          >
+                            {isLoading ? (
+                              <ActivityIndicator color="#FFFFFF" />
+                            ) : (
+                              <Text style={styles.buttonText}>Envoyer le code</Text>
+                            )}
+                          </TouchableOpacity>
+                        </React.Fragment>
+                      ) : (
+                        <React.Fragment>
+                          <TextInput
+                            style={[
+                              styles.input,
+                              styles.otpInput,
+                              {
+                                backgroundColor: isDark ? colors.darkBackground : colors.background,
+                                color: isDark ? colors.darkText : colors.text,
+                                borderColor: colors.border,
+                              },
+                            ]}
+                            placeholder="000000"
+                            placeholderTextColor={colors.textSecondary}
+                            value={otp}
+                            onChangeText={setOtp}
+                            keyboardType="number-pad"
+                            maxLength={6}
+                            editable={!isLoading}
+                            autoFocus
+                          />
+
+                          <View style={styles.otpHint}>
+                            <IconSymbol
+                              ios_icon_name="clock"
+                              android_material_icon_name="schedule"
+                              size={16}
+                              color={colors.textSecondary}
+                            />
+                            <Text style={[styles.otpHintText, { color: colors.textSecondary }]}>
+                              Le code expire dans 10 minutes
+                            </Text>
+                          </View>
+
+                          <TouchableOpacity
+                            style={[
+                              styles.button,
+                              { backgroundColor: colors.primary },
+                              isLoading && styles.buttonDisabled,
+                            ]}
+                            onPress={handleVerifyOTP}
+                            disabled={isLoading}
+                            activeOpacity={0.7}
+                          >
+                            {isLoading ? (
+                              <ActivityIndicator color="#FFFFFF" />
+                            ) : (
+                              <Text style={styles.buttonText}>Vérifier</Text>
+                            )}
+                          </TouchableOpacity>
+
+                          <TouchableOpacity
+                            style={styles.resendButton}
+                            onPress={handleResendOTP}
+                            disabled={isLoading}
+                          >
+                            <IconSymbol
+                              ios_icon_name="arrow.clockwise"
+                              android_material_icon_name="refresh"
+                              size={16}
+                              color={colors.primary}
+                            />
+                            <Text style={[styles.resendButtonText, { color: colors.primary }]}>
+                              Renvoyer le code
+                            </Text>
+                          </TouchableOpacity>
+
+                          <TouchableOpacity
+                            style={styles.changeNumberButton}
+                            onPress={() => setStep('phone')}
+                            disabled={isLoading}
+                          >
+                            <Text style={[styles.changeNumberText, { color: colors.textSecondary }]}>
+                              Changer de numéro
+                            </Text>
+                          </TouchableOpacity>
+                        </React.Fragment>
+                      )}
+                    </React.Fragment>
+                  )}
+                </ScrollView>
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
+  keyboardAvoidingView: {
+    flex: 1,
+  },
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
@@ -465,6 +488,7 @@ const styles = StyleSheet.create({
   modal: {
     width: '100%',
     maxWidth: 400,
+    maxHeight: '90%',
     borderRadius: 24,
     padding: 24,
     shadowColor: '#000',
@@ -475,6 +499,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 10,
+  },
+  scrollContent: {
+    flexGrow: 1,
   },
   closeButton: {
     position: 'absolute',
