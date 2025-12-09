@@ -10,6 +10,7 @@ import {
   requestNotificationPermissions,
   sendPushNotification,
 } from '@/utils/notificationSetup';
+import { supabase } from '@/config/supabase';
 
 // Configure notification handler globally
 Notifications.setNotificationHandler({
@@ -68,6 +69,7 @@ const NotificationContext = createContext<NotificationContextType | undefined>(u
 
 const DEVICE_TOKENS_STORAGE_KEY = '@yombal_yoon_device_tokens';
 const NOTIFICATIONS_STORAGE_KEY = '@yombal_yoon_notifications';
+const USER_ID_KEY = '@yombal_yoon_user_id';
 
 export function NotificationProvider({ children }: { children: ReactNode }) {
   const [deviceToken, setDeviceToken] = useState<string | null>(null);
@@ -206,7 +208,12 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 
   const registerForPushNotifications = async (userId: string = 'current_user', roles: string[] = []) => {
     try {
-      console.log('🔔 Registering for push notifications...');
+      console.log('========================================');
+      console.log('🔔 REGISTERING FOR PUSH NOTIFICATIONS');
+      console.log('========================================');
+      console.log('📱 Platform:', Platform.OS);
+      console.log('👤 User ID:', userId);
+      console.log('🎭 Roles:', roles);
       
       // Request permissions and setup channels
       const granted = await requestNotificationPermissions();
@@ -219,13 +226,102 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 
       console.log('✅ Push notification permissions granted');
 
-      // Generate a mock token for demo purposes
-      // In production, you would get the actual Expo push token
-      const token = `expo_token_${Platform.OS}_${userId}_${Date.now()}`;
+      // Get the actual Expo push token
+      let expoPushToken: string | null = null;
+      
+      if (Platform.OS !== 'web') {
+        try {
+          console.log('📲 Requesting Expo push token...');
+          
+          const tokenData = await Notifications.getExpoPushTokenAsync({
+            projectId: 'your-project-id', // This will be auto-detected from app.json
+          });
+          
+          expoPushToken = tokenData.data;
+          console.log('✅ Expo push token obtained:', expoPushToken);
+        } catch (tokenError) {
+          console.error('❌ Error getting Expo push token:', tokenError);
+          console.log('⚠️ Continuing without push token - notifications will be local only');
+        }
+      } else {
+        console.log('⚠️ Web platform - push notifications not supported');
+      }
+
+      // Get or create user ID from AsyncStorage
+      let actualUserId = userId;
+      if (userId === 'current_user') {
+        const storedUserId = await AsyncStorage.getItem(USER_ID_KEY);
+        if (storedUserId) {
+          actualUserId = storedUserId;
+          console.log('✅ Retrieved user ID from storage:', actualUserId);
+        } else {
+          console.log('⚠️ No user ID found in storage, using default');
+        }
+      }
+
+      // Store token in database if we have a valid Expo token
+      if (expoPushToken && actualUserId !== 'current_user') {
+        try {
+          console.log('💾 Storing push token in database...');
+          
+          // Check if token already exists for this user and platform
+          const { data: existingTokens, error: fetchError } = await supabase
+            .from('device_tokens')
+            .select('*')
+            .eq('user_id', actualUserId)
+            .eq('platform', Platform.OS);
+
+          if (fetchError) {
+            console.error('❌ Error fetching existing tokens:', fetchError);
+          } else if (existingTokens && existingTokens.length > 0) {
+            // Update existing token
+            const { error: updateError } = await supabase
+              .from('device_tokens')
+              .update({
+                expo_push_token: expoPushToken,
+                active: true,
+                last_used_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+              })
+              .eq('user_id', actualUserId)
+              .eq('platform', Platform.OS);
+
+            if (updateError) {
+              console.error('❌ Error updating device token:', updateError);
+            } else {
+              console.log('✅ Device token updated in database');
+            }
+          } else {
+            // Insert new token
+            const { error: insertError } = await supabase
+              .from('device_tokens')
+              .insert({
+                user_id: actualUserId,
+                expo_push_token: expoPushToken,
+                platform: Platform.OS,
+                active: true,
+                last_used_at: new Date().toISOString(),
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+              });
+
+            if (insertError) {
+              console.error('❌ Error inserting device token:', insertError);
+            } else {
+              console.log('✅ Device token inserted in database');
+            }
+          }
+        } catch (dbError) {
+          console.error('❌ Database error storing token:', dbError);
+        }
+      }
+
+      // Store token locally for reference
+      const token = expoPushToken || `local_token_${Platform.OS}_${actualUserId}_${Date.now()}`;
       setDeviceToken(token);
 
       const deviceTokenData: DeviceToken = {
-        userId,
+        userId: actualUserId,
         token,
         platform: Platform.OS,
         roles,
@@ -235,7 +331,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       const storedTokens = await AsyncStorage.getItem(DEVICE_TOKENS_STORAGE_KEY);
       const tokens: DeviceToken[] = storedTokens ? JSON.parse(storedTokens) : [];
       
-      const existingTokenIndex = tokens.findIndex(t => t.userId === userId && t.platform === Platform.OS);
+      const existingTokenIndex = tokens.findIndex(t => t.userId === actualUserId && t.platform === Platform.OS);
       if (existingTokenIndex >= 0) {
         tokens[existingTokenIndex] = deviceTokenData;
       } else {
@@ -244,9 +340,19 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       
       await AsyncStorage.setItem(DEVICE_TOKENS_STORAGE_KEY, JSON.stringify(tokens));
 
-      console.log('✅ Device token registered:', token, 'Roles:', roles);
+      console.log('========================================');
+      console.log('✅ PUSH NOTIFICATION REGISTRATION COMPLETE');
+      console.log('========================================');
+      console.log('🎫 Token:', token);
+      console.log('🎭 Roles:', roles);
+      console.log('📱 Platform:', Platform.OS);
+      console.log('========================================');
     } catch (error) {
-      console.error('❌ Error registering for push notifications:', error);
+      console.error('========================================');
+      console.error('❌ ERROR REGISTERING PUSH NOTIFICATIONS');
+      console.error('========================================');
+      console.error('Error:', error);
+      console.error('========================================');
       setHasPermission(false);
     }
   };
