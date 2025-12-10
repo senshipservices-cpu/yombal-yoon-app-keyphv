@@ -2,24 +2,23 @@
 import * as Font from 'expo-font';
 
 /**
- * Preload fonts with timeout and error handling
- * This ensures fonts load properly across all platforms
+ * Preload fonts with aggressive timeout and error handling
+ * This ensures the app never gets stuck on font loading
  */
 export async function loadFonts(): Promise<boolean> {
   try {
     console.log('🔤 Starting font loading...');
     
-    // Set a timeout for font loading
+    // Create font loading promise - only load SpaceMono Regular to minimize load time
     const fontLoadPromise = Font.loadAsync({
       SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
-      'SpaceMono-Bold': require('../assets/fonts/SpaceMono-Bold.ttf'),
-      'SpaceMono-Italic': require('../assets/fonts/SpaceMono-Italic.ttf'),
-      'SpaceMono-BoldItalic': require('../assets/fonts/SpaceMono-BoldItalic.ttf'),
     });
 
-    // Create a timeout promise
-    const timeoutPromise = new Promise((_, reject) => {
-      setTimeout(() => reject(new Error('Font loading timeout')), 10000); // 10 second timeout
+    // Create a timeout promise - 3 seconds should be more than enough
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => {
+        reject(new Error('Font loading timeout after 3000ms'));
+      }, 3000);
     });
 
     // Race between font loading and timeout
@@ -30,6 +29,9 @@ export async function loadFonts(): Promise<boolean> {
   } catch (error) {
     console.error('❌ Font loading error:', error);
     console.warn('⚠️ Continuing with system fonts as fallback');
+    
+    // Even if fonts fail, we return false but don't throw
+    // This allows the app to continue with system fonts
     return false;
   }
 }
@@ -44,4 +46,21 @@ export function areFontsLoaded(): boolean {
     console.log('Error checking font status:', error);
     return false;
   }
+}
+
+/**
+ * Get safe font family name
+ * Returns SpaceMono if loaded, otherwise returns system font
+ */
+export function getSafeFontFamily(): string {
+  try {
+    if (Font.isLoaded('SpaceMono')) {
+      return 'SpaceMono';
+    }
+  } catch (error) {
+    console.log('Error checking font:', error);
+  }
+  
+  // Fallback to system font
+  return 'System';
 }

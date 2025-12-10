@@ -1,7 +1,6 @@
 
 import { Stack } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
 import { ThemeProvider, DarkTheme, DefaultTheme } from '@react-navigation/native';
 import { useColorScheme, View, Text, StyleSheet, ActivityIndicator } from 'react-native';
@@ -14,6 +13,7 @@ import { NotificationProvider } from '@/contexts/NotificationContext';
 import { OTPProvider } from '@/contexts/OTPContext';
 import * as Network from 'expo-network';
 import { initializeNotificationHandlers } from '@/utils/notificationSetup';
+import { loadFonts } from '@/utils/fontLoader';
 
 // Prevent splash screen from auto-hiding
 SplashScreen.preventAutoHideAsync().catch((error) => {
@@ -25,24 +25,30 @@ export default function RootLayout() {
   const [networkError, setNetworkError] = useState(false);
   const [isCheckingNetwork, setIsCheckingNetwork] = useState(true);
   const [appReady, setAppReady] = useState(false);
+  const [fontsReady, setFontsReady] = useState(false);
 
-  // Load fonts with error handling - simplified to just SpaceMono Regular
-  const [fontsLoaded, fontError] = useFonts({
-    SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
-  });
-
-  // Handle font loading errors gracefully
+  // Load fonts with custom timeout handling
   useEffect(() => {
-    if (fontError) {
-      console.error('❌ Font loading error:', fontError);
-      console.warn('⚠️ Continuing with system fonts as fallback');
-      // Mark app as ready even if fonts fail - we'll use system fonts
-      setAppReady(true);
-    } else if (fontsLoaded) {
-      console.log('✅ Fonts loaded successfully');
-      setAppReady(true);
-    }
-  }, [fontsLoaded, fontError]);
+    const initFonts = async () => {
+      console.log('🔤 Starting font initialization...');
+      try {
+        const success = await loadFonts();
+        if (success) {
+          console.log('✅ Fonts loaded successfully');
+        } else {
+          console.warn('⚠️ Using system fonts as fallback');
+        }
+      } catch (error) {
+        console.error('❌ Font initialization error:', error);
+        console.warn('⚠️ Using system fonts as fallback');
+      } finally {
+        // Always mark fonts as ready, even if they failed to load
+        setFontsReady(true);
+      }
+    };
+
+    initFonts();
+  }, []);
 
   // Initialize notification system on app start
   useEffect(() => {
@@ -75,9 +81,16 @@ export default function RootLayout() {
     checkNetwork();
   }, []);
 
+  // Mark app as ready when fonts and network check are complete
+  useEffect(() => {
+    if (fontsReady && !isCheckingNetwork) {
+      setAppReady(true);
+    }
+  }, [fontsReady, isCheckingNetwork]);
+
   // Hide splash screen when everything is ready
   useEffect(() => {
-    if (appReady && !isCheckingNetwork) {
+    if (appReady) {
       const hideSplash = async () => {
         try {
           await SplashScreen.hideAsync();
@@ -89,10 +102,10 @@ export default function RootLayout() {
       // Small delay to ensure smooth transition
       setTimeout(hideSplash, 100);
     }
-  }, [appReady, isCheckingNetwork]);
+  }, [appReady]);
 
   // Show loading state while fonts are loading or network is being checked
-  if (!appReady || isCheckingNetwork) {
+  if (!appReady) {
     return null;
   }
 

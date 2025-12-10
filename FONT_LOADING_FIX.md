@@ -1,99 +1,145 @@
 
-# Font Loading Timeout Fix
+# Font Loading Timeout Fix - Updated Solution
 
 ## Problem
-The app was experiencing a `6000ms timeout exceeded` error from `fontfaceobserver` in the `node_modules` directory. This was preventing the app from loading properly.
+The app was experiencing a `6000ms timeout exceeded` error from `fontfaceobserver` in the `node_modules` directory. This error was preventing the app from loading properly and showing an uncaught error screen.
 
 ## Root Cause
 The issue was caused by:
-1. **Redundant font loading logic** - Both `fontLoader.ts` utility and `useFonts()` hook were present, but only `useFonts()` was being used
-2. **Loading too many font variants** - Attempting to load 4 font files (Regular, Bold, Italic, BoldItalic) which increased load time
-3. **Insufficient error handling** - Font loading errors weren't being handled gracefully
+1. **Internal timeout in expo-font** - The `useFonts()` hook has a built-in 6000ms timeout from `fontfaceobserver`
+2. **Network/loading delays** - On slower connections or devices, fonts couldn't load within the timeout
+3. **Unhandled promise rejections** - The timeout error wasn't being caught properly, causing the app to crash
 
-## Solution Applied
+## Solution Applied (Updated)
 
-### 1. Simplified Font Loading in `app/_layout.tsx`
-- **Reduced font variants**: Now only loading `SpaceMono-Regular.ttf` instead of all 4 variants
-- **Better error handling**: Added `appReady` state to coordinate font loading completion
-- **Graceful fallback**: If fonts fail to load, the app continues with system fonts
-- **Improved logging**: Added console logs to track font loading status
+### 1. Switched from `useFonts()` to Custom Font Loader
+Instead of using the `useFonts()` hook which has a fixed 6000ms timeout, we now use a custom `loadFonts()` function with:
+- **Shorter timeout (3000ms)** - Fails faster to avoid long waits
+- **Better error handling** - Catches all errors and continues gracefully
+- **Explicit fallback** - Always returns a boolean, never throws
 
-### 2. Key Changes
+### 2. Updated `app/_layout.tsx`
 ```typescript
-// Before: Loading multiple font variants
-const [loaded, error] = useFonts({
-  SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
-  'SpaceMono-Bold': require('../assets/fonts/SpaceMono-Bold.ttf'),
-  'SpaceMono-Italic': require('../assets/fonts/SpaceMono-Italic.ttf'),
-  'SpaceMono-BoldItalic': require('../assets/fonts/SpaceMono-BoldItalic.ttf'),
-});
-
-// After: Loading only one font variant
+// Before: Using useFonts hook with built-in timeout
 const [fontsLoaded, fontError] = useFonts({
   SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
 });
+
+// After: Using custom loadFonts with controlled timeout
+useEffect(() => {
+  const initFonts = async () => {
+    try {
+      const success = await loadFonts();
+      if (success) {
+        console.log('✅ Fonts loaded successfully');
+      } else {
+        console.warn('⚠️ Using system fonts as fallback');
+      }
+    } catch (error) {
+      console.error('❌ Font initialization error:', error);
+    } finally {
+      // Always mark fonts as ready, even if they failed
+      setFontsReady(true);
+    }
+  };
+  initFonts();
+}, []);
 ```
 
-### 3. Error Handling Flow
+### 3. Enhanced `utils/fontLoader.ts`
 ```typescript
-useEffect(() => {
-  if (fontError) {
-    console.error('❌ Font loading error:', fontError);
-    console.warn('⚠️ Continuing with system fonts as fallback');
-    setAppReady(true); // Continue anyway
-  } else if (fontsLoaded) {
-    console.log('✅ Fonts loaded successfully');
-    setAppReady(true);
+export async function loadFonts(): Promise<boolean> {
+  try {
+    const fontLoadPromise = Font.loadAsync({
+      SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
+    });
+
+    // 3 second timeout - fail fast
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => {
+        reject(new Error('Font loading timeout after 3000ms'));
+      }, 3000);
+    });
+
+    await Promise.race([fontLoadPromise, timeoutPromise]);
+    return true;
+  } catch (error) {
+    console.error('❌ Font loading error:', error);
+    // Return false but don't throw - app continues with system fonts
+    return false;
   }
-}, [fontsLoaded, fontError]);
+}
 ```
+
+### 4. Key Improvements
+- **No more uncaught errors** - All font loading errors are caught and handled
+- **Faster failure** - 3 second timeout instead of 6 seconds
+- **Guaranteed app start** - App always starts, even if fonts fail completely
+- **Better logging** - Clear console messages show what's happening
+- **Graceful degradation** - System fonts are used if custom fonts fail
 
 ## System Font Fallbacks
-The app already has system font fallbacks configured in `styles/commonStyles.ts`:
+The app has system font fallbacks configured in `styles/commonStyles.ts`:
 
 ```typescript
 export const fontFamily = {
   regular: Platform.select({
     ios: 'System',
     android: 'Roboto',
-    web: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+    web: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
     default: 'System',
   }),
   bold: Platform.select({
     ios: 'System',
     android: 'Roboto',
-    web: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+    web: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
     default: 'System',
   }),
 };
 ```
 
-This means even if custom fonts fail to load, the app will use native system fonts which look great on all platforms.
-
 ## Benefits
-1. **Faster load time** - Loading only 1 font file instead of 4
-2. **Better reliability** - Graceful fallback to system fonts if loading fails
-3. **Improved UX** - App continues to work even if fonts fail to load
-4. **Better debugging** - Clear console logs showing font loading status
+1. **No more crashes** - Font loading errors never crash the app
+2. **Faster startup** - 3 second timeout means faster failure and recovery
+3. **Better UX** - App always loads, users never see error screens
+4. **Reliable** - Works on slow networks and devices
+5. **Better debugging** - Clear console logs show font loading status
 
 ## Testing
 To verify the fix:
-1. Restart the Expo dev server
-2. Clear the app cache
-3. Reload the app
-4. Check console logs for:
+1. **Clear app cache** - Remove all cached data
+2. **Restart Expo dev server** - `npm run dev` or `expo start`
+3. **Reload the app** - Press 'r' in terminal or shake device
+4. **Check console logs** for:
+   - `🔤 Starting font loading...`
    - `✅ Fonts loaded successfully` (if fonts load)
-   - `⚠️ Continuing with system fonts as fallback` (if fonts fail)
-5. The app should load without timeout errors
+   - `⚠️ Using system fonts as fallback` (if fonts fail)
+5. **Verify app loads** - No error screens, app starts normally
+
+## What Changed from Previous Fix
+- **Removed `useFonts()` hook** - This was causing the 6000ms timeout error
+- **Added custom font loader** - With controlled 3 second timeout
+- **Better error boundaries** - All errors caught in try-catch-finally
+- **Guaranteed app start** - `setFontsReady(true)` always called in finally block
 
 ## Future Improvements
-If you need the other font variants (Bold, Italic, BoldItalic):
-1. Add them back one at a time
+If you need additional font variants:
+1. Add them to `loadFonts()` one at a time
 2. Test each addition to ensure no timeout issues
-3. Consider using `expo-google-fonts` package for more reliable font loading
-4. Implement progressive font loading (load Regular first, then others in background)
+3. Consider loading additional fonts after app start (progressive loading)
+4. Monitor console logs to ensure fonts load within 3 seconds
 
 ## Related Files
-- `app/_layout.tsx` - Main font loading logic
-- `styles/commonStyles.ts` - Font family fallbacks
-- `utils/fontLoader.ts` - Unused utility (can be removed)
+- `app/_layout.tsx` - Main app initialization with font loading
+- `utils/fontLoader.ts` - Custom font loading with timeout control
+- `styles/commonStyles.ts` - Font family fallbacks for all platforms
+
+## Troubleshooting
+If you still see font loading issues:
+1. **Check network connection** - Slow networks may cause timeouts
+2. **Clear Metro bundler cache** - `expo start -c`
+3. **Verify font files exist** - Check `assets/fonts/` directory
+4. **Check console logs** - Look for font loading messages
+5. **Try on different device** - Some devices may have font loading issues
+
+The app will always work with system fonts even if custom fonts fail to load.
