@@ -10,7 +10,7 @@
  * - productionMode.ts: Controls OTP verification and phone number reuse
  */
 
-export const IS_TEST_MODE = false; // ✅ PRODUCTION MODE - Commissions activées
+export const IS_TEST_MODE = true; // 🎉 MODE TEST ACTIVÉ - Commissions à 0 FCFA pour période d'essai
 
 /**
  * Commission rates for production mode
@@ -71,7 +71,7 @@ export function calculateCommissionAmounts(
  */
 export function getCommissionDisplayText(type: 'covoiturage' | 'colis'): string {
   if (IS_TEST_MODE) {
-    return 'Commission Yombal Yoon (Phase test)';
+    return 'Commission Yombal Yoon (Phase test - 0%)';
   }
 
   const rate = COMMISSION_RATES[type];
