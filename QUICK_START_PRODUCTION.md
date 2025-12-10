@@ -1,132 +1,110 @@
 
-# Guide de Démarrage Rapide - Mode Production
+# 🚀 Guide Rapide - Déploiement Production
 
-## Objectif
+## ✅ Configuration Production Activée
 
-Ce guide vous permet de passer rapidement du mode Test au mode Production pour l'application Yombal Yoon.
+Tous les modes de test ont été désactivés. L'application est maintenant en **mode production complet**.
 
-## Étape 1 : Configuration des Fichiers
+---
 
-### 1.1 Mode Production OTP
+## 🔧 Changements Appliqués
 
-**Fichier :** `config/productionMode.ts`
+### 1. Mode Production
+- ✅ `IS_PRODUCTION_MODE = true` (config/productionMode.ts)
+- ✅ Numéros de téléphone uniques par utilisateur
+- ✅ Vérification OTP stricte
 
-```typescript
-export const IS_PRODUCTION_MODE = true; // ✅ Activer le mode Production
-```
+### 2. Commissions
+- ✅ `IS_TEST_MODE = false` (config/testMode.ts)
+- ✅ Covoiturage : 12% de commission
+- ✅ Colis : 15% de commission
 
-### 1.2 Mode Commissions
+### 3. Fonctionnalités
+- ✅ Vérification téléphonique obligatoire
+- ✅ OTP activé
+- ✅ Mode debug désactivé
 
-**Fichier :** `config/testMode.ts`
+---
 
-```typescript
-export const IS_TEST_MODE = false; // ✅ Activer les commissions
-```
+## 🏗️ Commandes de Build
 
-## Étape 2 : Configuration Supabase
-
-### 2.1 Via Supabase CLI
-
-```bash
-# Configurer le mode Production pour OTP
-supabase secrets set IS_PRODUCTION_MODE=true
-
-# Redéployer l'Edge Function
-supabase functions deploy send-otp-twilio
-```
-
-### 2.2 Via Supabase Dashboard
-
-1. Allez dans **Settings** → **Edge Functions**
-2. Ajoutez/Modifiez la variable :
-   - **Nom :** `IS_PRODUCTION_MODE`
-   - **Valeur :** `true`
-3. Sauvegardez
-
-## Étape 3 : Vérification
-
-### 3.1 Vérifier les Secrets
+### Android (APK/AAB)
 
 ```bash
-supabase secrets list
+# Build APK pour tests
+eas build --platform android --profile preview
+
+# Build AAB pour Google Play Store
+eas build --platform android --profile production
 ```
 
-Vous devriez voir :
-```
-IS_PRODUCTION_MODE=true
-```
-
-### 3.2 Tester l'Application
-
-1. **Tester l'OTP :**
-   - Envoyer un code OTP à un nouveau numéro
-   - Vérifier que le message ne contient pas "(Mode Test)"
-   - Essayer de réutiliser le même numéro → Devrait échouer
-
-2. **Tester les Commissions :**
-   - Créer une course de covoiturage
-   - Vérifier que la commission de 12% est appliquée
-   - Créer une livraison de colis
-   - Vérifier que la commission de 15% est appliquée
-
-### 3.3 Vérifier les Logs
+### iOS (IPA)
 
 ```bash
-# Logs Edge Function
-supabase functions logs send-otp-twilio --follow
+# Build pour App Store
+eas build --platform ios --profile production
+
+# Soumettre à App Store Connect
+eas submit --platform ios --profile production
 ```
 
-Recherchez :
-```
-mode: 'Production'
-```
-
-## Étape 4 : Checklist Finale
-
-Avant de déployer en production, vérifiez :
-
-- [ ] `IS_PRODUCTION_MODE = true` dans `config/productionMode.ts`
-- [ ] `IS_TEST_MODE = false` dans `config/testMode.ts`
-- [ ] Variable `IS_PRODUCTION_MODE=true` configurée dans Supabase
-- [ ] Edge Function redéployée
-- [ ] Test OTP avec un numéro réel réussi
-- [ ] Test de commission réussi
-- [ ] Logs confirment le mode Production
-- [ ] Credentials Twilio en production configurés
-- [ ] Numéros Twilio vérifiés et actifs
-
-## Retour au Mode Test
-
-Si vous devez revenir au mode Test :
-
-### Fichiers
-
-```typescript
-// config/productionMode.ts
-export const IS_PRODUCTION_MODE = false;
-
-// config/testMode.ts
-export const IS_TEST_MODE = true;
-```
-
-### Supabase
+### Build Simultané
 
 ```bash
-supabase secrets set IS_PRODUCTION_MODE=false
-supabase functions deploy send-otp-twilio
+# Android + iOS en même temps
+eas build --platform all --profile production
 ```
 
-## Résumé des Modes
+---
 
-| Configuration | Développement | Beta | Production |
-|---------------|---------------|------|------------|
-| IS_PRODUCTION_MODE | false | true | true |
-| IS_TEST_MODE | true | true | false |
-| Réutilisation numéros | ✅ | ❌ | ❌ |
-| Commissions | 0% | 0% | 12-15% |
+## 📱 Informations de l'App
 
-## Support
+### Android
+- **Package** : `com.yombalyoon.app`
+- **Version Code** : 2
+- **Version Name** : 1.0.1
 
-- Documentation complète : `CONFIGURATION_MODES.md`
-- Guide OTP détaillé : `PRODUCTION_MODE_GUIDE.md`
-- Logs Supabase : `supabase functions logs send-otp-twilio --follow`
+### iOS
+- **Bundle ID** : `com.yombalyoon.yombalyoonapp`
+- **Build Number** : 2
+- **Version** : 1.0.1
+
+---
+
+## ✅ Checklist Rapide
+
+### Avant le Build
+- [x] Mode production activé
+- [x] Commissions activées
+- [x] Tests Android/iOS terminés
+- [ ] Captures d'écran préparées
+- [ ] Descriptions stores rédigées
+- [ ] Politique de confidentialité publiée
+
+### Après le Build
+- [ ] Tester le build final sur device physique
+- [ ] Vérifier les notifications push
+- [ ] Tester les paiements
+- [ ] Soumettre aux stores
+
+---
+
+## 🎯 Timeline
+
+1. **Maintenant** : Lancer les builds production
+2. **15-30 min** : Builds terminés
+3. **1-7 jours** : Validation stores
+4. **Après validation** : Publication officielle
+
+---
+
+## 📞 Support
+
+- Documentation complète : `PRODUCTION_DEPLOYMENT_GUIDE.md`
+- EAS Docs : https://docs.expo.dev/build/
+- Supabase : https://supabase.com/docs
+
+---
+
+**Statut** : ✅ Prêt pour le déploiement
+**Date** : $(date)

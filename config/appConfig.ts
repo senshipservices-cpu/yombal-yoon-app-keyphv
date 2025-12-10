@@ -6,6 +6,8 @@
  * IMPORTANT: This is the single source of truth for app configuration.
  * All platforms (Web, iOS, Android) must use this configuration.
  * DO NOT create platform-specific logic that differs from this config.
+ * 
+ * ✅ PRODUCTION MODE ACTIVATED
  */
 
 /**
@@ -28,7 +30,7 @@ export const MODULE_CONFIG = {
       minPricePerSeat: 500, // FCFA
       maxPricePerSeat: 50000, // FCFA
       allowStops: true,
-      requirePhoneVerification: false, // Set to true in production
+      requirePhoneVerification: true, // ✅ PRODUCTION: Phone verification required
     },
   },
   
@@ -46,7 +48,7 @@ export const MODULE_CONFIG = {
       maxPrice: 100000, // FCFA
       pricePerKm: 200, // FCFA per km
       basePrice: 1000, // FCFA
-      requirePhoneVerification: false, // Set to true in production
+      requirePhoneVerification: true, // ✅ PRODUCTION: Phone verification required
       allowDriverSelection: true,
     },
   },
@@ -189,11 +191,12 @@ export const PAYMENT_CONFIG = {
 /**
  * Feature Flags
  * Enable/disable specific features across all platforms
+ * ✅ PRODUCTION CONFIGURATION
  */
 export const FEATURE_FLAGS = {
   // Authentication & Security
-  requirePhoneVerification: false, // Set to true in production
-  enableOTP: false, // Set to true when OTP is ready
+  requirePhoneVerification: true, // ✅ PRODUCTION: Phone verification enabled
+  enableOTP: true, // ✅ PRODUCTION: OTP enabled
   enableBiometrics: false, // Future feature
   
   // Notifications
@@ -214,7 +217,7 @@ export const FEATURE_FLAGS = {
   // Admin Features
   enableAdminPanel: true,
   enableAnalytics: true,
-  enableDebugMode: true, // Set to false in production
+  enableDebugMode: false, // ✅ PRODUCTION: Debug mode disabled
   
   // Experimental Features
   enableRealTimeTracking: false, // Future feature

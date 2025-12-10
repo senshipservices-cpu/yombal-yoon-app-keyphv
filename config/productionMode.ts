@@ -7,7 +7,7 @@
  * In production mode, phone numbers are unique per user.
  */
 
-export const IS_PRODUCTION_MODE = false; // Set to true for production, false for testing
+export const IS_PRODUCTION_MODE = true; // ✅ PRODUCTION MODE ACTIVATED
 
 /**
  * Test mode configuration

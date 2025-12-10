@@ -10,7 +10,7 @@
  * - productionMode.ts: Controls OTP verification and phone number reuse
  */
 
-export const IS_TEST_MODE = true; // Phase test = true, Production = false
+export const IS_TEST_MODE = false; // ✅ PRODUCTION MODE - Commissions activées
 
 /**
  * Commission rates for production mode
