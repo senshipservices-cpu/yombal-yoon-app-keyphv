@@ -3,7 +3,6 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '@/app/integrations/supabase/client';
 import type { TablesInsert } from '@/app/integrations/supabase/types';
-import { triggerEvent } from '@/utils/eventSystem';
 
 export interface InterRegionalRequest {
   id: string;
@@ -100,7 +99,7 @@ export function LivraisonProvider({ children }: { children: ReactNode }) {
 
   const sendNotifications = async (requestData: Omit<InterRegionalRequest, 'id' | 'status' | 'createdAt'>) => {
     try {
-      console.log('📧 Sending notifications to Yombal Yoon team...');
+      console.log('📧 Sending notifications to Yombal Yoon team at +221765676486...');
       
       const { data, error } = await supabase.functions.invoke('send-intercity-notifications', {
         body: {
@@ -121,9 +120,9 @@ export function LivraisonProvider({ children }: { children: ReactNode }) {
         return { success: false, error: error.message };
       }
 
-      console.log('✅ Notifications sent:', data);
+      console.log('✅ Notifications sent successfully:', data);
       return { success: true, data };
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ Exception sending notifications:', error);
       return { success: false, error: error.message };
     }
@@ -138,8 +137,7 @@ export function LivraisonProvider({ children }: { children: ReactNode }) {
       console.log('   - Destination region:', requestData.destinationRegion);
       console.log('   - Destination department:', requestData.destinationDepartment);
 
-      // ✅ VALIDATION STRICTE - PARTIE 2
-      // Vérifier que tous les champs obligatoires sont remplis
+      // ✅ VALIDATION STRICTE
       if (!requestData.senderName || !requestData.senderPhone || 
           !requestData.recipientName || !requestData.recipientPhone) {
         console.error('❌ Missing required sender/recipient fields');
@@ -149,8 +147,6 @@ export function LivraisonProvider({ children }: { children: ReactNode }) {
         };
       }
 
-      // ✅ VALIDATION DES RÉGIONS
-      // Vérifier que les régions de départ et destination sont sélectionnées
       if (!requestData.departureRegion || !requestData.destinationRegion) {
         console.error('❌ Missing departure or destination region');
         return { 
@@ -183,24 +179,9 @@ export function LivraisonProvider({ children }: { children: ReactNode }) {
         .single();
 
       if (error) {
-        console.error('Error inserting into Supabase:', error);
-        
-        // Fallback to local storage
-        const newRequest: InterRegionalRequest = {
-          ...requestData,
-          id: Date.now().toString(),
-          status: 'pending',
-          createdAt: new Date().toISOString(),
-        };
-
-        const updatedRequests = [...interRegionalRequests, newRequest];
-        setInterRegionalRequests(updatedRequests);
-        await AsyncStorage.setItem(LIVRAISON_STORAGE_KEY, JSON.stringify(updatedRequests));
-        
-        console.log('Inter-regional request added to local storage:', newRequest);
+        console.error('❌ Error inserting into Supabase:', error);
         return { 
-          success: false, 
-          requestId: newRequest.id,
+          success: false,
           error: 'Impossible d\'enregistrer la demande. Vérifiez votre connexion et réessayez.'
         };
       }
@@ -229,38 +210,22 @@ export function LivraisonProvider({ children }: { children: ReactNode }) {
       
       console.log('✅ Inter-regional request added to Supabase:', newRequest);
 
-      // 🔔 Trigger the INTER_REGION_DELIVERY_CREATED event
-      // This will automatically send Email + WhatsApp notifications via the event system
-      triggerEvent('INTER_REGION_DELIVERY_CREATED', {
-        senderName: newRequest.senderName,
-        senderPhone: newRequest.senderPhone,
-        recipientName: newRequest.recipientName,
-        recipientPhone: newRequest.recipientPhone,
-        departureCity: newRequest.departureRegion,
-        departureRegion: newRequest.departureRegion,
-        arrivalCity: newRequest.destinationRegion,
-        destinationRegion: newRequest.destinationRegion,
-        weight: 0, // Weight not tracked in current form
-        price: newRequest.pricing.total,
-        pricingTotal: newRequest.pricing.total,
-        description: newRequest.description,
-      }).catch(error => {
-        console.error('⚠️ Error triggering event:', error);
-      });
-
-      // Also send notifications via the old method as backup
+      // 🔔 Send WhatsApp notification to Yombal Yoon team
       // This runs asynchronously and doesn't block the user experience
+      console.log('📱 Triggering WhatsApp notification to +221765676486...');
       sendNotifications(requestData).then(notificationResult => {
         if (notificationResult.success) {
-          console.log('✅ Notifications sent successfully to Yombal Yoon team (backup method)');
+          console.log('✅ WhatsApp notification sent successfully to Yombal Yoon team');
         } else {
-          console.warn('⚠️ Notifications failed but request was saved:', notificationResult.error);
+          console.warn('⚠️ WhatsApp notification failed but request was saved:', notificationResult.error);
         }
+      }).catch(err => {
+        console.error('⚠️ Error sending WhatsApp notification:', err);
       });
 
       return { success: true, requestId: newRequest.id };
-    } catch (error) {
-      console.error('Error adding inter-regional request:', error);
+    } catch (error: any) {
+      console.error('❌ Error adding inter-regional request:', error);
       return { 
         success: false,
         error: 'Impossible d\'enregistrer la demande. Vérifiez votre connexion et réessayez.'

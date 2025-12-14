@@ -141,62 +141,75 @@ export default function LivraisonScreen() {
 
     setIsSubmitting(true);
 
-    const requestData = {
-      senderName,
-      senderPhone,
-      recipientName,
-      recipientPhone,
-      departureRegion: `${departureRegion} - ${departureDepartment}`,
-      destinationRegion: destinationData.region || destinationData.name,
-      destinationDepartment: destinationData.type === 'department' ? destinationData.name : '',
-      description: `Type: ${parcelType}, Poids: ${estimatedWeight || 'Non spécifié'}, ${description}`,
-      pricing: {
-        baseFee,
-        destinationFee: destinationData.price,
-        parcelTypeFee: getParcelTypeFee(),
-        optionsFee: getOptionsFee(),
-        total: calculateTotal(),
-      },
-    };
+    try {
+      const requestData = {
+        senderName,
+        senderPhone,
+        recipientName,
+        recipientPhone,
+        departureRegion: `${departureRegion} - ${departureDepartment}`,
+        destinationRegion: destinationData.region || destinationData.name,
+        destinationDepartment: destinationData.type === 'department' ? destinationData.name : '',
+        description: `Type: ${parcelType}, Poids: ${estimatedWeight || 'Non spécifié'}, ${description}`,
+        pricing: {
+          baseFee,
+          destinationFee: destinationData.price,
+          parcelTypeFee: getParcelTypeFee(),
+          optionsFee: getOptionsFee(),
+          total: calculateTotal(),
+        },
+      };
 
-    const result = await addInterRegionalRequest(requestData);
+      console.log('📦 Submitting delivery request...');
+      const result = await addInterRegionalRequest(requestData);
 
-    setIsSubmitting(false);
+      setIsSubmitting(false);
 
-    if (result.success) {
-      Alert.alert(
-        '✅ Demande enregistrée',
-        'Votre demande de livraison inter-région a été enregistrée avec succès. L\'équipe Yombal Yoon vous contactera bientôt.',
-        [
-          {
-            text: 'OK',
-            onPress: () => {
-              // Reset form
-              setSenderName('');
-              setSenderPhone('');
-              setDropoffPoint('');
-              setSenderNote('');
-              setRecipientName('');
-              setRecipientPhone('');
-              setReceptionMode('domicile');
-              setDestination('');
-              setDestinationData(null);
-              setExactAddress('');
-              setParcelType('small');
-              setEstimatedWeight('');
-              setDescription('');
-              setIsFragile(false);
-              setIsUrgent(false);
-              setHasInsurance(false);
-              setCurrentStep('sender');
+      if (result.success) {
+        Alert.alert(
+          '✅ Demande enregistrée',
+          'Votre demande de livraison inter-région a été enregistrée avec succès.\n\n' +
+          '📱 Une notification WhatsApp a été envoyée à l\'équipe Yombal Yoon au +221765676486.\n\n' +
+          'L\'équipe vous contactera bientôt pour confirmer la livraison.',
+          [
+            {
+              text: 'OK',
+              onPress: () => {
+                // Reset form
+                setSenderName('');
+                setSenderPhone('');
+                setDropoffPoint('');
+                setSenderNote('');
+                setRecipientName('');
+                setRecipientPhone('');
+                setReceptionMode('domicile');
+                setDestination('');
+                setDestinationData(null);
+                setExactAddress('');
+                setParcelType('small');
+                setEstimatedWeight('');
+                setDescription('');
+                setIsFragile(false);
+                setIsUrgent(false);
+                setHasInsurance(false);
+                setCurrentStep('sender');
+              },
             },
-          },
-        ]
-      );
-    } else {
+          ]
+        );
+      } else {
+        Alert.alert(
+          '❌ Erreur',
+          result.error || 'Impossible d\'enregistrer la demande. Veuillez réessayer.',
+          [{ text: 'OK' }]
+        );
+      }
+    } catch (error: any) {
+      console.error('❌ Error submitting request:', error);
+      setIsSubmitting(false);
       Alert.alert(
         '❌ Erreur',
-        result.error || 'Impossible d\'enregistrer la demande. Veuillez réessayer.',
+        'Une erreur est survenue. Veuillez réessayer.',
         [{ text: 'OK' }]
       );
     }
