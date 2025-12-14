@@ -1,6 +1,6 @@
 
 import React from "react";
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Image } from "react-native";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from "react-native";
 import { useTheme } from "@react-navigation/native";
 import { useRouter } from "expo-router";
 import { colors } from "@/styles/commonStyles";
@@ -184,17 +184,6 @@ export default function CovoiturageScreen() {
             </View>
           )}
 
-          {/* Logo Separator - Only show if both driver and passenger sections are visible */}
-          {roles.driver && roles.passenger && (
-            <View style={styles.logoSeparator}>
-              <Image
-                source={require('@/assets/images/0ffef673-f3cb-43b2-ade2-61fb84440440.png')}
-                style={styles.logoImage}
-                resizeMode="contain"
-              />
-            </View>
-          )}
-
           {/* Passenger Section */}
           {roles.passenger && (
             <View style={styles.section}>
@@ -358,16 +347,6 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '700',
     marginBottom: 16,
-  },
-  logoSeparator: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginVertical: 32,
-    paddingVertical: 20,
-  },
-  logoImage: {
-    width: 120,
-    height: 120,
   },
   card: {
     borderRadius: 16,
