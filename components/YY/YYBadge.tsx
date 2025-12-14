@@ -3,6 +3,7 @@
  * YYBadge - Yombal Yoon Badge Component
  * 
  * Standardized badge component for status indicators, labels, etc.
+ * Le ROUGE signale (alertes, badges)
  */
 
 import React from 'react';
@@ -20,6 +21,9 @@ interface YYBadgeProps {
   
   /**
    * Badge variant
+   * - primary: VERT
+   * - secondary: JAUNE
+   * - accent: ROUGE (alertes)
    */
   variant?: BadgeVariant;
   
@@ -50,17 +54,17 @@ export const YYBadge: React.FC<YYBadgeProps> = ({
   const getVariantColor = () => {
     switch (variant) {
       case 'primary':
-        return YYTheme.colors.primary;
+        return YYTheme.colors.primary; // VERT
       case 'secondary':
-        return YYTheme.colors.secondary;
+        return YYTheme.colors.secondary; // JAUNE
       case 'accent':
-        return YYTheme.colors.accent;
+        return YYTheme.colors.accent; // ROUGE (alertes)
       case 'success':
-        return YYTheme.colors.success;
+        return YYTheme.colors.success; // VERT
       case 'warning':
-        return YYTheme.colors.warning;
+        return YYTheme.colors.warning; // JAUNE
       case 'error':
-        return YYTheme.colors.error;
+        return YYTheme.colors.error; // ROUGE
       case 'info':
         return YYTheme.colors.info;
       default:
@@ -98,6 +102,7 @@ export const YYBadge: React.FC<YYBadgeProps> = ({
   // Get text color (white for dark backgrounds, dark for light backgrounds)
   const getTextColor = () => {
     if (variant === 'secondary' || variant === 'warning') {
+      // JAUNE -> texte foncé
       return YYTheme.colors.text.primary;
     }
     return YYTheme.colors.text.inverse;

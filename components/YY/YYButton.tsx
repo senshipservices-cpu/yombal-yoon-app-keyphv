@@ -3,7 +3,11 @@
  * YYButton - Yombal Yoon Button Component
  * 
  * Standardized button component for consistent appearance across all platforms.
- * Uses theme tokens exclusively - no hardcoded colors.
+ * 
+ * Boutons:
+ * - Primaire: JAUNE plein
+ * - Secondaire: contour VERT
+ * - Destructif: texte ROUGE
  */
 
 import React from 'react';
@@ -17,7 +21,7 @@ import {
 } from 'react-native';
 import { YYTheme } from '@/styles/theme';
 
-type ButtonVariant = 'primary' | 'secondary' | 'accent' | 'outline' | 'ghost';
+type ButtonVariant = 'primary' | 'secondary' | 'accent' | 'destructive' | 'outline' | 'ghost';
 type ButtonSize = 'small' | 'medium' | 'large';
 
 interface YYButtonProps {
@@ -28,6 +32,10 @@ interface YYButtonProps {
   
   /**
    * Button variant
+   * - primary: JAUNE plein
+   * - secondary: contour VERT
+   * - accent: VERT plein
+   * - destructive: texte ROUGE
    */
   variant?: ButtonVariant;
   
@@ -113,11 +121,24 @@ export const YYButton: React.FC<YYButtonProps> = ({
   
   // Get text color based on variant
   const getTextColor = () => {
-    if (variant === 'outline' || variant === 'ghost') {
+    if (variant === 'primary') {
+      // JAUNE plein -> texte foncé
+      return YYTheme.colors.text.primary;
+    }
+    if (variant === 'secondary' || variant === 'outline') {
+      // Contour VERT -> texte VERT
       return YYTheme.colors.primary;
     }
-    if (variant === 'secondary') {
-      return YYTheme.colors.text.primary;
+    if (variant === 'destructive') {
+      // Texte ROUGE
+      return YYTheme.colors.accent;
+    }
+    if (variant === 'accent') {
+      // VERT plein -> texte blanc
+      return YYTheme.colors.text.inverse;
+    }
+    if (variant === 'ghost') {
+      return YYTheme.colors.primary;
     }
     return YYTheme.colors.text.inverse;
   };

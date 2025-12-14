@@ -3,7 +3,7 @@
  * YYCard - Yombal Yoon Card Component
  * 
  * Standardized card component for modules (Covoiturage, Colis, Livraison).
- * Uses theme tokens exclusively - no hardcoded colors.
+ * Cards: radius 18–20, ombre douce
  */
 
 import React from 'react';
@@ -21,6 +21,9 @@ interface YYCardProps {
   
   /**
    * Card variant
+   * - base: radius 18, ombre douce
+   * - elevated: radius 20, ombre douce
+   * - outlined: radius 18, bordure
    */
   variant?: CardVariant;
   

@@ -70,7 +70,7 @@ export const YYChip: React.FC<YYChipProps> = ({
 }) => {
   // Background color based on state
   const backgroundColor = selected
-    ? YYTheme.colors.primary
+    ? YYTheme.colors.primary // VERT
     : YYTheme.colors.background.white;
   
   // Text color based on state

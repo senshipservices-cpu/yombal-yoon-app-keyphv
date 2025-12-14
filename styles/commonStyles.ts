@@ -1,31 +1,44 @@
 
 import { StyleSheet, Platform } from 'react-native';
 
-// Couleurs globales Yombal Yoon (drapeau Sénégal)
+/**
+ * Couleurs globales Yombal Yoon
+ * PARTIE 1 — STRUCTURE GLOBALE & PRINCIPES UI (COMMUNS)
+ * 
+ * Vision UI globale:
+ * - Moderne, dynamique, professionnelle
+ * - Ancrée au Sénégal 🇸🇳 sans être "chargée drapeau"
+ * 
+ * 👉 Le VERT porte la marque
+ * 👉 Le JAUNE déclenche l'action
+ * 👉 Le ROUGE signale (alertes, badges)
+ */
 export const colors = {
-  // Couleurs principales (drapeau Sénégal)
-  primary: '#00853F',      // Vert
-  secondary: '#FDEF42',    // Jaune
-  accent: '#E31B23',       // Rouge
+  // Couleurs principales - NOUVELLE PALETTE OFFICIELLE
+  primary: '#0B7A3B',      // Vert marque - LE VERT PORTE LA MARQUE
+  primaryDark: '#064A26',  // Vert foncé
+  secondary: '#F7C948',    // Jaune CTA - LE JAUNE DÉCLENCHE L'ACTION
+  accent: '#E53935',       // Rouge alerte - LE ROUGE SIGNALE
   
   // Couleurs de fond
-  background: '#F5F5F5',
+  background: '#F7F8FA',   // Fond principal
+  backgroundAlt: '#FFFFFF', // Fond alternatif
   darkBackground: '#1A1A1A',
   
   // Couleurs de carte
-  card: '#FFFFFF',
+  card: '#FFFFFF',         // Cards blanches
   darkCard: '#2A2A2A',
   
   // Couleurs de texte
-  text: '#1A1A1A',
+  text: '#101828',         // Texte principal
   darkText: '#FFFFFF',
   textSecondary: '#666666',
-  darkTextSecondary: '#AAAAAA',
+  darkTextSecondary: '#CCCCCC',
   
   // Couleurs d'état
-  success: '#00853F',
-  error: '#E31B23',
-  warning: '#FFA500',
+  success: '#0B7A3B',      // Vert marque (succès = toast vert)
+  error: '#E53935',        // Rouge alerte (erreur = toast rouge)
+  warning: '#F7C948',      // Jaune
   info: '#0066CC',
   
   // Couleurs de bordure
@@ -33,15 +46,18 @@ export const colors = {
   darkBorder: '#404040',
   
   // Couleurs de statut
-  pending: '#FFA500',
-  accepted: '#00853F',
-  refused: '#E31B23',
+  pending: '#F7C948',      // Jaune
+  accepted: '#0B7A3B',     // Vert
+  refused: '#E53935',      // Rouge
   cancelled: '#999999',
   
   // Couleurs de module
-  covoiturage: '#00853F',
-  livraison: '#E31B23',
+  covoiturage: '#0B7A3B',  // Vert
+  livraison: '#E53935',    // Rouge
   colis: '#0066CC',
+  
+  // Couleur de surbrillance
+  highlight: '#E0E0E0',
 };
 
 // Font family with fallbacks for when custom fonts fail to load
@@ -60,6 +76,11 @@ export const fontFamily = {
   }),
 };
 
+/**
+ * Common Styles - Design System Officiel
+ * Cards: radius 18–20, ombre douce
+ * Boutons: Primaire JAUNE plein, Secondaire contour VERT, Destructif texte ROUGE
+ */
 export const commonStyles = StyleSheet.create({
   container: {
     flex: 1,
@@ -69,9 +90,10 @@ export const commonStyles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.darkBackground,
   },
+  // Cards: radius 18-20, ombre douce
   card: {
     backgroundColor: colors.card,
-    borderRadius: 16,
+    borderRadius: 18,
     padding: 16,
     marginBottom: 16,
     shadowColor: '#000',
@@ -79,13 +101,13 @@ export const commonStyles = StyleSheet.create({
       width: 0,
       height: 2,
     },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.08, // Ombre douce
     shadowRadius: 4,
-    elevation: 3,
+    elevation: 2,
   },
   darkCard: {
     backgroundColor: colors.darkCard,
-    borderRadius: 16,
+    borderRadius: 18,
     padding: 16,
     marginBottom: 16,
     shadowColor: '#000',
@@ -97,15 +119,46 @@ export const commonStyles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
+  // Bouton primaire: JAUNE plein
   button: {
-    backgroundColor: colors.primary,
+    backgroundColor: colors.secondary, // JAUNE
     borderRadius: 12,
     padding: 16,
     alignItems: 'center',
     justifyContent: 'center',
   },
   buttonText: {
-    color: '#FFFFFF',
+    color: colors.text, // Texte foncé sur jaune
+    fontSize: 16,
+    fontWeight: '700',
+    fontFamily: fontFamily.bold,
+  },
+  // Bouton secondaire: contour VERT
+  buttonSecondary: {
+    backgroundColor: 'transparent',
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: colors.primary, // Contour VERT
+  },
+  buttonSecondaryText: {
+    color: colors.primary, // Texte VERT
+    fontSize: 16,
+    fontWeight: '700',
+    fontFamily: fontFamily.bold,
+  },
+  // Bouton destructif: texte ROUGE
+  buttonDestructive: {
+    backgroundColor: 'transparent',
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  buttonDestructiveText: {
+    color: colors.accent, // Texte ROUGE
     fontSize: 16,
     fontWeight: '700',
     fontFamily: fontFamily.bold,
@@ -163,9 +216,9 @@ export const commonStyles = StyleSheet.create({
       width: 0,
       height: 2,
     },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.08, // Ombre douce
     shadowRadius: 4,
-    elevation: 3,
+    elevation: 2,
   },
   darkShadow: {
     shadowColor: '#000',
