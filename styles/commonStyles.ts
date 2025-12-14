@@ -12,13 +12,18 @@ import { StyleSheet, Platform } from 'react-native';
  * 👉 Le VERT porte la marque
  * 👉 Le JAUNE déclenche l'action
  * 👉 Le ROUGE signale (alertes, badges)
+ * 
+ * ✨ NOUVELLE VERSION AVEC DÉGRADÉS ET ANIMATIONS
  */
 export const colors = {
-  // Couleurs principales - NOUVELLE PALETTE OFFICIELLE
+  // Couleurs principales - NOUVELLE PALETTE OFFICIELLE ENRICHIE
   primary: '#0B7A3B',      // Vert marque - LE VERT PORTE LA MARQUE
   primaryDark: '#064A26',  // Vert foncé
+  primaryLight: '#10A854', // Vert clair pour dégradés
   secondary: '#F7C948',    // Jaune CTA - LE JAUNE DÉCLENCHE L'ACTION
+  secondaryLight: '#FFD966', // Jaune clair pour dégradés
   accent: '#E53935',       // Rouge alerte - LE ROUGE SIGNALE
+  accentDark: '#C62828',   // Rouge foncé pour dégradés
   
   // Couleurs de fond
   background: '#F7F8FA',   // Fond principal
@@ -77,8 +82,60 @@ export const fontFamily = {
 };
 
 /**
- * Common Styles - Design System Officiel
- * Cards: radius 18–20, ombre douce
+ * Enhanced Shadow System - Ombres optimisées
+ */
+export const shadows = {
+  // Subtle shadow for cards
+  card: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  // Medium elevation for floating elements
+  floating: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  // Strong elevation for modals
+  modal: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.16,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  // Colored shadows for brand elements
+  brandGreen: {
+    shadowColor: '#0B7A3B',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  brandYellow: {
+    shadowColor: '#F7C948',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  brandRed: {
+    shadowColor: '#E53935',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+};
+
+/**
+ * Common Styles - Design System Officiel avec Ombres Optimisées
+ * Cards: radius 18–20, ombre douce optimisée
  * Boutons: Primaire JAUNE plein, Secondaire contour VERT, Destructif texte ROUGE
  */
 export const commonStyles = StyleSheet.create({
@@ -90,20 +147,13 @@ export const commonStyles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.darkBackground,
   },
-  // Cards: radius 18-20, ombre douce
+  // Cards: radius 18-20, ombre douce optimisée
   card: {
     backgroundColor: colors.card,
     borderRadius: 18,
     padding: 16,
     marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.08, // Ombre douce
-    shadowRadius: 4,
-    elevation: 2,
+    ...shadows.card,
   },
   darkCard: {
     backgroundColor: colors.darkCard,
@@ -119,13 +169,30 @@ export const commonStyles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
-  // Bouton primaire: JAUNE plein
+  // Card avec élévation forte
+  cardElevated: {
+    backgroundColor: colors.card,
+    borderRadius: 20,
+    padding: 16,
+    marginBottom: 16,
+    ...shadows.floating,
+  },
+  // Card avec ombre colorée (vert)
+  cardBrandGreen: {
+    backgroundColor: colors.card,
+    borderRadius: 20,
+    padding: 16,
+    marginBottom: 16,
+    ...shadows.brandGreen,
+  },
+  // Bouton primaire: JAUNE plein avec ombre colorée
   button: {
     backgroundColor: colors.secondary, // JAUNE
     borderRadius: 12,
     padding: 16,
     alignItems: 'center',
     justifyContent: 'center',
+    ...shadows.brandYellow,
   },
   buttonText: {
     color: colors.text, // Texte foncé sur jaune
@@ -145,6 +212,21 @@ export const commonStyles = StyleSheet.create({
   },
   buttonSecondaryText: {
     color: colors.primary, // Texte VERT
+    fontSize: 16,
+    fontWeight: '700',
+    fontFamily: fontFamily.bold,
+  },
+  // Bouton accent: VERT plein avec ombre colorée
+  buttonAccent: {
+    backgroundColor: colors.primary, // VERT
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...shadows.brandGreen,
+  },
+  buttonAccentText: {
+    color: colors.card, // Texte blanc sur vert
     fontSize: 16,
     fontWeight: '700',
     fontFamily: fontFamily.bold,
@@ -210,15 +292,14 @@ export const commonStyles = StyleSheet.create({
     color: colors.darkText,
     fontFamily: fontFamily.regular,
   },
+  // Input avec focus (ombre colorée)
+  inputFocused: {
+    borderColor: colors.primary,
+    borderWidth: 2,
+    ...shadows.brandGreen,
+  },
   shadow: {
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.08, // Ombre douce
-    shadowRadius: 4,
-    elevation: 2,
+    ...shadows.card,
   },
   darkShadow: {
     shadowColor: '#000',
@@ -229,5 +310,12 @@ export const commonStyles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 4,
     elevation: 3,
+  },
+  // Nouvelles ombres
+  shadowFloating: {
+    ...shadows.floating,
+  },
+  shadowModal: {
+    ...shadows.modal,
   },
 });

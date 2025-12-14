@@ -19,18 +19,33 @@ import {
  * - Le VERT porte la marque
  * - Le JAUNE déclenche l'action
  * - Le ROUGE signale (alertes, badges)
+ * 
+ * ✨ NOUVELLE VERSION AVEC DÉGRADÉS ET ANIMATIONS
  */
 
 /**
- * Color Tokens - Design System Officiel
+ * Color Tokens - Design System Officiel avec Dégradés
  */
 export const designColors = {
-  // Brand colors (Senegal flag) - NOUVELLE PALETTE
+  // Brand colors (Senegal flag) - NOUVELLE PALETTE ENRICHIE
   brand: {
     green: '#0B7A3B',        // Vert marque - LE VERT PORTE LA MARQUE
     greenDark: '#064A26',    // Vert foncé
+    greenLight: '#10A854',   // Vert clair pour dégradés
     yellow: '#F7C948',       // Jaune CTA - LE JAUNE DÉCLENCHE L'ACTION
+    yellowLight: '#FFD966',  // Jaune clair pour dégradés
     red: '#E53935',          // Rouge alerte - LE ROUGE SIGNALE
+    redDark: '#C62828',      // Rouge foncé pour dégradés
+  },
+
+  // Gradient definitions
+  gradients: {
+    primary: ['#0B7A3B', '#10A854'],        // Vert gradient
+    secondary: ['#F7C948', '#FFD966'],      // Jaune gradient
+    accent: ['#E53935', '#C62828'],         // Rouge gradient
+    senegal: ['#0B7A3B', '#F7C948', '#E53935'], // Drapeau complet
+    subtle: ['#F7F8FA', '#FFFFFF'],         // Fond subtil
+    dark: ['#1A1A1A', '#2A2A2A'],          // Dark mode
   },
 
   // Semantic colors
@@ -81,6 +96,63 @@ export const designColors = {
   overlay: {
     light: 'rgba(0, 0, 0, 0.5)',
     dark: 'rgba(0, 0, 0, 0.7)',
+  },
+};
+
+/**
+ * Enhanced Shadow System - Ombres optimisées et élévations
+ */
+export const enhancedShadows = {
+  // Subtle shadows for cards
+  card: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  
+  // Medium elevation for floating elements
+  floating: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  
+  // Strong elevation for modals and overlays
+  modal: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.16,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  
+  // Colored shadows for brand elements
+  brandGreen: {
+    shadowColor: '#0B7A3B',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  
+  brandYellow: {
+    shadowColor: '#F7C948',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  
+  brandRed: {
+    shadowColor: '#E53935',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
   },
 };
 
@@ -181,24 +253,24 @@ export const typography = {
 };
 
 /**
- * Component Styles - Design System Officiel
- * Cards: radius 18–20, ombre douce
+ * Component Styles - Design System Officiel avec Dégradés
+ * Cards: radius 18–20, ombre douce optimisée
  * Boutons: Primaire JAUNE plein, Secondaire contour VERT, Destructif texte ROUGE
  */
 export const componentStyles = {
-  // Card styles - radius 18-20, ombre douce
+  // Card styles - radius 18-20, ombre douce optimisée
   card: {
     base: {
       backgroundColor: designColors.background.light.secondary,
       borderRadius: 18,
       padding: LayoutUtils.getSpacing('md'),
-      ...ShadowUtils.getShadow('sm'), // Ombre douce
+      ...enhancedShadows.card,
     } as ViewStyle,
     elevated: {
       backgroundColor: designColors.background.light.secondary,
       borderRadius: 20,
       padding: LayoutUtils.getSpacing('md'),
-      ...ShadowUtils.getShadow('md'), // Ombre douce
+      ...enhancedShadows.floating,
     } as ViewStyle,
     outlined: {
       backgroundColor: designColors.background.light.secondary,
@@ -206,6 +278,13 @@ export const componentStyles = {
       padding: LayoutUtils.getSpacing('md'),
       borderWidth: 1,
       borderColor: designColors.border.light,
+    } as ViewStyle,
+    // Nouvelle variante avec ombre colorée
+    brandGreen: {
+      backgroundColor: designColors.background.light.secondary,
+      borderRadius: 20,
+      padding: LayoutUtils.getSpacing('md'),
+      ...enhancedShadows.brandGreen,
     } as ViewStyle,
   },
 
@@ -221,7 +300,7 @@ export const componentStyles = {
     } as ViewStyle,
     primary: {
       backgroundColor: designColors.brand.yellow, // JAUNE plein
-      ...ShadowUtils.getShadow('sm'),
+      ...enhancedShadows.brandYellow,
     } as ViewStyle,
     secondary: {
       backgroundColor: 'transparent',
@@ -230,7 +309,7 @@ export const componentStyles = {
     } as ViewStyle,
     accent: {
       backgroundColor: designColors.brand.green, // VERT
-      ...ShadowUtils.getShadow('sm'),
+      ...enhancedShadows.brandGreen,
     } as ViewStyle,
     destructive: {
       backgroundColor: 'transparent',
@@ -260,6 +339,7 @@ export const componentStyles = {
     focused: {
       borderColor: designColors.brand.green,
       borderWidth: 2,
+      ...enhancedShadows.brandGreen,
     } as ViewStyle,
     error: {
       borderColor: designColors.brand.red,
@@ -310,11 +390,11 @@ export const componentStyles = {
       backgroundColor: designColors.background.light.secondary,
       borderRadius: 18,
       marginBottom: LayoutUtils.getSpacing('sm'),
-      ...ShadowUtils.getShadow('sm'),
+      ...enhancedShadows.card,
     } as ViewStyle,
   },
 
-  // Badge styles
+  // Badge styles - Améliorés avec couleurs dynamiques
   badge: {
     base: {
       paddingVertical: LayoutUtils.spacing.xs,
@@ -325,12 +405,31 @@ export const componentStyles = {
     } as ViewStyle,
     primary: {
       backgroundColor: designColors.brand.green,
+      ...enhancedShadows.brandGreen,
     } as ViewStyle,
     secondary: {
       backgroundColor: designColors.brand.yellow,
+      ...enhancedShadows.brandYellow,
     } as ViewStyle,
     accent: {
       backgroundColor: designColors.brand.red,
+      ...enhancedShadows.brandRed,
+    } as ViewStyle,
+    // Nouvelles variantes avec bordures
+    outlinePrimary: {
+      backgroundColor: 'transparent',
+      borderWidth: 2,
+      borderColor: designColors.brand.green,
+    } as ViewStyle,
+    outlineSecondary: {
+      backgroundColor: 'transparent',
+      borderWidth: 2,
+      borderColor: designColors.brand.yellow,
+    } as ViewStyle,
+    outlineAccent: {
+      backgroundColor: 'transparent',
+      borderWidth: 2,
+      borderColor: designColors.brand.red,
     } as ViewStyle,
   },
 

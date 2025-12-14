@@ -4,10 +4,12 @@
  * 
  * Standardized badge component for status indicators, labels, etc.
  * Le ROUGE signale (alertes, badges)
+ * 
+ * ✨ NOUVELLE VERSION AVEC ANIMATIONS ET COULEURS DYNAMIQUES
  */
 
-import React from 'react';
-import { View, Text, StyleSheet, ViewStyle, TextStyle } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, ViewStyle, TextStyle, Animated } from 'react-native';
 import { YYTheme } from '@/styles/theme';
 
 type BadgeVariant = 'primary' | 'secondary' | 'accent' | 'success' | 'warning' | 'error' | 'info';
@@ -33,6 +35,21 @@ interface YYBadgeProps {
   size?: BadgeSize;
   
   /**
+   * Show outline style
+   */
+  outline?: boolean;
+  
+  /**
+   * Animate on mount
+   */
+  animated?: boolean;
+  
+  /**
+   * Pulse animation (for alerts)
+   */
+  pulse?: boolean;
+  
+  /**
    * Custom style
    */
   style?: ViewStyle;
@@ -47,9 +64,47 @@ export const YYBadge: React.FC<YYBadgeProps> = ({
   children,
   variant = 'primary',
   size = 'medium',
+  outline = false,
+  animated = false,
+  pulse = false,
   style,
   textStyle,
 }) => {
+  const scaleAnim = useRef(new Animated.Value(animated ? 0 : 1)).current;
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  
+  // Mount animation
+  useEffect(() => {
+    if (animated) {
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        tension: 50,
+        friction: 7,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [animated, scaleAnim]);
+  
+  // Pulse animation
+  useEffect(() => {
+    if (pulse) {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseAnim, {
+            toValue: 1.1,
+            duration: 800,
+            useNativeDriver: true,
+          }),
+          Animated.timing(pulseAnim, {
+            toValue: 1,
+            duration: 800,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+    }
+  }, [pulse, pulseAnim]);
+  
   // Get variant color
   const getVariantColor = () => {
     switch (variant) {
@@ -101,6 +156,9 @@ export const YYBadge: React.FC<YYBadgeProps> = ({
   
   // Get text color (white for dark backgrounds, dark for light backgrounds)
   const getTextColor = () => {
+    if (outline) {
+      return getVariantColor();
+    }
     if (variant === 'secondary' || variant === 'warning') {
       // JAUNE -> texte foncé
       return YYTheme.colors.text.primary;
@@ -108,14 +166,24 @@ export const YYBadge: React.FC<YYBadgeProps> = ({
     return YYTheme.colors.text.inverse;
   };
   
-  const backgroundColor = getVariantColor();
+  const backgroundColor = outline ? 'transparent' : getVariantColor();
+  const borderColor = getVariantColor();
   
   return (
-    <View
+    <Animated.View
       style={[
         YYTheme.badges.base,
         sizeStyle,
-        { backgroundColor },
+        { 
+          backgroundColor,
+          transform: [
+            { scale: Animated.multiply(scaleAnim, pulseAnim) }
+          ],
+        },
+        outline && {
+          borderWidth: 2,
+          borderColor,
+        },
         style,
       ]}
     >
@@ -128,7 +196,7 @@ export const YYBadge: React.FC<YYBadgeProps> = ({
       >
         {children}
       </Text>
-    </View>
+    </Animated.View>
   );
 };
 

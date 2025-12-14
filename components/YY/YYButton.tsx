@@ -8,9 +8,11 @@
  * - Primaire: JAUNE plein
  * - Secondaire: contour VERT
  * - Destructif: texte ROUGE
+ * 
+ * ✨ NOUVELLE VERSION AVEC ANIMATIONS ET OMBRES COLORÉES
  */
 
-import React from 'react';
+import React, { useRef } from 'react';
 import {
   TouchableOpacity,
   Text,
@@ -18,6 +20,7 @@ import {
   StyleSheet,
   ViewStyle,
   TextStyle,
+  Animated,
 } from 'react-native';
 import { YYTheme } from '@/styles/theme';
 
@@ -86,6 +89,25 @@ export const YYButton: React.FC<YYButtonProps> = ({
   style,
   textStyle,
 }) => {
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+  
+  // Press animation
+  const handlePressIn = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 0.95,
+      useNativeDriver: true,
+    }).start();
+  };
+  
+  const handlePressOut = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 1,
+      tension: 50,
+      friction: 7,
+      useNativeDriver: true,
+    }).start();
+  };
+  
   // Get variant styles
   const variantStyle = YYTheme.buttons[variant] || YYTheme.buttons.primary;
   
@@ -144,33 +166,43 @@ export const YYButton: React.FC<YYButtonProps> = ({
   };
   
   return (
-    <TouchableOpacity
+    <Animated.View
       style={[
-        YYTheme.buttons.base,
-        variantStyle,
-        sizeStyle,
+        {
+          transform: [{ scale: scaleAnim }],
+        },
         fullWidth && styles.fullWidth,
-        disabled && styles.disabled,
-        style,
       ]}
-      onPress={onPress}
-      disabled={disabled || loading}
-      activeOpacity={0.7}
     >
-      {loading ? (
-        <ActivityIndicator color={getTextColor()} />
-      ) : (
-        <Text
-          style={[
-            textSize,
-            { color: getTextColor(), fontWeight: '700' },
-            textStyle,
-          ]}
-        >
-          {children}
-        </Text>
-      )}
-    </TouchableOpacity>
+      <TouchableOpacity
+        style={[
+          YYTheme.buttons.base,
+          variantStyle,
+          sizeStyle,
+          disabled && styles.disabled,
+          style,
+        ]}
+        onPress={onPress}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        disabled={disabled || loading}
+        activeOpacity={0.7}
+      >
+        {loading ? (
+          <ActivityIndicator color={getTextColor()} />
+        ) : (
+          <Text
+            style={[
+              textSize,
+              { color: getTextColor(), fontWeight: '700' },
+              textStyle,
+            ]}
+          >
+            {children}
+          </Text>
+        )}
+      </TouchableOpacity>
+    </Animated.View>
   );
 };
 
