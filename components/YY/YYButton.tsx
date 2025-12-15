@@ -3,16 +3,10 @@
  * YYButton - Yombal Yoon Button Component
  * 
  * Standardized button component for consistent appearance across all platforms.
- * 
- * Boutons:
- * - Primaire: JAUNE plein
- * - Secondaire: contour VERT
- * - Destructif: texte ROUGE
- * 
- * ✨ NOUVELLE VERSION AVEC ANIMATIONS ET OMBRES COLORÉES
+ * Uses theme tokens exclusively - no hardcoded colors.
  */
 
-import React, { useRef } from 'react';
+import React from 'react';
 import {
   TouchableOpacity,
   Text,
@@ -20,11 +14,10 @@ import {
   StyleSheet,
   ViewStyle,
   TextStyle,
-  Animated,
 } from 'react-native';
 import { YYTheme } from '@/styles/theme';
 
-type ButtonVariant = 'primary' | 'secondary' | 'accent' | 'destructive' | 'outline' | 'ghost';
+type ButtonVariant = 'primary' | 'secondary' | 'accent' | 'outline' | 'ghost';
 type ButtonSize = 'small' | 'medium' | 'large';
 
 interface YYButtonProps {
@@ -35,10 +28,6 @@ interface YYButtonProps {
   
   /**
    * Button variant
-   * - primary: JAUNE plein
-   * - secondary: contour VERT
-   * - accent: VERT plein
-   * - destructive: texte ROUGE
    */
   variant?: ButtonVariant;
   
@@ -89,25 +78,6 @@ export const YYButton: React.FC<YYButtonProps> = ({
   style,
   textStyle,
 }) => {
-  const scaleAnim = useRef(new Animated.Value(1)).current;
-  
-  // Press animation
-  const handlePressIn = () => {
-    Animated.spring(scaleAnim, {
-      toValue: 0.95,
-      useNativeDriver: true,
-    }).start();
-  };
-  
-  const handlePressOut = () => {
-    Animated.spring(scaleAnim, {
-      toValue: 1,
-      tension: 50,
-      friction: 7,
-      useNativeDriver: true,
-    }).start();
-  };
-  
   // Get variant styles
   const variantStyle = YYTheme.buttons[variant] || YYTheme.buttons.primary;
   
@@ -143,66 +113,43 @@ export const YYButton: React.FC<YYButtonProps> = ({
   
   // Get text color based on variant
   const getTextColor = () => {
-    if (variant === 'primary') {
-      // JAUNE plein -> texte foncé
+    if (variant === 'outline' || variant === 'ghost') {
+      return YYTheme.colors.primary;
+    }
+    if (variant === 'secondary') {
       return YYTheme.colors.text.primary;
-    }
-    if (variant === 'secondary' || variant === 'outline') {
-      // Contour VERT -> texte VERT
-      return YYTheme.colors.primary;
-    }
-    if (variant === 'destructive') {
-      // Texte ROUGE
-      return YYTheme.colors.accent;
-    }
-    if (variant === 'accent') {
-      // VERT plein -> texte blanc
-      return YYTheme.colors.text.inverse;
-    }
-    if (variant === 'ghost') {
-      return YYTheme.colors.primary;
     }
     return YYTheme.colors.text.inverse;
   };
   
   return (
-    <Animated.View
+    <TouchableOpacity
       style={[
-        {
-          transform: [{ scale: scaleAnim }],
-        },
+        YYTheme.buttons.base,
+        variantStyle,
+        sizeStyle,
         fullWidth && styles.fullWidth,
+        disabled && styles.disabled,
+        style,
       ]}
+      onPress={onPress}
+      disabled={disabled || loading}
+      activeOpacity={0.7}
     >
-      <TouchableOpacity
-        style={[
-          YYTheme.buttons.base,
-          variantStyle,
-          sizeStyle,
-          disabled && styles.disabled,
-          style,
-        ]}
-        onPress={onPress}
-        onPressIn={handlePressIn}
-        onPressOut={handlePressOut}
-        disabled={disabled || loading}
-        activeOpacity={0.7}
-      >
-        {loading ? (
-          <ActivityIndicator color={getTextColor()} />
-        ) : (
-          <Text
-            style={[
-              textSize,
-              { color: getTextColor(), fontWeight: '700' },
-              textStyle,
-            ]}
-          >
-            {children}
-          </Text>
-        )}
-      </TouchableOpacity>
-    </Animated.View>
+      {loading ? (
+        <ActivityIndicator color={getTextColor()} />
+      ) : (
+        <Text
+          style={[
+            textSize,
+            { color: getTextColor(), fontWeight: '700' },
+            textStyle,
+          ]}
+        >
+          {children}
+        </Text>
+      )}
+    </TouchableOpacity>
   );
 };
 

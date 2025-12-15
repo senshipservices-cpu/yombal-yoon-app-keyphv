@@ -39,13 +39,6 @@ interface FloatingTabBarProps {
   bottomMargin?: number;
 }
 
-/**
- * FloatingTabBar - Bottom Tab Bar
- * 
- * Bottom Tab Bar:
- * - Onglet actif: capsule VERTE
- * - Onglet inactif: icône gris
- */
 export default function FloatingTabBar({
   tabs,
   containerWidth = screenWidth / 2.5,
@@ -141,7 +134,6 @@ export default function FloatingTabBar({
     background: {
       ...styles.background,
     },
-    // Onglet actif: capsule VERTE
     indicator: {
       ...styles.indicator,
       backgroundColor: theme.dark
@@ -190,7 +182,7 @@ export default function FloatingTabBar({
                           styles.tabLabel,
                           { color: theme.dark ? YYTheme.colors.text.darkSecondary : YYTheme.colors.text.secondary },
                           isActive && { 
-                            color: YYTheme.colors.primary, // VERT pour onglet actif
+                            color: YYTheme.colors.primary, 
                             fontWeight: '700',
                           },
                         ]}

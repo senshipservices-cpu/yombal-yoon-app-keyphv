@@ -1,49 +1,31 @@
 
 import { StyleSheet, Platform } from 'react-native';
 
-/**
- * Couleurs globales Yombal Yoon
- * PARTIE 1 — STRUCTURE GLOBALE & PRINCIPES UI (COMMUNS)
- * 
- * Vision UI globale:
- * - Moderne, dynamique, professionnelle
- * - Ancrée au Sénégal 🇸🇳 sans être "chargée drapeau"
- * 
- * 👉 Le VERT porte la marque
- * 👉 Le JAUNE déclenche l'action
- * 👉 Le ROUGE signale (alertes, badges)
- * 
- * ✨ NOUVELLE VERSION AVEC DÉGRADÉS ET ANIMATIONS
- */
+// Couleurs globales Yombal Yoon (drapeau Sénégal)
 export const colors = {
-  // Couleurs principales - NOUVELLE PALETTE OFFICIELLE ENRICHIE
-  primary: '#0B7A3B',      // Vert marque - LE VERT PORTE LA MARQUE
-  primaryDark: '#064A26',  // Vert foncé
-  primaryLight: '#10A854', // Vert clair pour dégradés
-  secondary: '#F7C948',    // Jaune CTA - LE JAUNE DÉCLENCHE L'ACTION
-  secondaryLight: '#FFD966', // Jaune clair pour dégradés
-  accent: '#E53935',       // Rouge alerte - LE ROUGE SIGNALE
-  accentDark: '#C62828',   // Rouge foncé pour dégradés
+  // Couleurs principales (drapeau Sénégal)
+  primary: '#00853F',      // Vert
+  secondary: '#FDEF42',    // Jaune
+  accent: '#E31B23',       // Rouge
   
   // Couleurs de fond
-  background: '#F7F8FA',   // Fond principal
-  backgroundAlt: '#FFFFFF', // Fond alternatif
+  background: '#F5F5F5',
   darkBackground: '#1A1A1A',
   
   // Couleurs de carte
-  card: '#FFFFFF',         // Cards blanches
+  card: '#FFFFFF',
   darkCard: '#2A2A2A',
   
   // Couleurs de texte
-  text: '#101828',         // Texte principal
+  text: '#1A1A1A',
   darkText: '#FFFFFF',
   textSecondary: '#666666',
-  darkTextSecondary: '#CCCCCC',
+  darkTextSecondary: '#AAAAAA',
   
   // Couleurs d'état
-  success: '#0B7A3B',      // Vert marque (succès = toast vert)
-  error: '#E53935',        // Rouge alerte (erreur = toast rouge)
-  warning: '#F7C948',      // Jaune
+  success: '#00853F',
+  error: '#E31B23',
+  warning: '#FFA500',
   info: '#0066CC',
   
   // Couleurs de bordure
@@ -51,18 +33,15 @@ export const colors = {
   darkBorder: '#404040',
   
   // Couleurs de statut
-  pending: '#F7C948',      // Jaune
-  accepted: '#0B7A3B',     // Vert
-  refused: '#E53935',      // Rouge
+  pending: '#FFA500',
+  accepted: '#00853F',
+  refused: '#E31B23',
   cancelled: '#999999',
   
   // Couleurs de module
-  covoiturage: '#0B7A3B',  // Vert
-  livraison: '#E53935',    // Rouge
+  covoiturage: '#00853F',
+  livraison: '#E31B23',
   colis: '#0066CC',
-  
-  // Couleur de surbrillance
-  highlight: '#E0E0E0',
 };
 
 // Font family with fallbacks for when custom fonts fail to load
@@ -81,63 +60,6 @@ export const fontFamily = {
   }),
 };
 
-/**
- * Enhanced Shadow System - Ombres optimisées
- */
-export const shadows = {
-  // Subtle shadow for cards
-  card: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  // Medium elevation for floating elements
-  floating: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
-    shadowRadius: 12,
-    elevation: 4,
-  },
-  // Strong elevation for modals
-  modal: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.16,
-    shadowRadius: 16,
-    elevation: 8,
-  },
-  // Colored shadows for brand elements
-  brandGreen: {
-    shadowColor: '#0B7A3B',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  brandYellow: {
-    shadowColor: '#F7C948',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  brandRed: {
-    shadowColor: '#E53935',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-};
-
-/**
- * Common Styles - Design System Officiel avec Ombres Optimisées
- * Cards: radius 18–20, ombre douce optimisée
- * Boutons: Primaire JAUNE plein, Secondaire contour VERT, Destructif texte ROUGE
- */
 export const commonStyles = StyleSheet.create({
   container: {
     flex: 1,
@@ -147,17 +69,23 @@ export const commonStyles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.darkBackground,
   },
-  // Cards: radius 18-20, ombre douce optimisée
   card: {
     backgroundColor: colors.card,
-    borderRadius: 18,
+    borderRadius: 16,
     padding: 16,
     marginBottom: 16,
-    ...shadows.card,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   darkCard: {
     backgroundColor: colors.darkCard,
-    borderRadius: 18,
+    borderRadius: 16,
     padding: 16,
     marginBottom: 16,
     shadowColor: '#000',
@@ -169,78 +97,15 @@ export const commonStyles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
-  // Card avec élévation forte
-  cardElevated: {
-    backgroundColor: colors.card,
-    borderRadius: 20,
-    padding: 16,
-    marginBottom: 16,
-    ...shadows.floating,
-  },
-  // Card avec ombre colorée (vert)
-  cardBrandGreen: {
-    backgroundColor: colors.card,
-    borderRadius: 20,
-    padding: 16,
-    marginBottom: 16,
-    ...shadows.brandGreen,
-  },
-  // Bouton primaire: JAUNE plein avec ombre colorée
   button: {
-    backgroundColor: colors.secondary, // JAUNE
+    backgroundColor: colors.primary,
     borderRadius: 12,
     padding: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    ...shadows.brandYellow,
   },
   buttonText: {
-    color: colors.text, // Texte foncé sur jaune
-    fontSize: 16,
-    fontWeight: '700',
-    fontFamily: fontFamily.bold,
-  },
-  // Bouton secondaire: contour VERT
-  buttonSecondary: {
-    backgroundColor: 'transparent',
-    borderRadius: 12,
-    padding: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: colors.primary, // Contour VERT
-  },
-  buttonSecondaryText: {
-    color: colors.primary, // Texte VERT
-    fontSize: 16,
-    fontWeight: '700',
-    fontFamily: fontFamily.bold,
-  },
-  // Bouton accent: VERT plein avec ombre colorée
-  buttonAccent: {
-    backgroundColor: colors.primary, // VERT
-    borderRadius: 12,
-    padding: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...shadows.brandGreen,
-  },
-  buttonAccentText: {
-    color: colors.card, // Texte blanc sur vert
-    fontSize: 16,
-    fontWeight: '700',
-    fontFamily: fontFamily.bold,
-  },
-  // Bouton destructif: texte ROUGE
-  buttonDestructive: {
-    backgroundColor: 'transparent',
-    borderRadius: 12,
-    padding: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  buttonDestructiveText: {
-    color: colors.accent, // Texte ROUGE
+    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '700',
     fontFamily: fontFamily.bold,
@@ -292,14 +157,15 @@ export const commonStyles = StyleSheet.create({
     color: colors.darkText,
     fontFamily: fontFamily.regular,
   },
-  // Input avec focus (ombre colorée)
-  inputFocused: {
-    borderColor: colors.primary,
-    borderWidth: 2,
-    ...shadows.brandGreen,
-  },
   shadow: {
-    ...shadows.card,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   darkShadow: {
     shadowColor: '#000',
@@ -310,12 +176,5 @@ export const commonStyles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 4,
     elevation: 3,
-  },
-  // Nouvelles ombres
-  shadowFloating: {
-    ...shadows.floating,
-  },
-  shadowModal: {
-    ...shadows.modal,
   },
 });

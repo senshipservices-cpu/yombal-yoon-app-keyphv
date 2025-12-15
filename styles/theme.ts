@@ -1,15 +1,9 @@
 
 /**
  * Yombal Yoon Design System - Theme Configuration
- * PARTIE 1 — STRUCTURE GLOBALE & PRINCIPES UI (COMMUNS)
  * 
- * Vision UI globale:
- * - Moderne, dynamique, professionnelle
- * - Ancrée au Sénégal 🇸🇳 sans être "chargée drapeau"
- * 
- * 👉 Le VERT porte la marque
- * 👉 Le JAUNE déclenche l'action
- * 👉 Le ROUGE signale (alertes, badges)
+ * This file contains the official Yombal Yoon theme.
+ * ALL colors, typography, spacing, and component styles MUST use these tokens.
  * 
  * ⚠️ IMPORTANT: Never use hardcoded colors in components!
  * Always import and use tokens from this file.
@@ -20,34 +14,33 @@ import { LayoutUtils, TypographyUtils, ShadowUtils } from '@/utils/platformUtils
 
 /**
  * ============================================
- * COLOR PALETTE - Yombal Yoon (NOUVELLE PALETTE OFFICIELLE)
+ * COLOR PALETTE - Yombal Yoon (Senegal Flag)
  * ============================================
  */
 export const YYColors = {
-  // Brand Colors - NOUVELLE PALETTE
+  // Brand Colors (Senegal Flag)
   brand: {
-    green: '#0B7A3B',        // Vert marque - LE VERT PORTE LA MARQUE
-    greenDark: '#064A26',    // Vert foncé
-    yellow: '#F7C948',       // Jaune CTA - LE JAUNE DÉCLENCHE L'ACTION
-    red: '#E53935',          // Rouge alerte - LE ROUGE SIGNALE
+    green: '#008000',      // Primary - Green
+    yellow: '#FFFF00',     // Secondary - Yellow
+    red: '#FF0000',        // Accent - Red
   },
 
   // Semantic Colors
-  primary: '#0B7A3B',        // Vert marque
-  secondary: '#F7C948',      // Jaune CTA
-  accent: '#E53935',         // Rouge alerte
+  primary: '#008000',      // Green
+  secondary: '#FFFF00',    // Yellow
+  accent: '#FF0000',       // Red
   
   // Background Colors
   background: {
-    light: '#F7F8FA',        // Fond principal
-    white: '#FFFFFF',        // Cards
-    dark: '#1A1A1A',         // Dark mode background
-    darkCard: '#2A2A2A',     // Dark mode card
+    light: '#F5F5F5',      // Light gray background
+    white: '#FFFFFF',      // White background
+    dark: '#1A1A1A',       // Dark mode background
+    darkCard: '#2A2A2A',   // Dark mode card
   },
 
   // Text Colors
   text: {
-    primary: '#101828',         // Texte principal
+    primary: '#333333',         // Dark gray (main text)
     secondary: '#666666',       // Medium gray (secondary text)
     tertiary: '#999999',        // Light gray (tertiary text)
     inverse: '#FFFFFF',         // White text (on dark backgrounds)
@@ -61,9 +54,9 @@ export const YYColors = {
   highlight: '#E0E0E0',
   
   // Status Colors
-  success: '#0B7A3B',      // Vert (succès = toast vert)
-  warning: '#F7C948',      // Jaune
-  error: '#E53935',        // Rouge (erreur = toast rouge)
+  success: '#008000',      // Green
+  warning: '#FFFF00',      // Yellow
+  error: '#FF0000',        // Red
   info: '#007AFF',         // Blue
   
   // Overlay
@@ -195,20 +188,19 @@ export const YYSpacing = {
 /**
  * ============================================
  * BORDER RADIUS SYSTEM
- * Cards: radius 18–20
  * ============================================
  */
 export const YYBorderRadius = {
-  sm: 8,
-  md: 12,
-  lg: 18,    // Cards
-  xl: 20,    // Cards elevated
-  full: 9999, // Circle
+  sm: LayoutUtils.borderRadius.sm,    // 8px
+  md: LayoutUtils.borderRadius.md,    // 12px
+  lg: LayoutUtils.borderRadius.lg,    // 16px
+  xl: LayoutUtils.borderRadius.xl,    // 24px
+  full: LayoutUtils.borderRadius.full, // 9999px (circle)
 };
 
 /**
  * ============================================
- * SHADOW SYSTEM - Ombre douce
+ * SHADOW SYSTEM
  * ============================================
  */
 export const YYShadows = {
@@ -235,8 +227,6 @@ export const YYIconSizes = {
 /**
  * ============================================
  * COMPONENT STYLES
- * Boutons: Primaire JAUNE plein, Secondaire contour VERT, Destructif texte ROUGE
- * Cards: radius 18–20, ombre douce
  * ============================================
  */
 
@@ -252,24 +242,18 @@ export const YYButtonStyles = {
   } as ViewStyle,
 
   primary: {
-    backgroundColor: YYColors.secondary, // JAUNE plein
+    backgroundColor: YYColors.primary,
     ...YYShadows.sm,
   } as ViewStyle,
 
   secondary: {
-    backgroundColor: 'transparent',
-    borderWidth: 2,
-    borderColor: YYColors.primary, // Contour VERT
-  } as ViewStyle,
-
-  accent: {
-    backgroundColor: YYColors.primary, // VERT
+    backgroundColor: YYColors.secondary,
     ...YYShadows.sm,
   } as ViewStyle,
 
-  destructive: {
-    backgroundColor: 'transparent',
-    // Texte ROUGE (géré dans le composant)
+  accent: {
+    backgroundColor: YYColors.accent,
+    ...YYShadows.sm,
   } as ViewStyle,
 
   outline: {
@@ -283,25 +267,25 @@ export const YYButtonStyles = {
   } as ViewStyle,
 };
 
-// Card Styles - radius 18-20, ombre douce
+// Card Styles
 export const YYCardStyles = {
   base: {
     backgroundColor: YYColors.card,
-    borderRadius: YYBorderRadius.lg, // 18
+    borderRadius: YYBorderRadius.lg,
     padding: YYSpacing.md,
-    ...YYShadows.sm, // Ombre douce
+    ...YYShadows.md,
   } as ViewStyle,
 
   elevated: {
     backgroundColor: YYColors.card,
-    borderRadius: YYBorderRadius.xl, // 20
+    borderRadius: YYBorderRadius.lg,
     padding: YYSpacing.md,
-    ...YYShadows.md, // Ombre douce
+    ...YYShadows.lg,
   } as ViewStyle,
 
   outlined: {
     backgroundColor: YYColors.card,
-    borderRadius: YYBorderRadius.lg, // 18
+    borderRadius: YYBorderRadius.lg,
     padding: YYSpacing.md,
     borderWidth: 1,
     borderColor: YYColors.border,
@@ -322,12 +306,12 @@ export const YYInputStyles = {
   } as ViewStyle & TextStyle,
 
   focused: {
-    borderColor: YYColors.primary, // VERT
+    borderColor: YYColors.primary,
     borderWidth: 2,
   } as ViewStyle,
 
   error: {
-    borderColor: YYColors.error, // ROUGE
+    borderColor: YYColors.error,
     borderWidth: 2,
   } as ViewStyle,
 };
@@ -343,15 +327,15 @@ export const YYBadgeStyles = {
   } as ViewStyle,
 
   primary: {
-    backgroundColor: YYColors.primary, // VERT
+    backgroundColor: YYColors.primary,
   } as ViewStyle,
 
   secondary: {
-    backgroundColor: YYColors.secondary, // JAUNE
+    backgroundColor: YYColors.secondary,
   } as ViewStyle,
 
   accent: {
-    backgroundColor: YYColors.accent, // ROUGE
+    backgroundColor: YYColors.accent,
   } as ViewStyle,
 };
 

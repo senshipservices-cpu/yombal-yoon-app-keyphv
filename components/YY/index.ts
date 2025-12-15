@@ -1,22 +1,22 @@
 
 /**
- * YY Components - Yombal Yoon Design System
+ * Yombal Yoon Component Library
  * 
- * Centralized export for all YY components
- * 
- * ✨ NOUVELLE VERSION AVEC DÉGRADÉS ET ANIMATIONS
+ * Centralized export for all YY components.
+ * Import components from this file to ensure consistency.
  */
 
-export { YYBadge } from './YYBadge';
 export { YYButton } from './YYButton';
 export { YYCard } from './YYCard';
-export { YYChip } from './YYChip';
-export { YYFormField } from './YYFormField';
 export { YYScreenContainer } from './YYScreenContainer';
-export { YYGradient } from './YYGradient';
+export { YYFormField } from './YYFormField';
+export { YYBadge } from './YYBadge';
+export { YYChip } from './YYChip';
 
-// Re-export types if needed
-export type { default as YYBadgeProps } from './YYBadge';
+// Re-export types
 export type { default as YYButtonProps } from './YYButton';
 export type { default as YYCardProps } from './YYCard';
+export type { default as YYScreenContainerProps } from './YYScreenContainer';
+export type { default as YYFormFieldProps } from './YYFormField';
+export type { default as YYBadgeProps } from './YYBadge';
 export type { default as YYChipProps } from './YYChip';
