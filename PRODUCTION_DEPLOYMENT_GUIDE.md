@@ -137,6 +137,17 @@ eas submit --platform ios --profile production
 - ✅ RLS (Row Level Security) activé sur toutes les tables
 - ✅ Edge Functions déployées
 
+### Twilio Configuration (OTP/SMS) 🔄
+- [ ] Compte Twilio upgradé en mode payant
+- [ ] Numéro WhatsApp Business approuvé (ou en cours)
+- [ ] Numéro SMS configuré (fallback)
+- [ ] Secrets Supabase mis à jour avec credentials de production
+- [ ] `IS_PRODUCTION_MODE=true` défini dans Supabase
+- [ ] Edge Function `send-otp-twilio` redéployée
+- [ ] Tests d'envoi OTP réussis en production
+
+**📖 Voir TWILIO_PRODUCTION_SETUP.md pour les instructions détaillées**
+
 ### Google Maps API ✅
 - ✅ API Key configurée : `AIzaSyCyIEHUEYap3t8z_lqy2tCNhHFBhYHTSHQ`
 - ✅ Restrictions d'API activées
@@ -265,10 +276,11 @@ eas build:view [BUILD_ID]
 
 ## 🎯 Timeline de Déploiement
 
-### Phase 1 : Préparation (Complétée ✅)
+### Phase 1 : Préparation (En cours 🔄)
 - ✅ Configuration production activée
 - ✅ Tests Android et iOS terminés
 - ✅ Commissions activées
+- 🔄 Configuration Twilio en production (voir TWILIO_PRODUCTION_SETUP.md)
 
 ### Phase 2 : Build Production (À faire)
 - [ ] Générer build Android AAB

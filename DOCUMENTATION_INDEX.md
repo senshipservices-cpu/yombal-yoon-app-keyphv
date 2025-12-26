@@ -108,9 +108,66 @@ Ce document liste tous les fichiers de documentation créés pour la préparatio
 
 ---
 
+### 📱 Configuration Twilio (OTP/SMS)
+
+#### 7. **TWILIO_PRODUCTION_SETUP.md**
+**Guide complet : Passage de Twilio en mode LIVE (Production)**
+- Vue d'ensemble des différences Test vs Production
+- Étapes pour upgrader le compte Twilio
+- Obtention d'un numéro WhatsApp Business
+- Configuration des secrets Supabase en production
+- Redéploiement de l'Edge Function
+- Tests de la configuration
+- Vérification du mode actuel
+- Coûts estimés en production
+- Dépannage des problèmes courants
+- Checklist complète de passage en production
+
+**Essentiel** pour passer Twilio du mode test au mode production.
+
+---
+
+#### 8. **QUICK_REFERENCE_TWILIO_PRODUCTION.md**
+**Guide rapide : Configuration Twilio Production en 5 minutes**
+- Configuration rapide (4 étapes)
+- Vérification rapide du mode
+- Coûts estimés
+- Commandes utiles
+- Dépannage rapide
+- Support
+
+**Idéal** pour une configuration rapide de Twilio en production.
+
+---
+
+#### 9. **RESUME_TWILIO_PRODUCTION.md**
+**Résumé : Actions pour passer Twilio en Production**
+- Situation actuelle
+- Actions requises détaillées
+- Vérification du mode production
+- Coûts estimés
+- Checklist complète
+- Dépannage rapide
+- Timeline estimé
+
+**Pratique** pour avoir une vue d'ensemble des actions à effectuer.
+
+---
+
+#### 10. **TWILIO_SECRETS_SETUP.md**
+**Configuration des secrets Twilio pour Supabase (mode test)**
+- Configuration initiale pour le développement
+- Utilisation du sandbox WhatsApp
+- Configuration via Dashboard ou CLI
+- Tests en mode sandbox
+
+**Utile** pour la configuration initiale en mode test.
+
+---
+
 ### 🗺️ Configuration Google Maps API
 
-#### 7. **GOOGLE_MAPS_API_KEYS_SETUP.md**
+#### 11. **GOOGLE_MAPS_API_KEYS_SETUP.md**
 **Guide complet de configuration des clés Google Maps**
 - Vue d'ensemble des 3 clés API (Web, Android, iOS)
 - Instructions détaillées pour créer les clés dans Google Cloud Console
@@ -126,7 +183,7 @@ Ce document liste tous les fichiers de documentation créés pour la préparatio
 
 ---
 
-#### 8. **VERIFICATION_GOOGLE_MAPS_SETUP.md**
+#### 12. **VERIFICATION_GOOGLE_MAPS_SETUP.md**
 **Checklist de vérification de la configuration Google Maps**
 - Checklist complète pour Google Cloud Console
 - Vérification des secrets Supabase
@@ -142,7 +199,7 @@ Ce document liste tous les fichiers de documentation créés pour la préparatio
 
 ---
 
-#### 9. **GOOGLE_MAPS_QUICK_START.md**
+#### 13. **GOOGLE_MAPS_QUICK_START.md**
 **Guide rapide de configuration en 5 minutes**
 - Configuration rapide des clés Google Cloud
 - Configuration rapide des secrets Supabase
@@ -157,7 +214,7 @@ Ce document liste tous les fichiers de documentation créés pour la préparatio
 
 ### ⚡ Documents de Référence Rapide
 
-#### 10. **QUICK_START_GUIDE.md**
+#### 14. **QUICK_START_GUIDE.md**
 **Guide de démarrage rapide en 5 étapes**
 - Démarrage rapide condensé
 - Checklist ultra-rapide
@@ -172,7 +229,7 @@ Ce document liste tous les fichiers de documentation créés pour la préparatio
 
 ### 📜 Documents Légaux
 
-#### 11. **PRIVACY_POLICY_TEMPLATE.md**
+#### 15. **PRIVACY_POLICY_TEMPLATE.md**
 **Modèle de politique de confidentialité**
 - Introduction
 - Informations collectées
@@ -189,7 +246,7 @@ Ce document liste tous les fichiers de documentation créés pour la préparatio
 
 ---
 
-#### 12. **TERMS_OF_SERVICE_TEMPLATE.md**
+#### 16. **TERMS_OF_SERVICE_TEMPLATE.md**
 **Modèle de conditions d'utilisation**
 - Acceptation des conditions
 - Description du service
@@ -210,7 +267,7 @@ Ce document liste tous les fichiers de documentation créés pour la préparatio
 
 ### ⚙️ Fichiers de Configuration
 
-#### 13. **app.json**
+#### 17. **app.json**
 **Configuration de l'application Expo**
 - Nom, slug, version
 - Icône et splash screen
@@ -223,7 +280,7 @@ Ce document liste tous les fichiers de documentation créés pour la préparatio
 
 ---
 
-#### 14. **eas.json**
+#### 18. **eas.json**
 **Configuration des builds EAS**
 - Profils de build (development, preview, production)
 - Configuration Android (AAB)
@@ -240,16 +297,19 @@ Ce document liste tous les fichiers de documentation créés pour la préparatio
 
 1. **PRODUCTION_SUBMISSION_SUMMARY.md** - Vue d'ensemble
 2. **QUICK_START_GUIDE.md** - Démarrage rapide
-3. **GOOGLE_MAPS_QUICK_START.md** - Configuration Google Maps (rapide)
-4. **GOOGLE_MAPS_API_KEYS_SETUP.md** - Configuration Google Maps (détaillée)
-5. **VERIFICATION_GOOGLE_MAPS_SETUP.md** - Vérification Google Maps
-6. **BUILD_INSTRUCTIONS.md** - Génération des builds
-7. **TESTING_GUIDE.md** - Tests complets
-8. **PRE_SUBMISSION_CHECKLIST.md** - Vérification finale
-9. **STORE_LISTING_PREPARATION.md** - Fiches store
-10. **STORE_DESCRIPTIONS_FR.md** - Contenu des fiches
-11. **PRIVACY_POLICY_TEMPLATE.md** - Politique de confidentialité
-12. **TERMS_OF_SERVICE_TEMPLATE.md** - Conditions d'utilisation
+3. **RESUME_TWILIO_PRODUCTION.md** - 🆕 Configuration Twilio Production (résumé)
+4. **QUICK_REFERENCE_TWILIO_PRODUCTION.md** - 🆕 Configuration Twilio Production (rapide)
+5. **TWILIO_PRODUCTION_SETUP.md** - 🆕 Configuration Twilio Production (détaillée)
+6. **GOOGLE_MAPS_QUICK_START.md** - Configuration Google Maps (rapide)
+7. **GOOGLE_MAPS_API_KEYS_SETUP.md** - Configuration Google Maps (détaillée)
+8. **VERIFICATION_GOOGLE_MAPS_SETUP.md** - Vérification Google Maps
+9. **BUILD_INSTRUCTIONS.md** - Génération des builds
+10. **TESTING_GUIDE.md** - Tests complets
+11. **PRE_SUBMISSION_CHECKLIST.md** - Vérification finale
+12. **STORE_LISTING_PREPARATION.md** - Fiches store
+13. **STORE_DESCRIPTIONS_FR.md** - Contenu des fiches
+14. **PRIVACY_POLICY_TEMPLATE.md** - Politique de confidentialité
+15. **TERMS_OF_SERVICE_TEMPLATE.md** - Conditions d'utilisation
 
 ### Par Catégorie
 
@@ -269,6 +329,12 @@ Ce document liste tous les fichiers de documentation créés pour la préparatio
 #### 🏪 Store
 - STORE_LISTING_PREPARATION.md
 - STORE_DESCRIPTIONS_FR.md
+
+#### 📱 Twilio (OTP/SMS)
+- RESUME_TWILIO_PRODUCTION.md
+- QUICK_REFERENCE_TWILIO_PRODUCTION.md
+- TWILIO_PRODUCTION_SETUP.md
+- TWILIO_SECRETS_SETUP.md
 
 #### 🗺️ Google Maps
 - GOOGLE_MAPS_QUICK_START.md
@@ -291,6 +357,10 @@ Ce document liste tous les fichiers de documentation créés pour la préparatio
 - [x] PRE_SUBMISSION_CHECKLIST.md
 - [x] STORE_DESCRIPTIONS_FR.md
 - [x] QUICK_START_GUIDE.md
+- [x] TWILIO_PRODUCTION_SETUP.md 🆕
+- [x] QUICK_REFERENCE_TWILIO_PRODUCTION.md 🆕
+- [x] RESUME_TWILIO_PRODUCTION.md 🆕
+- [x] TWILIO_SECRETS_SETUP.md
 - [x] GOOGLE_MAPS_API_KEYS_SETUP.md
 - [x] VERIFICATION_GOOGLE_MAPS_SETUP.md
 - [x] GOOGLE_MAPS_QUICK_START.md
@@ -317,14 +387,15 @@ Ce document liste tous les fichiers de documentation créés pour la préparatio
 - **Documents principaux**: 5
 - **Documents de contenu**: 1
 - **Documents de référence rapide**: 1
+- **Documents Twilio**: 4 🆕
 - **Documents Google Maps**: 3
 - **Documents légaux**: 2
 - **Fichiers de configuration**: 2
-- **Total**: 14 documents
+- **Total**: 18 documents
 
 ### Nombre de Pages Estimé
-- **Total estimé**: ~120-140 pages
-- **Temps de lecture total**: ~6-7 heures
+- **Total estimé**: ~150-170 pages
+- **Temps de lecture total**: ~7-8 heures
 
 ### Couverture
 - ✅ Préparation: 100%
