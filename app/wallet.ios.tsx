@@ -1,18 +1,25 @@
 
-import React from "react";
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from "react-native";
+import React, { useEffect, useState, useCallback } from "react";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator, RefreshControl } from "react-native";
 import { IconSymbol } from "@/components/IconSymbol";
 import { useTheme } from "@react-navigation/native";
 import { colors } from "@/styles/commonStyles";
 import { LinearGradient } from "expo-linear-gradient";
 import { useProfile } from "@/contexts/ProfileContext";
 import { useRouter } from "expo-router";
+import { supabase } from "@/app/integrations/supabase/client";
+import { IS_TEST_MODE } from "@/config/testMode";
 
 export default function WalletScreen() {
   const theme = useTheme();
   const isDark = theme.dark;
   const router = useRouter();
-  const { wallet } = useProfile();
+  const { profile, loadWalletFromDatabase } = useProfile();
+  
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [walletData, setWalletData] = useState<any>(null);
+  const [transactions, setTransactions] = useState<any[]>([]);
 
   const formatCurrency = (amount: number) => {
     return `${amount.toLocaleString('fr-FR')} FCFA`;
@@ -23,6 +30,90 @@ export default function WalletScreen() {
     return date.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
   };
 
+  const loadWalletData = useCallback(async () => {
+    try {
+      if (!profile.id) {
+        console.log('⚠️ No profile ID available');
+        return;
+      }
+
+      console.log('💰 Loading wallet data from database for user:', profile.id);
+
+      // Get wallet data from Supabase
+      const { data: wallet, error: walletError } = await supabase
+        .from('wallets')
+        .select('*')
+        .eq('user_id', profile.id)
+        .maybeSingle();
+
+      if (walletError) {
+        console.error('❌ Error loading wallet:', walletError);
+        Alert.alert('Erreur', 'Impossible de charger les données du wallet');
+        return;
+      }
+
+      if (!wallet) {
+        console.log('⚠️ No wallet found, creating one...');
+        // Create wallet if it doesn't exist
+        const { data: newWallet, error: createError } = await supabase
+          .from('wallets')
+          .insert({
+            user_id: profile.id,
+            solde: 0,
+            solde_bloque: 0,
+            total_gagne: 0,
+            total_commissions: 0,
+          })
+          .select()
+          .maybeSingle();
+
+        if (createError) {
+          console.error('❌ Error creating wallet:', createError);
+          Alert.alert('Erreur', 'Impossible de créer le wallet');
+          return;
+        }
+
+        setWalletData(newWallet);
+      } else {
+        setWalletData(wallet);
+      }
+
+      // Get transactions from database
+      const { data: transactionsData, error: transactionsError } = await supabase
+        .from('transactions_wallet')
+        .select('*')
+        .eq('wallet_id', wallet?.id || '')
+        .order('created_at', { ascending: false })
+        .limit(50);
+
+      if (transactionsError) {
+        console.error('❌ Error loading transactions:', transactionsError);
+      } else {
+        setTransactions(transactionsData || []);
+      }
+
+      // Reload wallet in context
+      await loadWalletFromDatabase();
+
+      console.log('✅ Wallet data loaded successfully');
+    } catch (error) {
+      console.error('❌ Error in loadWalletData:', error);
+      Alert.alert('Erreur', 'Une erreur est survenue lors du chargement du wallet');
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
+    }
+  }, [profile.id, loadWalletFromDatabase]);
+
+  useEffect(() => {
+    loadWalletData();
+  }, [loadWalletData]);
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await loadWalletData();
+  };
+
   const handleWithdrawal = () => {
     Alert.alert(
       "Bientôt disponible",
@@ -30,6 +121,57 @@ export default function WalletScreen() {
       [{ text: "OK" }]
     );
   };
+
+  // Calculate stats from transactions
+  const calculateStats = () => {
+    const carpoolTransactions = transactions.filter(t => 
+      t.description?.toLowerCase().includes('covoiturage') && 
+      (t.type === 'gain' || t.type === 'credit')
+    );
+    const parcelTransactions = transactions.filter(t => 
+      t.description?.toLowerCase().includes('colis') && 
+      (t.type === 'gain' || t.type === 'credit')
+    );
+
+    const carpoolTotal = carpoolTransactions.reduce((sum, t) => sum + Math.abs(t.montant), 0);
+    const parcelTotal = parcelTransactions.reduce((sum, t) => sum + Math.abs(t.montant), 0);
+
+    const commissionRateCarpool = IS_TEST_MODE ? 0 : 0.12;
+    const commissionRateParcel = IS_TEST_MODE ? 0 : 0.15;
+
+    const carpoolCommission = Math.round(carpoolTotal * commissionRateCarpool);
+    const parcelCommission = Math.round(parcelTotal * commissionRateParcel);
+
+    return {
+      carpool: {
+        totalEarned: carpoolTotal,
+        commission: carpoolCommission,
+        netDriver: carpoolTotal - carpoolCommission,
+        commissionRate: commissionRateCarpool,
+      },
+      parcel: {
+        totalEarned: parcelTotal,
+        commission: parcelCommission,
+        netDelivery: parcelTotal - parcelCommission,
+        commissionRate: commissionRateParcel,
+      },
+    };
+  };
+
+  const stats = calculateStats();
+
+  if (isLoading) {
+    return (
+      <View style={[styles.container, { backgroundColor: isDark ? colors.darkBackground : colors.background }]}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={[styles.loadingText, { color: isDark ? colors.darkText : colors.text }]}>
+            Chargement du wallet...
+          </Text>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.container, { backgroundColor: isDark ? colors.darkBackground : colors.background }]}>
@@ -57,20 +199,27 @@ export default function WalletScreen() {
         style={styles.scrollView}
         contentContainerStyle={styles.contentContainer}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={handleRefresh}
+            tintColor={colors.primary}
+          />
+        }
       >
         {/* Balance Cards */}
         <LinearGradient
-          colors={[colors.primary, '#006600']}
+          colors={walletData?.solde < 0 ? [colors.error, '#CC0000'] : [colors.primary, '#006600']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.balanceCard}
         >
           <Text style={styles.balanceLabel}>Solde disponible</Text>
-          <Text style={styles.balanceAmount}>{formatCurrency(wallet.balanceAvailable)}</Text>
+          <Text style={styles.balanceAmount}>{formatCurrency(walletData?.solde || 0)}</Text>
           <View style={styles.balanceDivider} />
           <View style={styles.pendingBalance}>
             <Text style={styles.pendingLabel}>Solde en attente</Text>
-            <Text style={styles.pendingAmount}>{formatCurrency(wallet.balancePending)}</Text>
+            <Text style={styles.pendingAmount}>{formatCurrency(walletData?.solde_bloque || 0)}</Text>
           </View>
         </LinearGradient>
 
@@ -107,15 +256,16 @@ export default function WalletScreen() {
               Total encaissé
             </Text>
             <Text style={[styles.statValue, { color: colors.primary }]}>
-              {formatCurrency(wallet.carpoolStats.totalEarned)}
+              {formatCurrency(stats.carpool.totalEarned)}
             </Text>
           </View>
           <View style={styles.statRow}>
             <Text style={[styles.statLabel, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-              Commission Yombal Yoon ({(wallet.commissionRateCarpool * 100).toFixed(0)}%)
+              Commission Yombal Yoon ({(stats.carpool.commissionRate * 100).toFixed(0)}%)
+              {IS_TEST_MODE && ' - Mode Test'}
             </Text>
             <Text style={[styles.statValue, { color: colors.accent }]}>
-              -{formatCurrency(wallet.carpoolStats.commission)}
+              -{formatCurrency(stats.carpool.commission)}
             </Text>
           </View>
           <View style={[styles.statRow, styles.statRowTotal]}>
@@ -123,7 +273,7 @@ export default function WalletScreen() {
               Net conducteur
             </Text>
             <Text style={[styles.statValue, styles.statValueBold, { color: colors.primary }]}>
-              {formatCurrency(wallet.carpoolStats.netDriver)}
+              {formatCurrency(stats.carpool.netDriver)}
             </Text>
           </View>
         </View>
@@ -145,15 +295,16 @@ export default function WalletScreen() {
               Total encaissé
             </Text>
             <Text style={[styles.statValue, { color: colors.primary }]}>
-              {formatCurrency(wallet.parcelStats.totalEarned)}
+              {formatCurrency(stats.parcel.totalEarned)}
             </Text>
           </View>
           <View style={styles.statRow}>
             <Text style={[styles.statLabel, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-              Commission Yombal Yoon ({(wallet.commissionRateParcel * 100).toFixed(0)}%)
+              Commission Yombal Yoon ({(stats.parcel.commissionRate * 100).toFixed(0)}%)
+              {IS_TEST_MODE && ' - Mode Test'}
             </Text>
             <Text style={[styles.statValue, { color: colors.accent }]}>
-              -{formatCurrency(wallet.parcelStats.commission)}
+              -{formatCurrency(stats.parcel.commission)}
             </Text>
           </View>
           <View style={[styles.statRow, styles.statRowTotal]}>
@@ -161,7 +312,7 @@ export default function WalletScreen() {
               Net livreur
             </Text>
             <Text style={[styles.statValue, styles.statValueBold, { color: colors.primary }]}>
-              {formatCurrency(wallet.parcelStats.netDelivery)}
+              {formatCurrency(stats.parcel.netDelivery)}
             </Text>
           </View>
         </View>
@@ -171,57 +322,74 @@ export default function WalletScreen() {
           <Text style={[styles.historyTitle, { color: isDark ? colors.darkText : colors.text }]}>
             Historique des transactions
           </Text>
-          {wallet.transactions.map((transaction, index) => (
-            <React.Fragment key={index}>
-              <View key={transaction.id} style={styles.transactionItem}>
-                <View style={styles.transactionLeft}>
-                  <View
+          {transactions.length === 0 ? (
+            <View style={styles.emptyState}>
+              <IconSymbol
+                ios_icon_name="tray.fill"
+                android_material_icon_name="inbox"
+                size={48}
+                color={isDark ? colors.darkTextSecondary : colors.textSecondary}
+              />
+              <Text style={[styles.emptyStateText, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+                Aucune transaction pour le moment
+              </Text>
+              <Text style={[styles.emptyStateSubtext, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+                Vos transactions apparaîtront ici
+              </Text>
+            </View>
+          ) : (
+            transactions.map((transaction, index) => (
+              <React.Fragment key={index}>
+                <View style={styles.transactionItem}>
+                  <View style={styles.transactionLeft}>
+                    <View
+                      style={[
+                        styles.transactionIcon,
+                        {
+                          backgroundColor:
+                            transaction.type === 'gain' || transaction.type === 'credit'
+                              ? colors.primary + '20'
+                              : colors.accent + '20',
+                        },
+                      ]}
+                    >
+                      <IconSymbol
+                        ios_icon_name={
+                          transaction.type === 'gain' || transaction.type === 'credit'
+                            ? 'arrow.down.circle.fill'
+                            : 'arrow.up.circle.fill'
+                        }
+                        android_material_icon_name={
+                          transaction.type === 'gain' || transaction.type === 'credit' ? 'arrow-downward' : 'arrow-upward'
+                        }
+                        size={24}
+                        color={transaction.type === 'gain' || transaction.type === 'credit' ? colors.primary : colors.accent}
+                      />
+                    </View>
+                    <View style={styles.transactionInfo}>
+                      <Text style={[styles.transactionDescription, { color: isDark ? colors.darkText : colors.text }]}>
+                        {transaction.description || 'Transaction'}
+                      </Text>
+                      <Text style={[styles.transactionDate, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+                        {formatDate(transaction.created_at)}
+                      </Text>
+                    </View>
+                  </View>
+                  <Text
                     style={[
-                      styles.transactionIcon,
+                      styles.transactionAmount,
                       {
-                        backgroundColor:
-                          transaction.type === 'credit'
-                            ? colors.primary + '20'
-                            : colors.accent + '20',
+                        color: transaction.type === 'gain' || transaction.type === 'credit' ? colors.primary : colors.accent,
                       },
                     ]}
                   >
-                    <IconSymbol
-                      ios_icon_name={
-                        transaction.type === 'credit'
-                          ? 'arrow.down.circle.fill'
-                          : 'arrow.up.circle.fill'
-                      }
-                      android_material_icon_name={
-                        transaction.type === 'credit' ? 'arrow-downward' : 'arrow-upward'
-                      }
-                      size={24}
-                      color={transaction.type === 'credit' ? colors.primary : colors.accent}
-                    />
-                  </View>
-                  <View style={styles.transactionInfo}>
-                    <Text style={[styles.transactionDescription, { color: isDark ? colors.darkText : colors.text }]}>
-                      {transaction.description}
-                    </Text>
-                    <Text style={[styles.transactionDate, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-                      {formatDate(transaction.date)}
-                    </Text>
-                  </View>
+                    {transaction.type === 'gain' || transaction.type === 'credit' ? '+' : ''}
+                    {formatCurrency(Math.abs(transaction.montant))}
+                  </Text>
                 </View>
-                <Text
-                  style={[
-                    styles.transactionAmount,
-                    {
-                      color: transaction.type === 'credit' ? colors.primary : colors.accent,
-                    },
-                  ]}
-                >
-                  {transaction.type === 'credit' ? '+' : ''}
-                  {formatCurrency(transaction.amount)}
-                </Text>
-              </View>
-            </React.Fragment>
-          ))}
+              </React.Fragment>
+            ))
+          )}
         </View>
       </ScrollView>
     </View>
@@ -261,6 +429,16 @@ const styles = StyleSheet.create({
   contentContainer: {
     padding: 20,
     paddingBottom: 40,
+  },
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+  },
+  loadingText: {
+    fontSize: 16,
+    fontWeight: '600',
   },
   balanceCard: {
     borderRadius: 20,
@@ -372,6 +550,18 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     marginBottom: 16,
+  },
+  emptyState: {
+    alignItems: 'center',
+    paddingVertical: 40,
+    gap: 12,
+  },
+  emptyStateText: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  emptyStateSubtext: {
+    fontSize: 14,
   },
   transactionItem: {
     flexDirection: 'row',

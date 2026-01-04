@@ -3,6 +3,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { supabase } from '@/app/integrations/supabase/client';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ensureProfileAndWallet } from '@/utils/profileWalletUtils';
+import { IS_TEST_MODE } from '@/config/testMode';
 
 export interface ProfileData {
   id: string;
@@ -52,6 +53,7 @@ interface ProfileContextType {
   resetProfile: () => Promise<void>;
   isLoading: boolean;
   refreshProfile: () => Promise<void>;
+  loadWalletFromDatabase: () => Promise<void>;
 }
 
 const defaultProfile: ProfileData = {
@@ -68,62 +70,22 @@ const defaultProfile: ProfileData = {
   },
 };
 
+// Default wallet with ZERO balances - no test data in production
 const defaultWallet: WalletData = {
-  balanceAvailable: 15000,
-  balancePending: 5000,
-  commissionRateCarpool: 0.15,
-  commissionRateParcel: 0.20,
-  transactions: [
-    {
-      id: '1',
-      date: new Date(Date.now() - 86400000).toISOString(),
-      description: 'Course Dakar - Thiès',
-      amount: 5000,
-      type: 'credit',
-      module: 'carpool',
-    },
-    {
-      id: '2',
-      date: new Date(Date.now() - 172800000).toISOString(),
-      description: 'Livraison Colis - Rufisque',
-      amount: 3000,
-      type: 'credit',
-      module: 'parcel',
-    },
-    {
-      id: '3',
-      date: new Date(Date.now() - 259200000).toISOString(),
-      description: 'Course Dakar - Mbour',
-      amount: 7000,
-      type: 'credit',
-      module: 'carpool',
-    },
-    {
-      id: '4',
-      date: new Date(Date.now() - 345600000).toISOString(),
-      description: 'Retrait Wave',
-      amount: -10000,
-      type: 'debit',
-      module: 'other',
-    },
-    {
-      id: '5',
-      date: new Date(Date.now() - 432000000).toISOString(),
-      description: 'Livraison Express - Pikine',
-      amount: 2500,
-      type: 'credit',
-      module: 'parcel',
-    },
-  ],
+  balanceAvailable: 0,
+  balancePending: 0,
+  commissionRateCarpool: IS_TEST_MODE ? 0 : 0.12, // 12% in production, 0% in test mode
+  commissionRateParcel: IS_TEST_MODE ? 0 : 0.15,  // 15% in production, 0% in test mode
+  transactions: [],
   carpoolStats: {
-    totalEarned: 12000,
-    commission: 1800,
-    netDriver: 10200,
+    totalEarned: 0,
+    commission: 0,
+    netDriver: 0,
   },
   parcelStats: {
-    totalEarned: 5500,
-    commission: 1100,
-    netDelivery: 4400,
+    totalEarned: 0,
+    commission: 0,
+    netDelivery: 0,
   },
 };
 
@@ -134,7 +96,7 @@ const USER_ID_KEY = '@yombal_yoon_user_id';
 
 export function ProfileProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<ProfileData>(defaultProfile);
-  const [wallet] = useState<WalletData>(defaultWallet);
+  const [wallet, setWallet] = useState<WalletData>(defaultWallet);
   const [isLoading, setIsLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
 
@@ -202,6 +164,100 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
   }, [getUserId]);
 
   /**
+   * Load wallet data from database
+   * This replaces the hardcoded test data with real data from Supabase
+   */
+  const loadWalletFromDatabase = React.useCallback(async () => {
+    try {
+      const currentUserId = await getUserId();
+      if (!currentUserId) {
+        console.log('⚠️ No user ID available for wallet loading');
+        return;
+      }
+
+      console.log('💰 Loading wallet from database for user:', currentUserId);
+
+      // Get wallet data from Supabase
+      const { data: walletData, error: walletError } = await supabase
+        .from('wallets')
+        .select('*')
+        .eq('user_id', currentUserId)
+        .maybeSingle();
+
+      if (walletError) {
+        console.error('❌ Error loading wallet:', walletError);
+        return;
+      }
+
+      if (!walletData) {
+        console.log('⚠️ No wallet found, using default empty wallet');
+        setWallet(defaultWallet);
+        return;
+      }
+
+      // Get transactions from database
+      const { data: transactionsData, error: transactionsError } = await supabase
+        .from('transactions_wallet')
+        .select('*')
+        .eq('wallet_id', walletData.id)
+        .order('created_at', { ascending: false })
+        .limit(50);
+
+      if (transactionsError) {
+        console.error('❌ Error loading transactions:', transactionsError);
+      }
+
+      // Transform transactions to match our interface
+      const transactions: Transaction[] = (transactionsData || []).map((t: any) => ({
+        id: t.id,
+        date: t.created_at,
+        description: t.description || 'Transaction',
+        amount: Math.abs(t.montant),
+        type: t.type === 'gain' || t.type === 'credit' ? 'credit' : 'debit',
+        module: t.description?.toLowerCase().includes('colis') ? 'parcel' : 
+                t.description?.toLowerCase().includes('covoiturage') ? 'carpool' : 'other',
+      }));
+
+      // Calculate stats from transactions
+      const carpoolTransactions = transactions.filter(t => t.module === 'carpool' && t.type === 'credit');
+      const parcelTransactions = transactions.filter(t => t.module === 'parcel' && t.type === 'credit');
+
+      const carpoolTotal = carpoolTransactions.reduce((sum, t) => sum + t.amount, 0);
+      const parcelTotal = parcelTransactions.reduce((sum, t) => sum + t.amount, 0);
+
+      const commissionRateCarpool = IS_TEST_MODE ? 0 : 0.12;
+      const commissionRateParcel = IS_TEST_MODE ? 0 : 0.15;
+
+      const carpoolCommission = Math.round(carpoolTotal * commissionRateCarpool);
+      const parcelCommission = Math.round(parcelTotal * commissionRateParcel);
+
+      const updatedWallet: WalletData = {
+        balanceAvailable: walletData.solde || 0,
+        balancePending: walletData.solde_bloque || 0,
+        commissionRateCarpool,
+        commissionRateParcel,
+        transactions,
+        carpoolStats: {
+          totalEarned: carpoolTotal,
+          commission: carpoolCommission,
+          netDriver: carpoolTotal - carpoolCommission,
+        },
+        parcelStats: {
+          totalEarned: parcelTotal,
+          commission: parcelCommission,
+          netDelivery: parcelTotal - parcelCommission,
+        },
+      };
+
+      setWallet(updatedWallet);
+      console.log('✅ Wallet loaded from database successfully');
+    } catch (error) {
+      console.error('❌ Error in loadWalletFromDatabase:', error);
+      setWallet(defaultWallet);
+    }
+  }, [getUserId]);
+
+  /**
    * Initialize user: Create profile and wallet automatically if they don't exist
    * This is called on app start (BLOC 1 implementation)
    */
@@ -235,6 +291,9 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
         setProfile(profileData);
         await AsyncStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(profileData));
         
+        // Load wallet data from database
+        await loadWalletFromDatabase();
+        
         console.log('✅ User initialization complete');
       } else {
         // Fallback to local storage if ensureProfileAndWallet fails
@@ -246,7 +305,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsLoading(false);
     }
-  }, [getUserId, getLocalProfile, loadFromLocalStorage]);
+  }, [getUserId, getLocalProfile, loadFromLocalStorage, loadWalletFromDatabase]);
 
   useEffect(() => {
     initializeUser();
@@ -342,6 +401,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
       
       // Reset state to default
       setProfile(defaultProfile);
+      setWallet(defaultWallet);
       setUserId(null);
       console.log('✅ Profile state reset to default');
       
@@ -352,6 +412,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
       console.error('❌ Error resetting profile:', error);
       // Even if there's an error, reset the state
       setProfile(defaultProfile);
+      setWallet(defaultWallet);
       setUserId(null);
     }
   }, []);
@@ -365,6 +426,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
         resetProfile,
         isLoading,
         refreshProfile,
+        loadWalletFromDatabase,
       }}
     >
       {children}
