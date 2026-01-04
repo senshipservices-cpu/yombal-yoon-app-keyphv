@@ -22,6 +22,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 type PaymentMethod = 'wave' | 'orange_money';
 
+const QUICK_AMOUNTS = [1000, 2500, 5000, 10000, 25000, 50000];
+
 export default function RechargeScreen() {
   const theme = useTheme();
   const isDark = theme.dark;
@@ -31,7 +33,6 @@ export default function RechargeScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [amount, setAmount] = useState('');
-  const [transactionId, setTransactionId] = useState('');
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethod>('wave');
 
   const loadWallet = React.useCallback(async () => {
@@ -72,6 +73,13 @@ export default function RechargeScreen() {
     return userId;
   };
 
+  const handleQuickAmount = (quickAmount: number) => {
+    setAmount(quickAmount.toString());
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+  };
+
   const handleSubmit = async () => {
     // Validation
     const rechargeAmount = parseInt(amount);
@@ -86,22 +94,22 @@ export default function RechargeScreen() {
       return;
     }
 
-    if (!transactionId.trim()) {
-      Alert.alert('Erreur', 'Veuillez entrer le numéro de transaction');
+    if (rechargeAmount > 500000) {
+      Alert.alert('Montant trop élevé', 'Le montant maximum de recharge est de 500 000 FCFA');
       return;
     }
 
     // Confirm recharge
     Alert.alert(
       'Confirmer la recharge',
-      `Vous allez recharger ${formatCurrency(rechargeAmount)} via ${selectedMethod === 'wave' ? 'Wave' : 'Orange Money'}.\n\nAssurez-vous d'avoir effectué le paiement avant de continuer.`,
+      `Vous allez recharger ${formatCurrency(rechargeAmount)} via ${selectedMethod === 'wave' ? 'Wave' : 'Orange Money'}.\n\nVous serez redirigé vers la page de paiement.`,
       [
         {
           text: 'Annuler',
           style: 'cancel',
         },
         {
-          text: 'Confirmer',
+          text: 'Continuer',
           onPress: () => processRecharge(rechargeAmount),
         },
       ]
@@ -114,7 +122,17 @@ export default function RechargeScreen() {
     try {
       const userId = await getUserId();
 
-      // Create recharge request
+      // TODO: Backend Integration - Call PayTech API to initiate payment
+      // This will be replaced with actual PayTech integration
+      // Expected flow:
+      // 1. Call backend endpoint: POST /api/wallet/initiate-recharge
+      // 2. Backend creates PayTech payment link
+      // 3. Backend returns payment URL
+      // 4. Open payment URL in WebView or browser
+      // 5. PayTech webhook validates payment
+      // 6. Wallet is credited automatically
+
+      // For now, create a pending recharge request
       const { error: insertError } = await supabase
         .from('recharges_wallet')
         .insert({
@@ -122,7 +140,7 @@ export default function RechargeScreen() {
           user_id: userId,
           montant: rechargeAmount,
           mode_paiement: selectedMethod,
-          transaction_id: transactionId.trim(),
+          transaction_id: `PENDING_${Date.now()}`, // Will be replaced by PayTech transaction ID
           statut: 'en_attente',
         });
 
@@ -136,8 +154,8 @@ export default function RechargeScreen() {
       }
 
       Alert.alert(
-        'Demande envoyée !',
-        `Votre demande de recharge de ${formatCurrency(rechargeAmount)} a été envoyée.\n\nVeuillez envoyer le montant via ${selectedMethod === 'wave' ? 'Wave' : 'Orange Money'} au numéro indiqué par notre équipe.\n\nVotre wallet sera crédité après validation (sous 24-48h).`,
+        'Demande créée !',
+        `Votre demande de recharge de ${formatCurrency(rechargeAmount)} a été créée.\n\n⚠️ INTÉGRATION PAYTECH EN COURS\n\nProchainement, vous serez automatiquement redirigé vers la page de paiement ${selectedMethod === 'wave' ? 'Wave' : 'Orange Money'}.\n\nVotre wallet sera crédité instantanément après paiement.`,
         [
           {
             text: 'OK',
@@ -187,8 +205,8 @@ export default function RechargeScreen() {
           />
         </TouchableOpacity>
         <View style={styles.headerTextContainer}>
-          <Text style={styles.headerTitle}>Recharge</Text>
-          <Text style={styles.headerSubtitle}>Recharger mon wallet</Text>
+          <Text style={styles.headerTitle}>Recharge Wallet</Text>
+          <Text style={styles.headerSubtitle}>Paiement sécurisé via PayTech</Text>
         </View>
       </View>
 
@@ -208,10 +226,46 @@ export default function RechargeScreen() {
             </Text>
           </View>
 
+          {/* Quick Amount Buttons */}
+          <View style={[styles.quickAmountCard, { backgroundColor: isDark ? colors.darkCard : colors.card }]}>
+            <Text style={[styles.quickAmountLabel, { color: isDark ? colors.darkText : colors.text }]}>
+              Montants rapides
+            </Text>
+            <View style={styles.quickAmountGrid}>
+              {QUICK_AMOUNTS.map((quickAmount) => (
+                <TouchableOpacity
+                  key={quickAmount}
+                  style={[
+                    styles.quickAmountButton,
+                    { backgroundColor: isDark ? colors.darkBackground : colors.background },
+                    amount === quickAmount.toString() && { 
+                      backgroundColor: colors.primary + '20',
+                      borderColor: colors.primary,
+                      borderWidth: 2,
+                    },
+                  ]}
+                  onPress={() => handleQuickAmount(quickAmount)}
+                  disabled={isSubmitting}
+                  activeOpacity={0.7}
+                >
+                  <Text
+                    style={[
+                      styles.quickAmountText,
+                      { color: isDark ? colors.darkText : colors.text },
+                      amount === quickAmount.toString() && { color: colors.primary, fontWeight: '700' },
+                    ]}
+                  >
+                    {formatCurrency(quickAmount)}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
           {/* Amount Input */}
           <View style={[styles.inputCard, { backgroundColor: isDark ? colors.darkCard : colors.card }]}>
             <Text style={[styles.inputLabel, { color: isDark ? colors.darkText : colors.text }]}>
-              Montant à recharger
+              Montant personnalisé
             </Text>
             <View style={[styles.inputContainer, { backgroundColor: isDark ? colors.darkBackground : colors.background }]}>
               <TextInput
@@ -228,7 +282,7 @@ export default function RechargeScreen() {
               </Text>
             </View>
             <Text style={[styles.inputHint, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-              Minimum: 500 FCFA
+              Min: 500 FCFA • Max: 500 000 FCFA
             </Text>
           </View>
 
@@ -245,7 +299,12 @@ export default function RechargeScreen() {
                   { backgroundColor: isDark ? colors.darkBackground : colors.background },
                   selectedMethod === 'wave' && { borderColor: colors.primary, borderWidth: 2 },
                 ]}
-                onPress={() => setSelectedMethod('wave')}
+                onPress={() => {
+                  setSelectedMethod('wave');
+                  if (Platform.OS !== 'web') {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  }
+                }}
                 disabled={isSubmitting}
               >
                 <IconSymbol
@@ -260,6 +319,16 @@ export default function RechargeScreen() {
                 ]}>
                   Wave
                 </Text>
+                {selectedMethod === 'wave' && (
+                  <View style={[styles.selectedBadge, { backgroundColor: colors.primary }]}>
+                    <IconSymbol
+                      ios_icon_name="checkmark"
+                      android_material_icon_name="check"
+                      size={16}
+                      color="#FFFFFF"
+                    />
+                  </View>
+                )}
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -269,7 +338,12 @@ export default function RechargeScreen() {
                   { backgroundColor: isDark ? colors.darkBackground : colors.background },
                   selectedMethod === 'orange_money' && { borderColor: colors.primary, borderWidth: 2 },
                 ]}
-                onPress={() => setSelectedMethod('orange_money')}
+                onPress={() => {
+                  setSelectedMethod('orange_money');
+                  if (Platform.OS !== 'web') {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  }
+                }}
                 disabled={isSubmitting}
               >
                 <IconSymbol
@@ -284,53 +358,88 @@ export default function RechargeScreen() {
                 ]}>
                   Orange Money
                 </Text>
+                {selectedMethod === 'orange_money' && (
+                  <View style={[styles.selectedBadge, { backgroundColor: colors.primary }]}>
+                    <IconSymbol
+                      ios_icon_name="checkmark"
+                      android_material_icon_name="check"
+                      size={16}
+                      color="#FFFFFF"
+                    />
+                  </View>
+                )}
               </TouchableOpacity>
             </View>
           </View>
 
-          {/* Transaction ID Input */}
-          <View style={[styles.inputCard, { backgroundColor: isDark ? colors.darkCard : colors.card }]}>
-            <Text style={[styles.inputLabel, { color: isDark ? colors.darkText : colors.text }]}>
-              Numéro de transaction
-            </Text>
-            <View style={[styles.inputContainer, { backgroundColor: isDark ? colors.darkBackground : colors.background }]}>
+          {/* PayTech Info Card */}
+          <View style={[styles.paytechCard, { backgroundColor: colors.primary + '15' }]}>
+            <View style={styles.paytechHeader}>
               <IconSymbol
-                ios_icon_name="number.circle.fill"
-                android_material_icon_name="tag"
-                size={20}
-                color={isDark ? colors.darkTextSecondary : colors.textSecondary}
+                ios_icon_name="shield.checkmark.fill"
+                android_material_icon_name="verified-user"
+                size={28}
+                color={colors.primary}
               />
-              <TextInput
-                style={[styles.input, { color: isDark ? colors.darkText : colors.text }]}
-                placeholder="Ex: TXN123456789"
-                placeholderTextColor={isDark ? colors.darkTextSecondary : colors.textSecondary}
-                value={transactionId}
-                onChangeText={setTransactionId}
-                editable={!isSubmitting}
-              />
+              <Text style={[styles.paytechTitle, { color: colors.primary }]}>
+                Paiement sécurisé PayTech
+              </Text>
             </View>
-            <Text style={[styles.inputHint, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-              Référence de votre paiement Wave/Orange Money
-            </Text>
+            <View style={styles.paytechFeatures}>
+              <View style={styles.paytechFeature}>
+                <IconSymbol
+                  ios_icon_name="checkmark.circle.fill"
+                  android_material_icon_name="check-circle"
+                  size={20}
+                  color={colors.primary}
+                />
+                <Text style={[styles.paytechFeatureText, { color: isDark ? colors.darkText : colors.text }]}>
+                  Crédit instantané après paiement
+                </Text>
+              </View>
+              <View style={styles.paytechFeature}>
+                <IconSymbol
+                  ios_icon_name="checkmark.circle.fill"
+                  android_material_icon_name="check-circle"
+                  size={20}
+                  color={colors.primary}
+                />
+                <Text style={[styles.paytechFeatureText, { color: isDark ? colors.darkText : colors.text }]}>
+                  Transactions 100% sécurisées
+                </Text>
+              </View>
+              <View style={styles.paytechFeature}>
+                <IconSymbol
+                  ios_icon_name="checkmark.circle.fill"
+                  android_material_icon_name="check-circle"
+                  size={20}
+                  color={colors.primary}
+                />
+                <Text style={[styles.paytechFeatureText, { color: isDark ? colors.darkText : colors.text }]}>
+                  Support Wave, Orange Money, Free Money
+                </Text>
+              </View>
+            </View>
           </View>
 
           {/* Instructions Card */}
           <View style={[styles.instructionsCard, { backgroundColor: colors.warning + '20' }]}>
             <IconSymbol
-              ios_icon_name="exclamationmark.triangle.fill"
-              android_material_icon_name="warning"
+              ios_icon_name="info.circle.fill"
+              android_material_icon_name="info"
               size={24}
               color={colors.warning}
             />
             <View style={styles.instructionsContent}>
               <Text style={[styles.instructionsTitle, { color: isDark ? colors.darkText : colors.text }]}>
-                Instructions importantes
+                Comment ça marche ?
               </Text>
               <Text style={[styles.instructionsText, { color: isDark ? colors.darkText : colors.text }]}>
-                1. Effectuez le paiement via {selectedMethod === 'wave' ? 'Wave' : 'Orange Money'}{'\n'}
-                2. Notez le numéro de transaction{'\n'}
-                3. Remplissez ce formulaire avec le montant et le numéro{'\n'}
-                4. Notre équipe validera votre recharge sous 24-48h
+                1. Choisissez le montant à recharger{'\n'}
+                2. Sélectionnez votre mode de paiement{'\n'}
+                3. Cliquez sur &quot;Payer maintenant&quot;{'\n'}
+                4. Validez le paiement dans votre app mobile{'\n'}
+                5. Votre wallet est crédité instantanément !
               </Text>
             </View>
           </View>
@@ -349,17 +458,30 @@ export default function RechargeScreen() {
             {isSubmitting ? (
               <ActivityIndicator size="small" color="#FFFFFF" />
             ) : (
-              <>
+              <React.Fragment>
                 <IconSymbol
                   ios_icon_name="arrow.up.circle.fill"
-                  android_material_icon_name="publish"
+                  android_material_icon_name="payment"
                   size={24}
                   color="#FFFFFF"
                 />
-                <Text style={styles.submitButtonText}>Envoyer la demande</Text>
-              </>
+                <Text style={styles.submitButtonText}>Payer maintenant</Text>
+              </React.Fragment>
             )}
           </TouchableOpacity>
+
+          {/* Integration Notice */}
+          <View style={[styles.noticeCard, { backgroundColor: colors.accent + '15' }]}>
+            <IconSymbol
+              ios_icon_name="wrench.fill"
+              android_material_icon_name="build"
+              size={20}
+              color={colors.accent}
+            />
+            <Text style={[styles.noticeText, { color: isDark ? colors.darkText : colors.text }]}>
+              🚧 Intégration PayTech en cours de finalisation. Les paiements seront bientôt automatiques !
+            </Text>
+          </View>
         </View>
       </ScrollView>
     </View>
@@ -428,6 +550,36 @@ const styles = StyleSheet.create({
     fontSize: 36,
     fontWeight: '800',
   },
+  quickAmountCard: {
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
+    boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.08)',
+    elevation: 3,
+  },
+  quickAmountLabel: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 16,
+  },
+  quickAmountGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  quickAmountButton: {
+    width: '31%',
+    paddingVertical: 14,
+    paddingHorizontal: 8,
+    borderRadius: 12,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  quickAmountText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
   inputCard: {
     borderRadius: 16,
     padding: 20,
@@ -485,12 +637,50 @@ const styles = StyleSheet.create({
     gap: 8,
     borderWidth: 2,
     borderColor: colors.border,
+    position: 'relative',
   },
   methodButtonActive: {
   },
   methodButtonText: {
     fontSize: 14,
     fontWeight: '700',
+  },
+  selectedBadge: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  paytechCard: {
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
+  },
+  paytechHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 16,
+  },
+  paytechTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  paytechFeatures: {
+    gap: 12,
+  },
+  paytechFeature: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  paytechFeatureText: {
+    fontSize: 14,
+    flex: 1,
   },
   instructionsCard: {
     flexDirection: 'row',
@@ -521,10 +711,23 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     boxShadow: '0px 4px 8px rgba(0, 128, 0, 0.3)',
     elevation: 5,
+    marginBottom: 16,
   },
   submitButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '700',
+  },
+  noticeCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 16,
+    borderRadius: 12,
+  },
+  noticeText: {
+    flex: 1,
+    fontSize: 13,
+    lineHeight: 18,
   },
 });

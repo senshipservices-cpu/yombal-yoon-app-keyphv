@@ -21,6 +21,7 @@ import * as Haptics from 'expo-haptics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const MINIMUM_WITHDRAWAL = 1000;
+const MAXIMUM_WITHDRAWAL = 500000;
 
 type PaymentMethod = 'wave' | 'orange_money';
 
@@ -74,6 +75,12 @@ export default function WithdrawalScreen() {
     return userId;
   };
 
+  const validatePhoneNumber = (phone: string): boolean => {
+    // Senegalese phone number validation (9 digits starting with 7 or 3)
+    const cleanPhone = phone.replace(/\s/g, '');
+    return /^[73]\d{8}$/.test(cleanPhone);
+  };
+
   const handleSubmit = async () => {
     // Validation
     const withdrawalAmount = parseInt(amount);
@@ -87,6 +94,14 @@ export default function WithdrawalScreen() {
       Alert.alert(
         'Montant insuffisant',
         `Le montant minimum de retrait est de ${formatCurrency(MINIMUM_WITHDRAWAL)}`
+      );
+      return;
+    }
+
+    if (withdrawalAmount > MAXIMUM_WITHDRAWAL) {
+      Alert.alert(
+        'Montant trop élevé',
+        `Le montant maximum de retrait est de ${formatCurrency(MAXIMUM_WITHDRAWAL)}`
       );
       return;
     }
@@ -107,15 +122,18 @@ export default function WithdrawalScreen() {
       return;
     }
 
-    if (!phoneNumber || phoneNumber.length < 9) {
-      Alert.alert('Erreur', 'Veuillez entrer un numéro de téléphone valide');
+    if (!phoneNumber || !validatePhoneNumber(phoneNumber)) {
+      Alert.alert(
+        'Numéro invalide',
+        'Veuillez entrer un numéro de téléphone sénégalais valide (ex: 77 123 45 67)'
+      );
       return;
     }
 
     // Confirm withdrawal
     Alert.alert(
       'Confirmer le retrait',
-      `Vous allez retirer ${formatCurrency(withdrawalAmount)} vers ${selectedMethod === 'wave' ? 'Wave' : 'Orange Money'} au numéro ${phoneNumber}.\n\nContinuer ?`,
+      `Vous allez retirer ${formatCurrency(withdrawalAmount)} vers ${selectedMethod === 'wave' ? 'Wave' : 'Orange Money'} au numéro ${phoneNumber}.\n\nLe montant sera bloqué jusqu'à validation (24-48h).\n\nContinuer ?`,
       [
         {
           text: 'Annuler',
@@ -135,6 +153,15 @@ export default function WithdrawalScreen() {
     try {
       const userId = await getUserId();
 
+      // TODO: Backend Integration - Call PayTech API for withdrawal
+      // Expected flow:
+      // 1. Create withdrawal request in database
+      // 2. Block amount in wallet (solde → solde_bloque)
+      // 3. Admin validates request
+      // 4. Backend calls PayTech API to transfer money
+      // 5. PayTech webhook confirms transfer
+      // 6. Update wallet and transaction history
+
       // 1. Create withdrawal request
       const { error: insertError } = await supabase
         .from('demandes_retrait')
@@ -143,7 +170,7 @@ export default function WithdrawalScreen() {
           user_id: userId,
           montant: withdrawalAmount,
           mode_paiement: selectedMethod,
-          numero_telephone: phoneNumber,
+          numero_telephone: phoneNumber.replace(/\s/g, ''),
           statut: 'en_attente',
         });
 
@@ -172,7 +199,7 @@ export default function WithdrawalScreen() {
 
       Alert.alert(
         'Demande envoyée !',
-        'Votre demande de retrait sera traitée sous 24-48h. Vous recevrez une notification une fois le transfert effectué.',
+        `Votre demande de retrait de ${formatCurrency(withdrawalAmount)} a été créée.\n\n✅ Le montant est maintenant bloqué dans votre wallet.\n\n⏱️ Notre équipe va traiter votre demande sous 24-48h.\n\n💰 Vous recevrez l'argent sur votre ${selectedMethod === 'wave' ? 'compte Wave' : 'compte Orange Money'} après validation.\n\n📱 Vous recevrez une notification de confirmation.`,
         [
           {
             text: 'OK',
@@ -222,8 +249,8 @@ export default function WithdrawalScreen() {
           />
         </TouchableOpacity>
         <View style={styles.headerTextContainer}>
-          <Text style={styles.headerTitle}>Retrait</Text>
-          <Text style={styles.headerSubtitle}>Demander un retrait</Text>
+          <Text style={styles.headerTitle}>Retrait Wallet</Text>
+          <Text style={styles.headerSubtitle}>Transfert sécurisé via PayTech</Text>
         </View>
       </View>
 
@@ -242,9 +269,17 @@ export default function WithdrawalScreen() {
               {formatCurrency(wallet.solde)}
             </Text>
             {wallet.solde_bloque > 0 && (
-              <Text style={[styles.blockedAmount, { color: colors.warning }]}>
-                {formatCurrency(wallet.solde_bloque)} bloqué
-              </Text>
+              <View style={styles.blockedInfo}>
+                <IconSymbol
+                  ios_icon_name="lock.fill"
+                  android_material_icon_name="lock"
+                  size={16}
+                  color={colors.warning}
+                />
+                <Text style={[styles.blockedAmount, { color: colors.warning }]}>
+                  {formatCurrency(wallet.solde_bloque)} bloqué
+                </Text>
+              </View>
             )}
           </View>
 
@@ -268,7 +303,7 @@ export default function WithdrawalScreen() {
               </Text>
             </View>
             <Text style={[styles.inputHint, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-              Minimum: {formatCurrency(MINIMUM_WITHDRAWAL)}
+              Min: {formatCurrency(MINIMUM_WITHDRAWAL)} • Max: {formatCurrency(MAXIMUM_WITHDRAWAL)}
             </Text>
           </View>
 
@@ -285,7 +320,12 @@ export default function WithdrawalScreen() {
                   { backgroundColor: isDark ? colors.darkBackground : colors.background },
                   selectedMethod === 'wave' && { borderColor: colors.accent, borderWidth: 2 },
                 ]}
-                onPress={() => setSelectedMethod('wave')}
+                onPress={() => {
+                  setSelectedMethod('wave');
+                  if (Platform.OS !== 'web') {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  }
+                }}
                 disabled={isSubmitting}
               >
                 <IconSymbol
@@ -300,6 +340,16 @@ export default function WithdrawalScreen() {
                 ]}>
                   Wave
                 </Text>
+                {selectedMethod === 'wave' && (
+                  <View style={[styles.selectedBadge, { backgroundColor: colors.accent }]}>
+                    <IconSymbol
+                      ios_icon_name="checkmark"
+                      android_material_icon_name="check"
+                      size={16}
+                      color="#FFFFFF"
+                    />
+                  </View>
+                )}
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -309,7 +359,12 @@ export default function WithdrawalScreen() {
                   { backgroundColor: isDark ? colors.darkBackground : colors.background },
                   selectedMethod === 'orange_money' && { borderColor: colors.accent, borderWidth: 2 },
                 ]}
-                onPress={() => setSelectedMethod('orange_money')}
+                onPress={() => {
+                  setSelectedMethod('orange_money');
+                  if (Platform.OS !== 'web') {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  }
+                }}
                 disabled={isSubmitting}
               >
                 <IconSymbol
@@ -324,6 +379,16 @@ export default function WithdrawalScreen() {
                 ]}>
                   Orange Money
                 </Text>
+                {selectedMethod === 'orange_money' && (
+                  <View style={[styles.selectedBadge, { backgroundColor: colors.accent }]}>
+                    <IconSymbol
+                      ios_icon_name="checkmark"
+                      android_material_icon_name="check"
+                      size={16}
+                      color="#FFFFFF"
+                    />
+                  </View>
+                )}
               </TouchableOpacity>
             </View>
           </View>
@@ -348,21 +413,82 @@ export default function WithdrawalScreen() {
                 value={phoneNumber}
                 onChangeText={setPhoneNumber}
                 editable={!isSubmitting}
+                maxLength={11}
               />
+            </View>
+            <Text style={[styles.inputHint, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+              Numéro {selectedMethod === 'wave' ? 'Wave' : 'Orange Money'} où vous recevrez l&apos;argent
+            </Text>
+          </View>
+
+          {/* Process Info Card */}
+          <View style={[styles.processCard, { backgroundColor: colors.primary + '15' }]}>
+            <View style={styles.processHeader}>
+              <IconSymbol
+                ios_icon_name="clock.fill"
+                android_material_icon_name="schedule"
+                size={24}
+                color={colors.primary}
+              />
+              <Text style={[styles.processTitle, { color: colors.primary }]}>
+                Processus de retrait
+              </Text>
+            </View>
+            <View style={styles.processSteps}>
+              <View style={styles.processStep}>
+                <View style={[styles.stepNumber, { backgroundColor: colors.primary }]}>
+                  <Text style={styles.stepNumberText}>1</Text>
+                </View>
+                <Text style={[styles.stepText, { color: isDark ? colors.darkText : colors.text }]}>
+                  Votre demande est créée et le montant est bloqué
+                </Text>
+              </View>
+              <View style={styles.processStep}>
+                <View style={[styles.stepNumber, { backgroundColor: colors.primary }]}>
+                  <Text style={styles.stepNumberText}>2</Text>
+                </View>
+                <Text style={[styles.stepText, { color: isDark ? colors.darkText : colors.text }]}>
+                  Notre équipe valide votre demande (24-48h)
+                </Text>
+              </View>
+              <View style={styles.processStep}>
+                <View style={[styles.stepNumber, { backgroundColor: colors.primary }]}>
+                  <Text style={styles.stepNumberText}>3</Text>
+                </View>
+                <Text style={[styles.stepText, { color: isDark ? colors.darkText : colors.text }]}>
+                  PayTech transfère l&apos;argent sur votre compte
+                </Text>
+              </View>
+              <View style={styles.processStep}>
+                <View style={[styles.stepNumber, { backgroundColor: colors.primary }]}>
+                  <Text style={styles.stepNumberText}>4</Text>
+                </View>
+                <Text style={[styles.stepText, { color: isDark ? colors.darkText : colors.text }]}>
+                  Vous recevez une notification de confirmation
+                </Text>
+              </View>
             </View>
           </View>
 
-          {/* Info Card */}
-          <View style={[styles.infoCard, { backgroundColor: colors.primary + '20' }]}>
+          {/* Warning Card */}
+          <View style={[styles.warningCard, { backgroundColor: colors.warning + '20' }]}>
             <IconSymbol
-              ios_icon_name="info.circle.fill"
-              android_material_icon_name="info"
+              ios_icon_name="exclamationmark.triangle.fill"
+              android_material_icon_name="warning"
               size={24}
-              color={colors.primary}
+              color={colors.warning}
             />
-            <Text style={[styles.infoText, { color: isDark ? colors.darkText : colors.text }]}>
-              Votre demande sera traitée sous 24-48h. Le montant sera bloqué jusqu&apos;à validation par notre équipe.
-            </Text>
+            <View style={styles.warningContent}>
+              <Text style={[styles.warningTitle, { color: isDark ? colors.darkText : colors.text }]}>
+                Important
+              </Text>
+              <Text style={[styles.warningText, { color: isDark ? colors.darkText : colors.text }]}>
+                • Le montant sera bloqué jusqu&apos;à validation{'\n'}
+                • Vérifiez bien votre numéro de téléphone{'\n'}
+                • Délai de traitement : 24-48h ouvrées{'\n'}
+                • Aucun frais de retrait appliqué
+              </Text>
+            </View>
           </View>
 
           {/* Submit Button */}
@@ -379,15 +505,15 @@ export default function WithdrawalScreen() {
             {isSubmitting ? (
               <ActivityIndicator size="small" color="#FFFFFF" />
             ) : (
-              <>
+              <React.Fragment>
                 <IconSymbol
                   ios_icon_name="arrow.down.circle.fill"
                   android_material_icon_name="get-app"
                   size={24}
                   color="#FFFFFF"
                 />
-                <Text style={styles.submitButtonText}>Envoyer la demande</Text>
-              </>
+                <Text style={styles.submitButtonText}>Demander le retrait</Text>
+              </React.Fragment>
             )}
           </TouchableOpacity>
         </View>
@@ -458,9 +584,14 @@ const styles = StyleSheet.create({
     fontSize: 36,
     fontWeight: '800',
   },
+  blockedInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 12,
+  },
   blockedAmount: {
     fontSize: 14,
-    marginTop: 8,
     fontWeight: '600',
   },
   inputCard: {
@@ -520,6 +651,7 @@ const styles = StyleSheet.create({
     gap: 8,
     borderWidth: 2,
     borderColor: colors.border,
+    position: 'relative',
   },
   methodButtonActive: {
   },
@@ -527,7 +659,58 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
   },
-  infoCard: {
+  selectedBadge: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  processCard: {
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
+  },
+  processHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 16,
+  },
+  processTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  processSteps: {
+    gap: 16,
+  },
+  processStep: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  stepNumber: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stepNumberText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  stepText: {
+    flex: 1,
+    fontSize: 14,
+    lineHeight: 20,
+    paddingTop: 4,
+  },
+  warningCard: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     borderRadius: 12,
@@ -535,10 +718,17 @@ const styles = StyleSheet.create({
     gap: 12,
     marginBottom: 24,
   },
-  infoText: {
+  warningContent: {
     flex: 1,
+  },
+  warningTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 8,
+  },
+  warningText: {
     fontSize: 14,
-    lineHeight: 20,
+    lineHeight: 22,
   },
   submitButton: {
     flexDirection: 'row',
