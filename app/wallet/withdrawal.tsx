@@ -23,7 +23,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 const MINIMUM_WITHDRAWAL = 1000;
 const MAXIMUM_WITHDRAWAL = 500000;
 
-type PaymentMethod = 'wave' | 'orange_money';
+type PaymentMethod = 'wave' | 'orange_money' | 'free_money';
 
 export default function WithdrawalScreen() {
   const theme = useTheme();
@@ -133,7 +133,7 @@ export default function WithdrawalScreen() {
     // Confirm withdrawal
     Alert.alert(
       'Confirmer le retrait',
-      `Vous allez retirer ${formatCurrency(withdrawalAmount)} vers ${selectedMethod === 'wave' ? 'Wave' : 'Orange Money'} au numéro ${phoneNumber}.\n\nLe montant sera bloqué jusqu'à validation (24-48h).\n\nContinuer ?`,
+      `Vous allez retirer ${formatCurrency(withdrawalAmount)} vers ${selectedMethod === 'wave' ? 'Wave' : selectedMethod === 'orange_money' ? 'Orange Money' : 'Free Money'} au numéro ${phoneNumber}.\n\nLe montant sera bloqué jusqu'à validation par notre équipe (24-48h).\n\nContinuer ?`,
       [
         {
           text: 'Annuler',
@@ -153,16 +153,10 @@ export default function WithdrawalScreen() {
     try {
       const userId = await getUserId();
 
-      // TODO: Backend Integration - Call PayTech API for withdrawal
-      // Expected flow:
-      // 1. Create withdrawal request in database
-      // 2. Block amount in wallet (solde → solde_bloque)
-      // 3. Admin validates request
-      // 4. Backend calls PayTech API to transfer money
-      // 5. PayTech webhook confirms transfer
-      // 6. Update wallet and transaction history
+      // TODO: Backend Integration - Process withdrawal via PayTech
+      console.log('Processing withdrawal via PayTech...');
 
-      // 1. Create withdrawal request
+      // Create withdrawal request in database
       const { error: insertError } = await supabase
         .from('demandes_retrait')
         .insert({
@@ -178,7 +172,7 @@ export default function WithdrawalScreen() {
         throw new Error('Erreur lors de la création de la demande');
       }
 
-      // 2. Update wallet: deduct from solde and add to solde_bloque
+      // Block amount in wallet
       const { error: updateError } = await supabase
         .from('wallets')
         .update({
@@ -199,7 +193,7 @@ export default function WithdrawalScreen() {
 
       Alert.alert(
         'Demande envoyée !',
-        `Votre demande de retrait de ${formatCurrency(withdrawalAmount)} a été créée.\n\n✅ Le montant est maintenant bloqué dans votre wallet.\n\n⏱️ Notre équipe va traiter votre demande sous 24-48h.\n\n💰 Vous recevrez l'argent sur votre ${selectedMethod === 'wave' ? 'compte Wave' : 'compte Orange Money'} après validation.\n\n📱 Vous recevrez une notification de confirmation.`,
+        `Votre demande de retrait de ${formatCurrency(withdrawalAmount)} a été créée.\n\n✅ Le montant est maintenant bloqué dans votre wallet.\n\n⏱️ Notre équipe va traiter votre demande sous 24-48h.\n\n💰 Vous recevrez l'argent sur votre ${selectedMethod === 'wave' ? 'compte Wave' : selectedMethod === 'orange_money' ? 'compte Orange Money' : 'compte Free Money'} après validation.\n\n📱 Vous recevrez une notification de confirmation.`,
         [
           {
             text: 'OK',
@@ -390,6 +384,45 @@ export default function WithdrawalScreen() {
                   </View>
                 )}
               </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.methodButton,
+                  selectedMethod === 'free_money' && styles.methodButtonActive,
+                  { backgroundColor: isDark ? colors.darkBackground : colors.background },
+                  selectedMethod === 'free_money' && { borderColor: colors.accent, borderWidth: 2 },
+                ]}
+                onPress={() => {
+                  setSelectedMethod('free_money');
+                  if (Platform.OS !== 'web') {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  }
+                }}
+                disabled={isSubmitting}
+              >
+                <IconSymbol
+                  ios_icon_name="phone.fill"
+                  android_material_icon_name="phone"
+                  size={32}
+                  color={selectedMethod === 'free_money' ? colors.accent : colors.textSecondary}
+                />
+                <Text style={[
+                  styles.methodButtonText,
+                  { color: selectedMethod === 'free_money' ? colors.accent : (isDark ? colors.darkText : colors.text) }
+                ]}>
+                  Free Money
+                </Text>
+                {selectedMethod === 'free_money' && (
+                  <View style={[styles.selectedBadge, { backgroundColor: colors.accent }]}>
+                    <IconSymbol
+                      ios_icon_name="checkmark"
+                      android_material_icon_name="check"
+                      size={16}
+                      color="#FFFFFF"
+                    />
+                  </View>
+                )}
+              </TouchableOpacity>
             </View>
           </View>
 
@@ -417,7 +450,7 @@ export default function WithdrawalScreen() {
               />
             </View>
             <Text style={[styles.inputHint, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-              Numéro {selectedMethod === 'wave' ? 'Wave' : 'Orange Money'} où vous recevrez l&apos;argent
+              Numéro {selectedMethod === 'wave' ? 'Wave' : selectedMethod === 'orange_money' ? 'Orange Money' : 'Free Money'} où vous recevrez l&apos;argent
             </Text>
           </View>
 

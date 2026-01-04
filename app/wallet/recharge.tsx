@@ -10,6 +10,7 @@ import {
   Platform,
   Alert,
   ActivityIndicator,
+  Linking,
 } from 'react-native';
 import { useTheme } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
@@ -20,7 +21,7 @@ import { getOrCreateWallet, formatCurrency } from '@/utils/walletUtils';
 import * as Haptics from 'expo-haptics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-type PaymentMethod = 'wave' | 'orange_money';
+type PaymentMethod = 'wave' | 'orange_money' | 'free_money';
 
 const QUICK_AMOUNTS = [1000, 2500, 5000, 10000, 25000, 50000];
 
@@ -102,7 +103,7 @@ export default function RechargeScreen() {
     // Confirm recharge
     Alert.alert(
       'Confirmer la recharge',
-      `Vous allez recharger ${formatCurrency(rechargeAmount)} via ${selectedMethod === 'wave' ? 'Wave' : 'Orange Money'}.\n\nVous serez redirigé vers la page de paiement.`,
+      `Vous allez recharger ${formatCurrency(rechargeAmount)} via ${selectedMethod === 'wave' ? 'Wave' : selectedMethod === 'orange_money' ? 'Orange Money' : 'Free Money'}.\n\nVous serez redirigé vers la page de paiement PayTech.`,
       [
         {
           text: 'Annuler',
@@ -122,47 +123,54 @@ export default function RechargeScreen() {
     try {
       const userId = await getUserId();
 
-      // TODO: Backend Integration - Call PayTech API to initiate payment
-      // This will be replaced with actual PayTech integration
-      // Expected flow:
-      // 1. Call backend endpoint: POST /api/wallet/initiate-recharge
-      // 2. Backend creates PayTech payment link
-      // 3. Backend returns payment URL
-      // 4. Open payment URL in WebView or browser
-      // 5. PayTech webhook validates payment
-      // 6. Wallet is credited automatically
+      // TODO: Backend Integration - Call PayTech API via Edge Function
+      console.log('Calling PayTech Edge Function...');
 
-      // For now, create a pending recharge request
-      const { error: insertError } = await supabase
-        .from('recharges_wallet')
-        .insert({
-          wallet_id: wallet.id,
-          user_id: userId,
-          montant: rechargeAmount,
-          mode_paiement: selectedMethod,
-          transaction_id: `PENDING_${Date.now()}`, // Will be replaced by PayTech transaction ID
-          statut: 'en_attente',
-        });
+      const { data, error } = await supabase.functions.invoke('process-paytech-payment', {
+        body: {
+          type: 'recharge',
+          amount: rechargeAmount,
+          userId,
+          paymentMethod: selectedMethod,
+          walletId: wallet.id,
+        },
+      });
 
-      if (insertError) {
-        throw new Error('Erreur lors de la création de la demande');
+      if (error) {
+        throw new Error(error.message || 'Erreur lors de la création du paiement');
       }
 
-      // Success!
+      if (!data || !data.success) {
+        throw new Error(data?.error || 'Erreur lors de la création du paiement');
+      }
+
+      console.log('PayTech payment created:', data);
+
+      // Success! Open payment URL
       if (Platform.OS !== 'web') {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
 
-      Alert.alert(
-        'Demande créée !',
-        `Votre demande de recharge de ${formatCurrency(rechargeAmount)} a été créée.\n\n⚠️ INTÉGRATION PAYTECH EN COURS\n\nProchainement, vous serez automatiquement redirigé vers la page de paiement ${selectedMethod === 'wave' ? 'Wave' : 'Orange Money'}.\n\nVotre wallet sera crédité instantanément après paiement.`,
-        [
-          {
-            text: 'OK',
-            onPress: () => router.back(),
-          },
-        ]
-      );
+      // Open PayTech payment page
+      const paymentUrl = data.paymentUrl;
+      const canOpen = await Linking.canOpenURL(paymentUrl);
+
+      if (canOpen) {
+        await Linking.openURL(paymentUrl);
+        
+        Alert.alert(
+          'Paiement en cours',
+          `Vous allez être redirigé vers PayTech pour finaliser votre paiement de ${formatCurrency(rechargeAmount)}.\n\nVotre wallet sera crédité automatiquement après validation du paiement.`,
+          [
+            {
+              text: 'OK',
+              onPress: () => router.back(),
+            },
+          ]
+        );
+      } else {
+        throw new Error('Impossible d\'ouvrir le lien de paiement');
+      }
     } catch (error: any) {
       console.error('Error processing recharge:', error);
       
@@ -369,6 +377,45 @@ export default function RechargeScreen() {
                   </View>
                 )}
               </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.methodButton,
+                  selectedMethod === 'free_money' && styles.methodButtonActive,
+                  { backgroundColor: isDark ? colors.darkBackground : colors.background },
+                  selectedMethod === 'free_money' && { borderColor: colors.primary, borderWidth: 2 },
+                ]}
+                onPress={() => {
+                  setSelectedMethod('free_money');
+                  if (Platform.OS !== 'web') {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  }
+                }}
+                disabled={isSubmitting}
+              >
+                <IconSymbol
+                  ios_icon_name="phone.fill"
+                  android_material_icon_name="phone"
+                  size={32}
+                  color={selectedMethod === 'free_money' ? colors.primary : colors.textSecondary}
+                />
+                <Text style={[
+                  styles.methodButtonText,
+                  { color: selectedMethod === 'free_money' ? colors.primary : (isDark ? colors.darkText : colors.text) }
+                ]}>
+                  Free Money
+                </Text>
+                {selectedMethod === 'free_money' && (
+                  <View style={[styles.selectedBadge, { backgroundColor: colors.primary }]}>
+                    <IconSymbol
+                      ios_icon_name="checkmark"
+                      android_material_icon_name="check"
+                      size={16}
+                      color="#FFFFFF"
+                    />
+                  </View>
+                )}
+              </TouchableOpacity>
             </View>
           </View>
 
@@ -438,7 +485,7 @@ export default function RechargeScreen() {
                 1. Choisissez le montant à recharger{'\n'}
                 2. Sélectionnez votre mode de paiement{'\n'}
                 3. Cliquez sur &quot;Payer maintenant&quot;{'\n'}
-                4. Validez le paiement dans votre app mobile{'\n'}
+                4. Validez le paiement sur la page PayTech{'\n'}
                 5. Votre wallet est crédité instantanément !
               </Text>
             </View>
@@ -469,19 +516,6 @@ export default function RechargeScreen() {
               </React.Fragment>
             )}
           </TouchableOpacity>
-
-          {/* Integration Notice */}
-          <View style={[styles.noticeCard, { backgroundColor: colors.accent + '15' }]}>
-            <IconSymbol
-              ios_icon_name="wrench.fill"
-              android_material_icon_name="build"
-              size={20}
-              color={colors.accent}
-            />
-            <Text style={[styles.noticeText, { color: isDark ? colors.darkText : colors.text }]}>
-              🚧 Intégration PayTech en cours de finalisation. Les paiements seront bientôt automatiques !
-            </Text>
-          </View>
         </View>
       </ScrollView>
     </View>
@@ -711,23 +745,10 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     boxShadow: '0px 4px 8px rgba(0, 128, 0, 0.3)',
     elevation: 5,
-    marginBottom: 16,
   },
   submitButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '700',
-  },
-  noticeCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    padding: 16,
-    borderRadius: 12,
-  },
-  noticeText: {
-    flex: 1,
-    fontSize: 13,
-    lineHeight: 18,
   },
 });
