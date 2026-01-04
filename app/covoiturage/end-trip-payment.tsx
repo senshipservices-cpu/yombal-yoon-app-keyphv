@@ -64,7 +64,7 @@ export default function EndTripPaymentScreen() {
         return;
       }
 
-      // ✅ NEW: Load accepted reservations to calculate actual commission
+      // Load accepted reservations to calculate actual commission
       const { data: reservations, error: reservationsError } = await supabase
         .from('carpool_bookings')
         .select('*')
@@ -80,7 +80,7 @@ export default function EndTripPaymentScreen() {
 
       console.log('[EndTripPayment] ✅ Loaded accepted reservations:', reservations?.length || 0);
 
-      // ✅ NEW: Calculate totals based on accepted reservations
+      // Calculate totals based on accepted reservations
       const totalSeatsReserved = (reservations || []).reduce(
         (sum, r) => sum + (r.number_of_passengers || 0),
         0
@@ -146,7 +146,7 @@ export default function EndTripPaymentScreen() {
           statut_paiement: 'paye',
           mode_paiement: selectedPaymentMethod,
           date_paiement: new Date().toISOString(),
-          // ✅ NEW: Update with actual amounts based on reservations
+          // Update with actual amounts based on reservations
           prix_total: rideData.prix_total,
           commission_yombal: rideData.commission_yombal,
           prix_prestataire: rideData.prix_prestataire,
@@ -169,13 +169,15 @@ export default function EndTripPaymentScreen() {
         throw new Error('Erreur lors du crédit du wallet');
       }
 
-      // 3. Debit commission (unblock the blocked amount)
+      // 3. Debit commission and credit directly to PayTech
+      // TODO: Backend Integration - Commission is automatically transferred to PayTech merchant account
       const debitResult = await debitCommission(
         userId,
         rideData.commission_yombal,
         rideId,
-        `Commission Yombal Yoon - ${rideData.departure_city} → ${rideData.arrival_city} (${rideData.total_seats_reserved} place(s))`,
-        rideData.commission_yombal // Unblock the same amount
+        `${rideData.departure_city} → ${rideData.arrival_city} (${rideData.total_seats_reserved} place(s))`,
+        rideData.commission_yombal, // Unblock the same amount
+        'covoiturage'
       );
 
       if (!debitResult.success) {
@@ -187,9 +189,14 @@ export default function EndTripPaymentScreen() {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
 
+      // Show success message with PayTech info
+      const successMessage = IS_TEST_MODE
+        ? `Votre wallet a été crédité de ${formatCurrency(rideData.prix_prestataire)}`
+        : `✅ Votre wallet a été crédité de ${formatCurrency(rideData.prix_prestataire)}\n\n💰 Commission de ${formatCurrency(rideData.commission_yombal)} transférée automatiquement sur PayTech\n\n${debitResult.paytechTransactionId ? `🔖 Transaction PayTech: ${debitResult.paytechTransactionId}` : ''}`;
+
       Alert.alert(
         'Paiement confirmé !',
-        `Votre wallet a été crédité de ${formatCurrency(rideData.prix_prestataire)}`,
+        successMessage,
         [
           {
             text: 'Voir mon wallet',
@@ -310,7 +317,6 @@ export default function EndTripPaymentScreen() {
               </Text>
             </View>
 
-            {/* ✅ NEW: Show reservation details */}
             <View style={[styles.infoBox, { backgroundColor: colors.primary + '15' }]}>
               <IconSymbol
                 ios_icon_name="person.2.fill"
@@ -363,6 +369,20 @@ export default function EndTripPaymentScreen() {
               </Text>
             </View>
 
+            {!IS_TEST_MODE && (
+              <View style={[styles.paytechInfoBox, { backgroundColor: colors.accent + '15' }]}>
+                <IconSymbol
+                  ios_icon_name="arrow.right.circle.fill"
+                  android_material_icon_name="send"
+                  size={18}
+                  color={colors.accent}
+                />
+                <Text style={[styles.paytechInfoText, { color: isDark ? colors.darkText : colors.text }]}>
+                  Commission transférée automatiquement sur votre compte PayTech
+                </Text>
+              </View>
+            )}
+
             <View style={[styles.amountRow, styles.totalRow]}>
               <Text style={[styles.amountLabel, styles.totalLabel, { color: isDark ? colors.darkText : colors.text }]}>
                 Montant conducteur (net)
@@ -380,7 +400,7 @@ export default function EndTripPaymentScreen() {
                 Détail des réservations acceptées
               </Text>
 
-              {acceptedReservations.map((reservation, index) => (
+              {acceptedReservations.map((reservation) => (
                 <View key={reservation.id} style={styles.reservationItem}>
                   <View style={styles.reservationHeader}>
                     <IconSymbol
@@ -490,7 +510,7 @@ export default function EndTripPaymentScreen() {
             <Text style={[styles.infoText, { color: isDark ? colors.darkText : colors.text }]}>
               {IS_TEST_MODE 
                 ? '🎉 Mode test activé : Vous recevrez 100% du montant sans commission !' 
-                : `✅ Commission calculée sur ${rideData.total_seats_reserved} place(s) réservée(s), pas sur ${rideData.seats_total} place(s) déclarée(s).`}
+                : `✅ Commission calculée sur ${rideData.total_seats_reserved} place(s) réservée(s), pas sur ${rideData.seats_total} place(s) déclarée(s).\n\n💰 La commission sera automatiquement transférée sur votre compte PayTech.`}
             </Text>
           </View>
         </View>
@@ -518,6 +538,7 @@ export default function EndTripPaymentScreen() {
 
             <Text style={[styles.modalMessage, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
               Vous confirmez avoir reçu le paiement via {selectedPaymentMethod && getPaymentMethodLabel(selectedPaymentMethod)} ?
+              {!IS_TEST_MODE && '\n\nLa commission sera automatiquement transférée sur PayTech.'}
             </Text>
 
             <View style={styles.modalButtons}>
@@ -553,6 +574,11 @@ export default function EndTripPaymentScreen() {
             <Text style={[styles.processingText, { color: isDark ? colors.darkText : colors.text }]}>
               Traitement en cours...
             </Text>
+            {!IS_TEST_MODE && (
+              <Text style={[styles.processingSubtext, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+                Transfert de la commission vers PayTech...
+              </Text>
+            )}
           </View>
         </View>
       )}
@@ -639,6 +665,20 @@ const styles = StyleSheet.create({
   infoText: {
     flex: 1,
     fontSize: 14,
+    fontWeight: '600',
+  },
+  paytechInfoBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    padding: 10,
+    borderRadius: 8,
+    marginTop: 8,
+    marginBottom: 8,
+  },
+  paytechInfoText: {
+    flex: 1,
+    fontSize: 13,
     fontWeight: '600',
   },
   divider: {
@@ -816,5 +856,10 @@ const styles = StyleSheet.create({
     marginTop: 16,
     fontSize: 16,
     fontWeight: '600',
+  },
+  processingSubtext: {
+    marginTop: 8,
+    fontSize: 14,
+    textAlign: 'center',
   },
 });

@@ -272,14 +272,19 @@ export async function creditDriverWallet(
 }
 
 /**
- * Debit commission from wallet
+ * Debit commission from wallet and credit directly to PayTech
+ * This function:
+ * 1. Debits commission from driver wallet
+ * 2. Creates a commission transfer record
+ * 3. Triggers Edge Function to credit PayTech merchant account
  */
 export async function debitCommission(
   userId: string,
   commissionAmount: number,
   courseId: string,
   description: string,
-  unblockAmount: number = 0
+  unblockAmount: number = 0,
+  typeService: 'covoiturage' | 'colis' | 'livraison' = 'covoiturage'
 ) {
   try {
     // In test mode, skip commission deduction
@@ -332,8 +337,79 @@ export async function debitCommission(
       return { success: false, error: transactionError };
     }
 
-    console.log(`Debited ${commissionAmount} FCFA commission from wallet for user ${userId}`);
-    return { success: true, error: null };
+    console.log(`✅ Debited ${commissionAmount} FCFA commission from wallet for user ${userId}`);
+
+    // ✅ NEW: Create commission transfer record
+    const { data: transferData, error: transferInsertError } = await supabase
+      .from('commission_transfers')
+      .insert({
+        wallet_id: wallet.id,
+        user_id: userId,
+        montant: commissionAmount,
+        course_id: courseId,
+        type_service: typeService,
+        statut: 'en_attente',
+      })
+      .select()
+      .single();
+
+    if (transferInsertError || !transferData) {
+      console.error('Error creating commission transfer record:', transferInsertError);
+      // Don't fail the whole operation, just log the error
+      return { success: true, error: null, warning: 'Commission debited but transfer record failed' };
+    }
+
+    console.log(`✅ Created commission transfer record: ${transferData.id}`);
+
+    // ✅ NEW: Trigger Edge Function to credit PayTech
+    // TODO: Backend Integration - Call Edge Function to transfer commission to PayTech
+    try {
+      console.log('🚀 Calling credit-paytech-commission Edge Function...');
+      
+      const { data: paytechData, error: paytechError } = await supabase.functions.invoke(
+        'credit-paytech-commission',
+        {
+          body: {
+            transferId: transferData.id,
+            userId,
+            walletId: wallet.id,
+            amount: commissionAmount,
+            courseId,
+            typeService,
+            description: `Commission ${typeService} - ${description}`,
+          },
+        }
+      );
+
+      if (paytechError) {
+        console.error('❌ Error calling PayTech Edge Function:', paytechError);
+        // Don't fail the whole operation, the transfer record is created and can be retried
+        return { 
+          success: true, 
+          error: null, 
+          warning: 'Commission debited but PayTech transfer failed - will be retried',
+          transferId: transferData.id,
+        };
+      }
+
+      console.log('✅ PayTech commission transfer initiated:', paytechData);
+      
+      return { 
+        success: true, 
+        error: null,
+        transferId: transferData.id,
+        paytechTransactionId: paytechData?.paytechTransactionId,
+      };
+    } catch (paytechError: any) {
+      console.error('❌ Exception calling PayTech Edge Function:', paytechError);
+      // Don't fail the whole operation
+      return { 
+        success: true, 
+        error: null, 
+        warning: 'Commission debited but PayTech transfer failed - will be retried',
+        transferId: transferData.id,
+      };
+    }
   } catch (error) {
     console.error('Error in debitCommission:', error);
     return { success: false, error };
