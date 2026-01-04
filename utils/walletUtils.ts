@@ -25,6 +25,26 @@ export function calculateAmounts(prixTotal: number) {
 }
 
 /**
+ * Calculate commission for a specific reservation
+ * This is used to calculate commission per reservation, not per total seats
+ * 
+ * @param pricePerSeat - Price per seat
+ * @param numberOfSeats - Number of seats reserved
+ * @returns Commission amount for this reservation
+ */
+export function calculateReservationCommission(pricePerSeat: number, numberOfSeats: number): number {
+  // In test mode, commission is 0
+  if (IS_TEST_MODE) {
+    return 0;
+  }
+
+  const reservationTotal = pricePerSeat * numberOfSeats;
+  const commission = Math.round(reservationTotal * COMMISSION_RATE);
+  
+  return commission;
+}
+
+/**
  * Get or create wallet for a user
  */
 export async function getOrCreateWallet(userId: string) {
@@ -110,6 +130,7 @@ export async function checkDebtStatus(userId: string): Promise<{
 
 /**
  * Block commission in wallet
+ * This is called when a reservation is ACCEPTED, not when the ride is published
  */
 export async function blockCommission(userId: string, commissionAmount: number) {
   try {
@@ -144,6 +165,47 @@ export async function blockCommission(userId: string, commissionAmount: number) 
     return { success: true, error: null };
   } catch (error) {
     console.error('Error in blockCommission:', error);
+    return { success: false, error };
+  }
+}
+
+/**
+ * Unblock commission in wallet
+ * This is called when a reservation is REFUSED or CANCELLED
+ */
+export async function unblockCommission(userId: string, commissionAmount: number) {
+  try {
+    // In test mode, skip commission unblocking
+    if (IS_TEST_MODE) {
+      console.log('TEST MODE: Skipping commission unblocking');
+      return { success: true, error: null };
+    }
+
+    const { wallet, error: walletError } = await getOrCreateWallet(userId);
+
+    if (walletError || !wallet) {
+      console.error('Error getting wallet for unblocking commission:', walletError);
+      return { success: false, error: walletError };
+    }
+
+    // Update solde_bloque
+    const { error: updateError } = await supabase
+      .from('wallets')
+      .update({
+        solde_bloque: Math.max(0, wallet.solde_bloque - commissionAmount),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', wallet.id);
+
+    if (updateError) {
+      console.error('Error unblocking commission:', updateError);
+      return { success: false, error: updateError };
+    }
+
+    console.log(`Unblocked ${commissionAmount} FCFA in wallet for user ${userId}`);
+    return { success: true, error: null };
+  } catch (error) {
+    console.error('Error in unblockCommission:', error);
     return { success: false, error };
   }
 }

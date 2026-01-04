@@ -32,6 +32,7 @@ export default function EndTripPaymentScreen() {
   const { profile } = useProfile();
 
   const [rideData, setRideData] = useState<any>(null);
+  const [acceptedReservations, setAcceptedReservations] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
@@ -43,26 +44,73 @@ export default function EndTripPaymentScreen() {
     try {
       setIsLoading(true);
 
-      const { data, error } = await supabase
+      // Load ride data
+      const { data: ride, error: rideError } = await supabase
         .from('carpool_rides')
         .select('*')
         .eq('id', rideId)
         .single();
 
-      if (error) {
-        console.error('Error loading ride data:', error);
+      if (rideError) {
+        console.error('Error loading ride data:', rideError);
         Alert.alert('Erreur', 'Impossible de charger les données du trajet');
         router.back();
         return;
       }
 
-      if (!data) {
+      if (!ride) {
         Alert.alert('Erreur', 'Trajet introuvable');
         router.back();
         return;
       }
 
-      setRideData(data);
+      // ✅ NEW: Load accepted reservations to calculate actual commission
+      const { data: reservations, error: reservationsError } = await supabase
+        .from('carpool_bookings')
+        .select('*')
+        .eq('ride_id', rideId)
+        .eq('status', 'accepted');
+
+      if (reservationsError) {
+        console.error('Error loading reservations:', reservationsError);
+        Alert.alert('Erreur', 'Impossible de charger les réservations');
+        router.back();
+        return;
+      }
+
+      console.log('[EndTripPayment] ✅ Loaded accepted reservations:', reservations?.length || 0);
+
+      // ✅ NEW: Calculate totals based on accepted reservations
+      const totalSeatsReserved = (reservations || []).reduce(
+        (sum, r) => sum + (r.number_of_passengers || 0),
+        0
+      );
+      const prixTotal = totalSeatsReserved * ride.price_per_seat;
+      const totalCommission = (reservations || []).reduce(
+        (sum, r) => sum + (r.commission_blocked || 0),
+        0
+      );
+      const prixPrestataire = prixTotal - totalCommission;
+
+      console.log('[EndTripPayment] ✅ Calculated amounts:', {
+        totalSeatsReserved,
+        pricePerSeat: ride.price_per_seat,
+        prixTotal,
+        totalCommission,
+        prixPrestataire,
+      });
+
+      // Update ride data with calculated amounts
+      const updatedRideData = {
+        ...ride,
+        prix_total: prixTotal,
+        commission_yombal: totalCommission,
+        prix_prestataire: prixPrestataire,
+        total_seats_reserved: totalSeatsReserved,
+      };
+
+      setRideData(updatedRideData);
+      setAcceptedReservations(reservations || []);
     } catch (error) {
       console.error('Error in loadRideData:', error);
       Alert.alert('Erreur', 'Une erreur est survenue');
@@ -91,13 +139,17 @@ export default function EndTripPaymentScreen() {
       // Get user ID
       const userId = await getUserId();
 
-      // 1. Update ride payment status
+      // 1. Update ride payment status in Supabase
       const { error: updateError } = await supabase
         .from('carpool_rides')
         .update({
           statut_paiement: 'paye',
           mode_paiement: selectedPaymentMethod,
           date_paiement: new Date().toISOString(),
+          // ✅ NEW: Update with actual amounts based on reservations
+          prix_total: rideData.prix_total,
+          commission_yombal: rideData.commission_yombal,
+          prix_prestataire: rideData.prix_prestataire,
         })
         .eq('id', rideId);
 
@@ -105,24 +157,24 @@ export default function EndTripPaymentScreen() {
         throw new Error('Erreur lors de la mise à jour du trajet');
       }
 
-      // 2. Credit driver wallet
+      // 2. Credit driver wallet with net amount
       const creditResult = await creditDriverWallet(
         userId,
         rideData.prix_prestataire,
         rideId,
-        `Gain covoiturage ${rideData.departure_city} → ${rideData.arrival_city}`
+        `Gain covoiturage ${rideData.departure_city} → ${rideData.arrival_city} (${rideData.total_seats_reserved} place(s) réservée(s))`
       );
 
       if (!creditResult.success) {
         throw new Error('Erreur lors du crédit du wallet');
       }
 
-      // 3. Debit commission
+      // 3. Debit commission (unblock the blocked amount)
       const debitResult = await debitCommission(
         userId,
         rideData.commission_yombal,
         rideId,
-        `Commission Yombal Yoon - ${rideData.departure_city} → ${rideData.arrival_city}`,
+        `Commission Yombal Yoon - ${rideData.departure_city} → ${rideData.arrival_city} (${rideData.total_seats_reserved} place(s))`,
         rideData.commission_yombal // Unblock the same amount
       );
 
@@ -258,16 +310,49 @@ export default function EndTripPaymentScreen() {
               </Text>
             </View>
 
+            {/* ✅ NEW: Show reservation details */}
+            <View style={[styles.infoBox, { backgroundColor: colors.primary + '15' }]}>
+              <IconSymbol
+                ios_icon_name="person.2.fill"
+                android_material_icon_name="group"
+                size={20}
+                color={colors.primary}
+              />
+              <Text style={[styles.infoText, { color: isDark ? colors.darkText : colors.text }]}>
+                {rideData.total_seats_reserved} place(s) réservée(s) sur {rideData.seats_total} déclarée(s)
+              </Text>
+            </View>
+
             <View style={styles.divider} />
 
             <View style={styles.amountRow}>
               <Text style={[styles.amountLabel, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
-                Prix total
+                Prix par place
               </Text>
               <Text style={[styles.amountValue, { color: isDark ? colors.darkText : colors.text }]}>
+                {formatCurrency(rideData.price_per_seat)}
+              </Text>
+            </View>
+
+            <View style={styles.amountRow}>
+              <Text style={[styles.amountLabel, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+                Places réservées × Prix
+              </Text>
+              <Text style={[styles.amountValue, { color: isDark ? colors.darkText : colors.text }]}>
+                {rideData.total_seats_reserved} × {formatCurrency(rideData.price_per_seat)}
+              </Text>
+            </View>
+
+            <View style={styles.amountRow}>
+              <Text style={[styles.amountLabel, { color: isDark ? colors.darkText : colors.text }]}>
+                Prix total encaissé
+              </Text>
+              <Text style={[styles.amountValue, styles.totalEncaisse, { color: colors.success }]}>
                 {formatCurrency(rideData.prix_total)}
               </Text>
             </View>
+
+            <View style={styles.divider} />
 
             <View style={styles.amountRow}>
               <Text style={[styles.amountLabel, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
@@ -287,6 +372,39 @@ export default function EndTripPaymentScreen() {
               </Text>
             </View>
           </View>
+
+          {/* Reservations Details */}
+          {acceptedReservations.length > 0 && (
+            <View style={[styles.reservationsCard, { backgroundColor: isDark ? colors.darkCard : colors.card }]}>
+              <Text style={[styles.sectionTitle, { color: isDark ? colors.darkText : colors.text }]}>
+                Détail des réservations acceptées
+              </Text>
+
+              {acceptedReservations.map((reservation, index) => (
+                <View key={reservation.id} style={styles.reservationItem}>
+                  <View style={styles.reservationHeader}>
+                    <IconSymbol
+                      ios_icon_name="person.fill"
+                      android_material_icon_name="person"
+                      size={16}
+                      color={colors.primary}
+                    />
+                    <Text style={[styles.reservationName, { color: isDark ? colors.darkText : colors.text }]}>
+                      {reservation.passenger_name}
+                    </Text>
+                  </View>
+                  <View style={styles.reservationDetails}>
+                    <Text style={[styles.reservationText, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+                      {reservation.number_of_passengers} place(s) × {formatCurrency(rideData.price_per_seat)} = {formatCurrency(reservation.number_of_passengers * rideData.price_per_seat)}
+                    </Text>
+                    <Text style={[styles.reservationCommission, { color: colors.accent }]}>
+                      Commission: {formatCurrency(reservation.commission_blocked || 0)}
+                    </Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+          )}
 
           {/* Payment Methods */}
           <View style={[styles.paymentCard, { backgroundColor: isDark ? colors.darkCard : colors.card }]}>
@@ -372,7 +490,7 @@ export default function EndTripPaymentScreen() {
             <Text style={[styles.infoText, { color: isDark ? colors.darkText : colors.text }]}>
               {IS_TEST_MODE 
                 ? '🎉 Mode test activé : Vous recevrez 100% du montant sans commission !' 
-                : 'Après confirmation, votre wallet sera crédité du montant net et la commission sera automatiquement prélevée.'}
+                : `✅ Commission calculée sur ${rideData.total_seats_reserved} place(s) réservée(s), pas sur ${rideData.seats_total} place(s) déclarée(s).`}
             </Text>
           </View>
         </View>
@@ -510,6 +628,19 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
+  infoBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+  },
+  infoText: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '600',
+  },
   divider: {
     height: 1,
     backgroundColor: colors.border,
@@ -540,9 +671,46 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginLeft: 12,
   },
+  totalEncaisse: {
+    fontSize: 18,
+    fontWeight: '700',
+  },
   totalValue: {
     fontSize: 20,
     fontWeight: '800',
+  },
+  reservationsCard: {
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 20,
+    boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.08)',
+    elevation: 3,
+  },
+  reservationItem: {
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  reservationHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 6,
+  },
+  reservationName: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  reservationDetails: {
+    marginLeft: 24,
+  },
+  reservationText: {
+    fontSize: 13,
+    marginBottom: 4,
+  },
+  reservationCommission: {
+    fontSize: 12,
+    fontWeight: '600',
   },
   paymentCard: {
     borderRadius: 16,
@@ -577,11 +745,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 16,
     gap: 12,
-  },
-  infoText: {
-    flex: 1,
-    fontSize: 14,
-    lineHeight: 20,
   },
   modalOverlay: {
     flex: 1,

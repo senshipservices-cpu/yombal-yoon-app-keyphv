@@ -3,7 +3,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode, useCa
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '@/app/integrations/supabase/client';
 import type { Tables, TablesInsert } from '@/app/integrations/supabase/types';
-import { calculateAmounts, blockCommission, getOrCreateWallet } from '@/utils/walletUtils';
+import { calculateAmounts, blockCommission, unblockCommission, calculateReservationCommission, getOrCreateWallet } from '@/utils/walletUtils';
 import {
   notifyDriverNewReservation,
   notifyPassengerReservationAccepted,
@@ -59,6 +59,7 @@ export interface Reservation {
   passengerRating?: number;
   passengerRatingComment?: string;
   ratedAt?: string;
+  commissionBlocked?: number; // Commission blocked for this reservation
 }
 
 interface CovoiturageContextType {
@@ -215,6 +216,7 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
               passengerRating: (booking as any).passenger_rating || undefined,
               passengerRatingComment: (booking as any).passenger_rating_comment || undefined,
               ratedAt: (booking as any).rated_at || undefined,
+              commissionBlocked: (booking as any).commission_blocked || undefined,
             };
           } catch (conversionError) {
             console.error('[CovoiturageContext] Error converting booking:', booking.id, conversionError);
@@ -304,24 +306,22 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
         console.log('[CovoiturageContext] ✅ Driver phone provided:', driverPhone);
       }
 
+      // ✅ NEW: Don't calculate commission on total seats at ride creation
+      // Commission will be calculated per reservation when accepted
       const totalSeats = rideData.totalSeats;
       const pricePerSeat = rideData.pricePerPassenger;
-      const prixTotal = totalSeats * pricePerSeat;
       
-      const { commissionYombal, prixPrestataire } = calculateAmounts(prixTotal);
-
-      console.log('[CovoiturageContext] Calculated amounts:', {
-        prixTotal,
-        commissionYombal,
-        prixPrestataire,
-      });
+      // Store price per seat for later commission calculation
+      console.log('[CovoiturageContext] ✅ NEW LOGIC: Commission will be calculated per reservation');
+      console.log('[CovoiturageContext] Price per seat:', pricePerSeat);
+      console.log('[CovoiturageContext] Total seats declared:', totalSeats);
 
       const departureDatetime = new Date(`${rideData.date}T${rideData.time}`).toISOString();
 
       const supabaseData: TablesInsert<'carpool_rides'> = {
         driver_id: driverId,
         driver_name: rideData.driverName,
-        driver_phone: driverPhone, // FIX: Use the actual driver phone number
+        driver_phone: driverPhone,
         departure_city: rideData.departureCity,
         arrival_city: rideData.arrivalCity,
         departure_datetime: departureDatetime,
@@ -337,9 +337,10 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
         arrival_lng: rideData.arrivalLng || null,
         distance_km: rideData.distanceKm || null,
         duration_minutes: rideData.durationMinutes || null,
-        prix_total: prixTotal,
-        commission_yombal: commissionYombal,
-        prix_prestataire: prixPrestataire,
+        // ✅ NEW: Initialize with 0, will be calculated from accepted reservations
+        prix_total: 0,
+        commission_yombal: 0,
+        prix_prestataire: 0,
         statut_paiement: 'en_attente',
       };
 
@@ -367,12 +368,9 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
       console.log('[CovoiturageContext] Created ride driver_id:', data.driver_id);
       console.log('[CovoiturageContext] Created ride driver_phone:', data.driver_phone);
 
-      try {
-        await blockCommission(driverId, commissionYombal);
-        console.log('[CovoiturageContext] Commission blocked in wallet');
-      } catch (walletError) {
-        console.error('[CovoiturageContext] Error blocking commission (non-critical):', walletError);
-      }
+      // ✅ NEW: Don't block commission at ride creation
+      // Commission will be blocked when reservations are accepted
+      console.log('[CovoiturageContext] ✅ Skipping commission blocking at ride creation');
 
       const newRide: Ride = {
         id: data.id,
@@ -503,6 +501,7 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
         id: Date.now().toString(),
         status: 'pending',
         createdAt: new Date().toISOString(),
+        commissionBlocked: 0, // No commission blocked yet (only when accepted)
       };
 
       const updatedRides = rides.map(r => {
@@ -620,16 +619,19 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
         return { success: false, message: 'Trajet introuvable' };
       }
 
-      const { error: updateError } = await supabase
-        .from('carpool_bookings')
-        .update({ status })
-        .eq('id', reservationId);
+      // ✅ NEW: Calculate commission for this specific reservation
+      const commissionForReservation = calculateReservationCommission(
+        ride.pricePerPassenger,
+        reservation.numberOfPassengers
+      );
 
-      if (updateError) {
-        console.error('[CovoiturageContext] Error updating booking status:', updateError);
-        return { success: false, message: 'Erreur lors de la mise à jour' };
-      }
+      console.log('[CovoiturageContext] ✅ Commission for this reservation:', {
+        pricePerSeat: ride.pricePerPassenger,
+        numberOfSeats: reservation.numberOfPassengers,
+        commission: commissionForReservation,
+      });
 
+      // ✅ NEW: Block commission when accepting reservation
       if (status === 'accepted') {
         const acceptedReservations = reservations.filter(
           r => r && r.rideId === ride.id && r.status === 'accepted'
@@ -645,11 +647,47 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
             message: 'Pas assez de places disponibles pour accepter cette réservation' 
           };
         }
+
+        // Block commission for this reservation
+        try {
+          await blockCommission(ride.driverId, commissionForReservation);
+          console.log('[CovoiturageContext] ✅ Commission blocked for accepted reservation');
+        } catch (walletError) {
+          console.error('[CovoiturageContext] Error blocking commission (non-critical):', walletError);
+        }
+      }
+
+      // ✅ NEW: Unblock commission when refusing reservation
+      if (status === 'refused' && reservation.commissionBlocked && reservation.commissionBlocked > 0) {
+        try {
+          await unblockCommission(ride.driverId, reservation.commissionBlocked);
+          console.log('[CovoiturageContext] ✅ Commission unblocked for refused reservation');
+        } catch (walletError) {
+          console.error('[CovoiturageContext] Error unblocking commission (non-critical):', walletError);
+        }
+      }
+
+      // Update in Supabase
+      const { error: updateError } = await supabase
+        .from('carpool_bookings')
+        .update({ 
+          status,
+          commission_blocked: status === 'accepted' ? commissionForReservation : 0
+        })
+        .eq('id', reservationId);
+
+      if (updateError) {
+        console.error('[CovoiturageContext] Error updating booking status:', updateError);
+        return { success: false, message: 'Erreur lors de la mise à jour' };
       }
 
       const updatedReservations = reservations.map(r => {
         if (r && r.id === reservationId) {
-          return { ...r, status };
+          return { 
+            ...r, 
+            status,
+            commissionBlocked: status === 'accepted' ? commissionForReservation : 0
+          };
         }
         return r;
       });
@@ -744,9 +782,25 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
       const reservation = reservations.find(r => r && r.id === reservationId);
       if (!reservation) return;
 
+      // ✅ NEW: Unblock commission if reservation was accepted
+      if (reservation.status === 'accepted' && reservation.commissionBlocked && reservation.commissionBlocked > 0) {
+        const ride = rides.find(r => r && r.id === reservation.rideId);
+        if (ride) {
+          try {
+            await unblockCommission(ride.driverId, reservation.commissionBlocked);
+            console.log('[CovoiturageContext] ✅ Commission unblocked for cancelled reservation');
+          } catch (walletError) {
+            console.error('[CovoiturageContext] Error unblocking commission (non-critical):', walletError);
+          }
+        }
+      }
+
       const { error: updateError } = await supabase
         .from('carpool_bookings')
-        .update({ status: 'cancelled_by_passenger' })
+        .update({ 
+          status: 'cancelled_by_passenger',
+          commission_blocked: 0
+        })
         .eq('id', reservationId);
 
       if (updateError) {
@@ -838,6 +892,19 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
         currentStatus: ride.status,
       });
 
+      // ✅ NEW: Unblock all commissions for accepted reservations
+      const rideReservations = reservations.filter(r => r && r.rideId === rideId && r.status === 'accepted');
+      const totalCommissionToUnblock = rideReservations.reduce((sum, r) => sum + (r.commissionBlocked || 0), 0);
+
+      if (totalCommissionToUnblock > 0) {
+        try {
+          await unblockCommission(ride.driverId, totalCommissionToUnblock);
+          console.log('[CovoiturageContext] ✅ Total commission unblocked for cancelled ride:', totalCommissionToUnblock);
+        } catch (walletError) {
+          console.error('[CovoiturageContext] Error unblocking commission (non-critical):', walletError);
+        }
+      }
+
       // Check if it's a last-minute cancellation (less than X hours before departure)
       const departureTime = new Date(`${ride.date}T${ride.time}`);
       const now = new Date();
@@ -863,18 +930,21 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
 
       console.log('[CovoiturageContext] Supabase update successful:', updatedRide);
 
-      const rideReservations = reservations.filter(r => r && r.rideId === rideId);
-      const passengerIds = rideReservations.map(r => r.passengerId);
+      const allRideReservations = reservations.filter(r => r && r.rideId === rideId);
+      const passengerIds = allRideReservations.map(r => r.passengerId);
 
-      console.log('[CovoiturageContext] Found reservations to update:', rideReservations.length);
+      console.log('[CovoiturageContext] Found reservations to update:', allRideReservations.length);
 
-      if (rideReservations.length > 0) {
-        const bookingIds = rideReservations.map(r => r.id);
+      if (allRideReservations.length > 0) {
+        const bookingIds = allRideReservations.map(r => r.id);
         console.log('[CovoiturageContext] Updating bookings in Supabase:', bookingIds);
         
         const { error: bookingsError } = await supabase
           .from('carpool_bookings')
-          .update({ status: 'refused' })
+          .update({ 
+            status: 'refused',
+            commission_blocked: 0
+          })
           .in('id', bookingIds);
 
         if (bookingsError) {
@@ -884,7 +954,7 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
         }
 
         // Send notifications to all passengers
-        for (const reservation of rideReservations) {
+        for (const reservation of allRideReservations) {
           try {
             if (isLastMinute) {
               // Last-minute cancellation: send push + WhatsApp
@@ -952,7 +1022,7 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
 
       const updatedReservations = reservations.map(r => {
         if (r && r.rideId === rideId && r.status !== 'refused') {
-          return { ...r, status: 'refused' as const };
+          return { ...r, status: 'refused' as const, commissionBlocked: 0 };
         }
         return r;
       });
@@ -1129,14 +1199,35 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
         durationActualMinutes = Math.round((endTime.getTime() - startTime.getTime()) / (1000 * 60));
       }
 
-      // Update in Supabase
+      // ✅ NEW: Calculate total amounts based on accepted reservations
+      const acceptedReservations = reservations.filter(
+        r => r && r.rideId === rideId && r.status === 'accepted'
+      );
+
+      const totalSeatsReserved = acceptedReservations.reduce((sum, r) => sum + r.numberOfPassengers, 0);
+      const prixTotal = totalSeatsReserved * ride.pricePerPassenger;
+      const totalCommission = acceptedReservations.reduce((sum, r) => sum + (r.commissionBlocked || 0), 0);
+      const prixPrestataire = prixTotal - totalCommission;
+
+      console.log('[CovoiturageContext] ✅ Final amounts based on accepted reservations:', {
+        totalSeatsReserved,
+        prixTotal,
+        totalCommission,
+        prixPrestataire,
+      });
+
+      // Update in Supabase with calculated amounts
       const { error: updateError } = await supabase
         .from('carpool_rides')
         .update({ 
           ride_status: 'ended',
           ended_at: endedAt,
           duration_actual_minutes: durationActualMinutes,
-          rating_requested_at: endedAt
+          rating_requested_at: endedAt,
+          // ✅ NEW: Update with actual amounts based on reservations
+          prix_total: prixTotal,
+          commission_yombal: totalCommission,
+          prix_prestataire: prixPrestataire,
         })
         .eq('id', rideId);
 
