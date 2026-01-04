@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState, useCallback, useRef } from "react";
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform, Image } from "react-native";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from "react-native";
 import { useTheme } from "@react-navigation/native";
 import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -281,12 +281,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingTop: Platform.OS === 'android' ? 48 : 0,
-    paddingBottom: 140,
+    paddingBottom: 40,
   },
   header: {
     padding: 20,
-    paddingTop: Platform.OS === 'android' ? 20 : 60,
+    paddingTop: 60,
     paddingBottom: 24,
   },
   headerContent: {
@@ -353,7 +352,10 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 18,
     marginTop: 8,
-    boxShadow: '0px 2px 10px rgba(0, 0, 0, 0.1)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
     elevation: 4,
     borderLeftWidth: 5,
     borderLeftColor: colors.secondary,
@@ -393,13 +395,19 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     padding: 20,
     marginBottom: 16,
-    boxShadow: '0px 3px 10px rgba(0, 0, 0, 0.1)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
     elevation: 4,
     gap: 18,
     position: 'relative',
   },
   serviceCardHighlighted: {
-    boxShadow: '0px 5px 18px rgba(0, 128, 0, 0.3)',
+    shadowColor: '#008000',
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.3,
+    shadowRadius: 18,
     elevation: 7,
   },
   highlightBadge: {
@@ -412,7 +420,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 14,
-    boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.2)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
     elevation: 5,
   },
   highlightBadgeText: {

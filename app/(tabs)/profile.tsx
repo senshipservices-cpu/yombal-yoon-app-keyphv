@@ -1,6 +1,6 @@
 
-import React, { useState, useEffect } from "react";
-import { View, Text, StyleSheet, ScrollView, Platform, TouchableOpacity, Switch, Alert, Linking, ActivityIndicator } from "react-native";
+import React, { useState, useEffect, useCallback } from "react";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Alert, Linking, ActivityIndicator } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { IconSymbol } from "@/components/IconSymbol";
 import { useTheme } from "@react-navigation/native";
@@ -35,18 +35,15 @@ export default function ProfileScreen() {
 
   /**
    * BLOC 2 - Load wallet using the new utility function with retry logic
-   * Handles errors gracefully and provides retry functionality
-   * Implements iOS timing fix: waits for profile to load before attempting wallet load
    */
-  const loadWallet = React.useCallback(async () => {
+  const loadWallet = useCallback(async () => {
     try {
       setIsLoadingWallet(true);
       setWalletError(null);
 
-      // Check if profile.id is available (iOS timing fix)
+      // Check if profile.id is available
       if (!profile.id) {
         console.log('⏳ Profile ID not yet available, showing loader...');
-        // Keep loading state, will retry when profile.id becomes available
         return;
       }
 
@@ -92,7 +89,6 @@ export default function ProfileScreen() {
 
   /**
    * Retry loading wallet
-   * Implements retry logic as specified in requirements
    */
   const handleRetryWallet = async () => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -108,6 +104,7 @@ export default function ProfileScreen() {
   const handleLogout = async () => {
     try {
       setIsLoggingOut(true);
+      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       console.log('🔄 Starting logout process...');
 
       // 1. Sign out from Supabase (clears all sessions including AsyncStorage)
@@ -139,7 +136,10 @@ export default function ProfileScreen() {
       await resetProfile();
       console.log('✅ Profile context reset');
 
-      // 4. Show success message and navigate
+      // 4. Haptic feedback for success
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+      // 5. Show success message and navigate
       Alert.alert(
         "Déconnexion réussie",
         "Vous avez été déconnecté avec succès.",
@@ -253,7 +253,7 @@ export default function ProfileScreen() {
 
   const hasProviderRole = profile.roles.driver || profile.roles.delivery;
 
-  // iOS timing fix: Show loader if profile is still loading
+  // Show loader if profile is still loading
   if (isLoading || !profile.id) {
     return (
       <SafeAreaView 
@@ -280,10 +280,7 @@ export default function ProfileScreen() {
     >
       <ScrollView
         style={styles.container}
-        contentContainerStyle={[
-          styles.contentContainer,
-          Platform.OS !== 'ios' && styles.contentContainerWithTabBar
-        ]}
+        contentContainerStyle={styles.contentContainer}
         showsVerticalScrollIndicator={false}
       >
         {/* 1️⃣ HEADER – Informations utilisateur */}
@@ -443,7 +440,7 @@ export default function ProfileScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* 💰 SECTION – MON WALLET YOMBAL YOON (BLOC 2 Implementation with improved error handling) */}
+        {/* 💰 SECTION – MON WALLET YOMBAL YOON (with improved error handling) */}
         {hasProviderRole && (
           <View style={[styles.sectionCard, { backgroundColor: isDark ? colors.darkCard : colors.card }]}>
             <Text style={[styles.sectionTitle, { color: isDark ? colors.darkText : colors.text }]}>
@@ -474,7 +471,6 @@ export default function ProfileScreen() {
                 <TouchableOpacity
                   style={[styles.walletRetryButton, { backgroundColor: colors.primary }]}
                   onPress={handleRetryWallet}
-                  activeOpacity={0.8}
                 >
                   <IconSymbol
                     ios_icon_name="arrow.clockwise"
@@ -786,30 +782,6 @@ export default function ProfileScreen() {
           <TouchableOpacity
             style={styles.settingItem}
             activeOpacity={0.7}
-            onPress={() => router.push('/test-platform-consistency')}
-          >
-            <View style={styles.settingLeft}>
-              <IconSymbol
-                ios_icon_name="checkmark.circle.fill"
-                android_material_icon_name="check-circle"
-                size={20}
-                color={colors.primary}
-              />
-              <Text style={[styles.settingItemText, { color: isDark ? colors.darkText : colors.text }]}>
-                Tests de Cohérence
-              </Text>
-            </View>
-            <IconSymbol
-              ios_icon_name="chevron.right"
-              android_material_icon_name="chevron-right"
-              size={20}
-              color={isDark ? colors.darkTextSecondary : colors.textSecondary}
-            />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.settingItem}
-            activeOpacity={0.7}
             onPress={handleOpenGitHub}
           >
             <View style={styles.settingLeft}>
@@ -880,9 +852,6 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     padding: 20,
-    paddingTop: Platform.OS === 'android' ? 48 : 20,
-  },
-  contentContainerWithTabBar: {
     paddingBottom: 120,
   },
   loadingContainer: {
@@ -905,7 +874,10 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 20,
     marginBottom: 16,
-    boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.08)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
     elevation: 3,
   },
   headerContent: {
@@ -920,7 +892,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 16,
-    boxShadow: '0px 4px 12px rgba(0, 128, 0, 0.3)',
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
     elevation: 5,
   },
   headerInfo: {
@@ -938,7 +913,10 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 14,
     alignItems: 'center',
-    boxShadow: '0px 3px 8px rgba(0, 128, 0, 0.2)',
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
     elevation: 3,
   },
   editButtonText: {
@@ -952,7 +930,10 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 20,
     marginBottom: 16,
-    boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.08)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
     elevation: 3,
   },
   sectionTitle: {
@@ -1073,7 +1054,10 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 20,
     marginBottom: 12,
-    boxShadow: '0px 4px 12px rgba(0, 128, 0, 0.3)',
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
     elevation: 5,
   },
   walletHeader: {
@@ -1129,7 +1113,10 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 12,
     marginBottom: 12,
-    boxShadow: '0px 3px 8px rgba(0, 128, 0, 0.3)',
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
     elevation: 4,
   },
   walletMainButtonText: {
