@@ -774,29 +774,66 @@ export default function MyRidesScreen() {
                       )}
 
                       {isStarted && (
-                        <TouchableOpacity
-                          style={[
-                            styles.endTripButton, 
-                            { 
-                              backgroundColor: colors.primary,
-                            }
-                          ]}
-                          onPress={() => {
-                            console.log('[my-rides] End trip button pressed for ride:', ride.id);
-                            router.push(`/covoiturage/end-trip-payment?rideId=${ride.id}`);
-                          }}
-                          activeOpacity={0.7}
-                        >
-                          <IconSymbol
-                            ios_icon_name="checkmark.circle.fill"
-                            android_material_icon_name="check-circle"
-                            size={16}
-                            color="#FFFFFF"
-                          />
-                          <Text style={[styles.endTripButtonText, { color: '#FFFFFF' }]}>
-                            Terminer le trajet
-                          </Text>
-                        </TouchableOpacity>
+                        <React.Fragment>
+                          <TouchableOpacity
+                            style={[
+                              styles.trackingButton, 
+                              { 
+                                backgroundColor: '#2196F3',
+                              }
+                            ]}
+                            onPress={() => {
+                              console.log('[my-rides] Tracking button pressed for ride:', ride.id);
+                              router.push({
+                                pathname: '/covoiturage/ride-tracking',
+                                params: {
+                                  rideId: ride.id,
+                                  driverId: ride.driverId,
+                                  plannedDistance: ride.distanceKm || 0,
+                                  departureLat: ride.departureLat || 0,
+                                  departureLng: ride.departureLng || 0,
+                                  arrivalLat: ride.arrivalLat || 0,
+                                  arrivalLng: ride.arrivalLng || 0,
+                                },
+                              });
+                            }}
+                            activeOpacity={0.7}
+                          >
+                            <IconSymbol
+                              ios_icon_name="location.fill"
+                              android_material_icon_name="my-location"
+                              size={16}
+                              color="#FFFFFF"
+                            />
+                            <Text style={[styles.trackingButtonText, { color: '#FFFFFF' }]}>
+                              Suivi GPS
+                            </Text>
+                          </TouchableOpacity>
+
+                          <TouchableOpacity
+                            style={[
+                              styles.endTripButton, 
+                              { 
+                                backgroundColor: colors.primary,
+                              }
+                            ]}
+                            onPress={() => {
+                              console.log('[my-rides] End trip button pressed for ride:', ride.id);
+                              router.push(`/covoiturage/end-trip-payment?rideId=${ride.id}`);
+                            }}
+                            activeOpacity={0.7}
+                          >
+                            <IconSymbol
+                              ios_icon_name="checkmark.circle.fill"
+                              android_material_icon_name="check-circle"
+                              size={16}
+                              color="#FFFFFF"
+                            />
+                            <Text style={[styles.endTripButtonText, { color: '#FFFFFF' }]}>
+                              Terminer le trajet
+                            </Text>
+                          </TouchableOpacity>
+                        </React.Fragment>
                       )}
 
                       <TouchableOpacity
@@ -1080,6 +1117,19 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   startTripButtonText: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  trackingButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+  },
+  trackingButtonText: {
     fontSize: 14,
     fontWeight: '700',
   },
