@@ -31,11 +31,19 @@ async function sendViaTwilio(
 ): Promise<{ success: boolean; error?: string; method?: string }> {
   const sid = Deno.env.get("TWILIO_ACCOUNT_SID");
   const token = Deno.env.get("TWILIO_AUTH_TOKEN");
-  const wa = Deno.env.get("TWILIO_WHATSAPP_NUMBER");
-  const smsNumber = Deno.env.get("TWILIO_PHONE_NUMBER");
+  const whatsappNumber = Deno.env.get("TWILIO_WHATSAPP_NUMBER");
+  const smsNumber = Deno.env.get("TWILIO_SMS_NUMBER");
+
+  console.log('🔧 Twilio Configuration:', {
+    hasSid: !!sid,
+    hasToken: !!token,
+    whatsappNumber: whatsappNumber || 'NOT SET',
+    smsNumber: smsNumber || 'NOT SET',
+    mode: IS_PRODUCTION_MODE ? 'Production' : 'Test'
+  });
 
   if (!sid || !token) {
-    return { success: false, error: "Twilio non configuré." };
+    return { success: false, error: "Twilio non configuré (SID/Token manquants)." };
   }
 
   const auth = btoa(`${sid}:${token}`);
@@ -43,15 +51,15 @@ async function sendViaTwilio(
   let toNumber: string;
 
   // Try WhatsApp first, fallback to SMS if WhatsApp fails
-  if (method === 'whatsapp' && wa) {
-    fromNumber = `whatsapp:${wa}`;
+  if (method === 'whatsapp' && whatsappNumber) {
+    fromNumber = `whatsapp:${whatsappNumber}`;
     toNumber = `whatsapp:${phone}`;
   } else if (smsNumber) {
     fromNumber = smsNumber;
     toNumber = phone;
     method = 'sms';
   } else {
-    return { success: false, error: "Aucun numéro Twilio configuré." };
+    return { success: false, error: "Aucun numéro Twilio configuré (TWILIO_WHATSAPP_NUMBER ou TWILIO_SMS_NUMBER)." };
   }
 
   console.log(`📤 Sending OTP via ${method} from ${fromNumber} to ${toNumber} [Mode: ${IS_PRODUCTION_MODE ? 'Production' : 'Test'}]`);
