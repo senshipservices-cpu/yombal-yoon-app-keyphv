@@ -12,12 +12,14 @@ import {
   Modal,
   Animated,
   KeyboardAvoidingView,
+  Linking,
 } from 'react-native';
 import { useTheme } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
+import * as Clipboard from 'expo-clipboard';
 import { colors } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
 import { useCovoiturage } from '@/contexts/CovoiturageContext';
@@ -88,6 +90,12 @@ export default function PublishRideScreen() {
   const [rideDistanceKm, setRideDistanceKm] = useState<number>(0);
   const [rideDurationMinutes, setRideDurationMinutes] = useState<number>(0);
   const [isCalculatingDistance, setIsCalculatingDistance] = useState(false);
+
+  // TODO: Backend Integration - Meeting point will be stored in carpool_rides.meeting_point column
+  const [meetingPoint, setMeetingPoint] = useState('');
+  const [meetingPointLat, setMeetingPointLat] = useState<number | null>(null);
+  const [meetingPointLng, setMeetingPointLng] = useState<number | null>(null);
+  const [showMeetingPointModal, setShowMeetingPointModal] = useState(false);
 
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
@@ -242,6 +250,13 @@ export default function PublishRideScreen() {
     setDepartureLat(lat);
     setDepartureLng(lng);
     setDepartureCityError('');
+    
+    // Auto-set meeting point to departure city if not already set
+    if (!meetingPoint) {
+      setMeetingPoint(city);
+      setMeetingPointLat(lat);
+      setMeetingPointLng(lng);
+    }
   };
 
   const handleSelectArrivalCity = (city: string, placeId: string, lat: number, lng: number) => {
@@ -251,6 +266,80 @@ export default function PublishRideScreen() {
     setArrivalLat(lat);
     setArrivalLng(lng);
     setArrivalCityError('');
+  };
+
+  const handleSelectMeetingPoint = (city: string, placeId: string, lat: number, lng: number) => {
+    console.log('[publish-ride.ios] ✅ Meeting point selected:', { city, placeId, lat, lng });
+    setMeetingPoint(city);
+    setMeetingPointLat(lat);
+    setMeetingPointLng(lng);
+    setShowMeetingPointModal(false);
+  };
+
+  const handleShareMeetingPoint = async () => {
+    if (!meetingPointLat || !meetingPointLng) {
+      Alert.alert('Erreur', 'Veuillez d\'abord définir un point de rencontre');
+      return;
+    }
+
+    const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${meetingPointLat},${meetingPointLng}`;
+    const appleMapsUrl = `http://maps.apple.com/?ll=${meetingPointLat},${meetingPointLng}&q=${encodeURIComponent(meetingPoint)}`;
+
+    Alert.alert(
+      'Partager le point de rencontre',
+      'Choisissez comment partager le point de rencontre avec vos passagers',
+      [
+        {
+          text: 'Google Maps',
+          onPress: async () => {
+            try {
+              const canOpen = await Linking.canOpenURL(googleMapsUrl);
+              if (canOpen) {
+                await Linking.openURL(googleMapsUrl);
+              } else {
+                Alert.alert('Erreur', 'Impossible d\'ouvrir Google Maps');
+              }
+            } catch (error) {
+              console.error('[publish-ride.ios] Error opening Google Maps:', error);
+              Alert.alert('Erreur', 'Impossible d\'ouvrir Google Maps');
+            }
+          }
+        },
+        {
+          text: 'Apple Maps',
+          onPress: async () => {
+            try {
+              const canOpen = await Linking.canOpenURL(appleMapsUrl);
+              if (canOpen) {
+                await Linking.openURL(appleMapsUrl);
+              } else {
+                Alert.alert('Erreur', 'Impossible d\'ouvrir Apple Maps');
+              }
+            } catch (error) {
+              console.error('[publish-ride.ios] Error opening Apple Maps:', error);
+              Alert.alert('Erreur', 'Impossible d\'ouvrir Apple Maps');
+            }
+          }
+        },
+        {
+          text: 'Copier les coordonnées',
+          onPress: async () => {
+            try {
+              await Clipboard.setStringAsync(`${meetingPointLat}, ${meetingPointLng}`);
+              Alert.alert('Copié !', 'Les coordonnées GPS ont été copiées dans le presse-papiers');
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            } catch (error) {
+              console.error('[publish-ride.ios] Error copying coordinates:', error);
+              Alert.alert('Erreur', 'Impossible de copier les coordonnées');
+            }
+          }
+        },
+        {
+          text: 'Annuler',
+          style: 'cancel'
+        }
+      ]
+    );
   };
 
   const handleDateChange = (event: any, selectedDate?: Date) => {
@@ -378,19 +467,11 @@ export default function PublishRideScreen() {
   };
 
   const showSuccessMessage = () => {
-    console.log('[publish-ride.ios] 🎉 ========================================');
-    console.log('[publish-ride.ios] 🎉 SHOWING SUCCESS MESSAGE - iOS');
-    console.log('[publish-ride.ios] 🎉 ========================================');
+    console.log('[publish-ride.ios] 🎉 Showing success message...');
     
-    // iOS FIX: Use setTimeout to ensure Alert is shown on next tick
-    // This prevents any state update conflicts
     setTimeout(() => {
-      console.log('[publish-ride.ios] 🎉 Displaying Alert.alert NOW...');
-      
-      // Trigger haptic feedback
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       
-      // Show Alert dialog - this is the PRIMARY success notification on iOS
       Alert.alert(
         '🎉 Trajet publié !',
         `Votre trajet de ${departureCity} vers ${arrivalCity} a été publié avec succès.\n\nVous pouvez le consulter dans "Mes trajets publiés".`,
@@ -413,12 +494,8 @@ export default function PublishRideScreen() {
         ],
         { cancelable: false }
       );
-      
-      console.log('[publish-ride.ios] 🎉 Alert.alert called successfully');
     }, 100);
 
-    // iOS FIX: Also show the animated modal as a SECONDARY visual confirmation
-    // This runs in parallel with the Alert
     setShowSuccessModal(true);
 
     Animated.sequence([
@@ -439,17 +516,12 @@ export default function PublishRideScreen() {
   };
 
   const handleSubmit = async () => {
-    // iOS FIX: Check if already submitting to prevent double-tap
     if (isSubmitting) {
       console.log('[publish-ride.ios] ⚠️ Already submitting, ignoring duplicate request');
       return;
     }
 
-    console.log('[publish-ride.ios] ========================================');
     console.log('[publish-ride.ios] 🚀 SUBMIT STARTED');
-    console.log('[publish-ride.ios] ========================================');
-    console.log('[publish-ride.ios] 📱 Platform:', Platform.OS);
-    console.log('[publish-ride.ios] 📅 Date:', new Date().toISOString());
 
     const validation = validateForm();
     
@@ -473,51 +545,27 @@ export default function PublishRideScreen() {
       return;
     }
 
-    // iOS FIX: Set submitting state BEFORE any async operations
     setIsSubmitting(true);
     console.log('[publish-ride.ios] 🔒 isSubmitting set to true');
 
     try {
-      // Step 1: Get or create user ID
-      console.log('[publish-ride.ios] ========================================');
-      console.log('[publish-ride.ios] 📝 STEP 1: Getting/Creating User ID');
-      console.log('[publish-ride.ios] ========================================');
       const userId = await getOrCreateUserId();
       console.log('[publish-ride.ios] ✅ User ID obtained:', userId);
 
-      // Step 2: Ensure profile and wallet exist BEFORE creating ride
-      console.log('[publish-ride.ios] ========================================');
-      console.log('[publish-ride.ios] 👤 STEP 2: Ensuring Profile and Wallet');
-      console.log('[publish-ride.ios] ========================================');
       try {
-        // iOS FIX: Use retry logic with longer delays
         const profileWalletResult = await ensureProfileAndWallet(userId, {
           name: profile.fullName || 'Conducteur',
           phone: profile.phoneNumber || '',
-        }, 3); // iOS: Use 3 retries instead of 2
+        }, 3);
         
         if (profileWalletResult) {
-          console.log('[publish-ride.ios] ✅ Profile and wallet ensured:', {
-            profileId: profileWalletResult.profile.id,
-            walletId: profileWalletResult.wallet.id,
-          });
-        } else {
-          console.log('[publish-ride.ios] ⚠️ Profile/wallet result is null, but continuing...');
+          console.log('[publish-ride.ios] ✅ Profile and wallet ensured');
         }
         
-        // iOS FIX: Add a small delay to ensure database consistency
         await new Promise(resolve => setTimeout(resolve, 500));
       } catch (ensureError: any) {
-        console.error('[publish-ride.ios] ========================================');
         console.error('[publish-ride.ios] ❌ ERROR ENSURING PROFILE/WALLET');
-        console.error('[publish-ride.ios] ========================================');
-        console.error('[publish-ride.ios] Error message:', ensureError?.message);
-        console.error('[publish-ride.ios] Error code:', ensureError?.code);
-        console.error('[publish-ride.ios] Error details:', ensureError?.details);
-        console.error('[publish-ride.ios] Error hint:', ensureError?.hint);
-        console.error('[publish-ride.ios] Full error:', JSON.stringify(ensureError, null, 2));
         
-        // iOS FIX: Show specific error to user
         if (ensureError?.code === '23505') {
           Alert.alert(
             'Profil existant',
@@ -536,10 +584,6 @@ export default function PublishRideScreen() {
         return;
       }
 
-      // Step 3: Check debt status
-      console.log('[publish-ride.ios] ========================================');
-      console.log('[publish-ride.ios] 💰 STEP 3: Checking Debt Status');
-      console.log('[publish-ride.ios] ========================================');
       try {
         const debtStatus = await checkDebtStatus(userId);
         console.log('[publish-ride.ios] ✅ Debt status checked:', debtStatus);
@@ -557,18 +601,14 @@ export default function PublishRideScreen() {
 
       setValidationErrors([]);
 
-      // Step 4: Prepare ride data
-      console.log('[publish-ride.ios] ========================================');
-      console.log('[publish-ride.ios] 📦 STEP 4: Preparing Ride Data');
-      console.log('[publish-ride.ios] ========================================');
       const seats = parseInt(availableSeats);
       const price = parseInt(pricePerPassenger);
 
-      // FIX: Include the driver's phone number in the ride data
+      // TODO: Backend Integration - Meeting point data will be saved to carpool_rides.meeting_point
       const rideData = {
         driverId: userId,
         driverName: profile.fullName || 'Conducteur',
-        driverPhone: profile.phoneNumber || '', // FIX: Pass the actual phone number
+        driverPhone: profile.phoneNumber || '',
         departureCity: departureCity.trim(),
         arrivalCity: arrivalCity.trim(),
         date: departureDate!.toISOString().split('T')[0],
@@ -584,58 +624,32 @@ export default function PublishRideScreen() {
         arrivalLng: arrivalLng!,
         distanceKm: rideDistanceKm,
         durationMinutes: rideDurationMinutes,
+        meetingPoint: meetingPoint.trim() || undefined,
+        meetingPointLat: meetingPointLat || undefined,
+        meetingPointLng: meetingPointLng || undefined,
       };
 
-      console.log('[publish-ride.ios] 📋 Ride data prepared:', JSON.stringify(rideData, null, 2));
-      console.log('[publish-ride.ios] 📞 Driver phone being sent:', rideData.driverPhone);
+      console.log('[publish-ride.ios] 📋 Ride data prepared');
 
-      // Step 5: Add ride
-      console.log('[publish-ride.ios] ========================================');
-      console.log('[publish-ride.ios] 🚗 STEP 5: Publishing Ride to Supabase');
-      console.log('[publish-ride.ios] ========================================');
       await addRide(rideData);
 
-      console.log('[publish-ride.ios] ========================================');
       console.log('[publish-ride.ios] ✅ RIDE PUBLISHED SUCCESSFULLY!');
-      console.log('[publish-ride.ios] ========================================');
 
-      // Step 6: Save favorite route
-      console.log('[publish-ride.ios] 📝 STEP 6: Saving favorite route...');
       await saveFavoriteRoute();
 
-      console.log('[publish-ride.ios] ========================================');
-      console.log('[publish-ride.ios] ✅ SUBMIT COMPLETED SUCCESSFULLY');
-      console.log('[publish-ride.ios] ========================================');
-      
-      // iOS FIX: Reset submitting state BEFORE showing success message
       setIsSubmitting(false);
       console.log('[publish-ride.ios] 🔓 isSubmitting set to false');
       
-      // iOS FIX: Show success message with setTimeout to ensure it appears
       showSuccessMessage();
     } catch (error: any) {
-      console.error('[publish-ride.ios] ========================================');
       console.error('[publish-ride.ios] ❌❌❌ SUBMIT FAILED ❌❌❌');
-      console.error('[publish-ride.ios] ========================================');
-      console.error('[publish-ride.ios] 🔴 Error Type:', typeof error);
-      console.error('[publish-ride.ios] 🔴 Error Name:', error?.name);
-      console.error('[publish-ride.ios] 🔴 Error Message:', error?.message);
-      console.error('[publish-ride.ios] 🔴 Error Code:', error?.code);
-      console.error('[publish-ride.ios] 🔴 Error Details:', error?.details);
-      console.error('[publish-ride.ios] 🔴 Error Hint:', error?.hint);
-      console.error('[publish-ride.ios] 🔴 Error Status:', error?.status);
-      console.error('[publish-ride.ios] 🔴 Error StatusCode:', error?.statusCode);
-      console.error('[publish-ride.ios] 🔴 Full Error Object:', JSON.stringify(error, null, 2));
-      console.error('[publish-ride.ios] 🔴 Error Stack:', error?.stack);
-      console.error('[publish-ride.ios] ========================================');
+      console.error('[publish-ride.ios] Error:', error);
       
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       
-      // Build detailed error message for user
       let errorTitle = 'Erreur Supabase';
       let errorMessage = 'Erreur lors de la publication du trajet.\n\n';
       
-      // Add all available error information
       if (error?.message) {
         errorMessage += `Message: ${error.message}\n\n`;
       }
@@ -652,7 +666,6 @@ export default function PublishRideScreen() {
         errorMessage += `Suggestion: ${error.hint}\n\n`;
       }
       
-      // Check for specific error types
       if (error?.message?.includes('foreign key') || error?.code === '23503') {
         errorTitle = 'Erreur de Clé Étrangère';
         errorMessage += '⚠️ Problème de contrainte de base de données (foreign key).\n\n';
@@ -670,7 +683,6 @@ export default function PublishRideScreen() {
       
       errorMessage += 'Veuillez copier ce message et le partager avec le support technique.';
       
-      // Show detailed error alert
       Alert.alert(
         errorTitle,
         errorMessage,
@@ -678,7 +690,6 @@ export default function PublishRideScreen() {
           { 
             text: 'Copier l\'erreur', 
             onPress: () => {
-              // In a real app, you would copy to clipboard here
               console.log('[publish-ride.ios] 📋 User requested to copy error');
             }
           },
@@ -686,7 +697,6 @@ export default function PublishRideScreen() {
         ]
       );
     } finally {
-      // iOS FIX: Always reset submitting state in finally block
       setIsSubmitting(false);
       console.log('[publish-ride.ios] 🔓 isSubmitting set to false (finally)');
     }
@@ -789,6 +799,87 @@ export default function PublishRideScreen() {
               <TouchableOpacity
                 style={[styles.modalButton, styles.modalButtonConfirm, { backgroundColor: colors.primary }]}
                 onPress={confirmTimeSelection}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.modalButtonConfirmText}>Confirmer</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    );
+  };
+
+  const renderMeetingPointModal = () => {
+    if (!showMeetingPointModal) return null;
+
+    return (
+      <Modal
+        visible={showMeetingPointModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowMeetingPointModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: isDark ? colors.darkCard : '#FFFFFF' }]}>
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: isDark ? colors.darkText : colors.text }]}>
+                Point de rencontre
+              </Text>
+              <TouchableOpacity
+                onPress={() => setShowMeetingPointModal(false)}
+                style={styles.modalCloseButton}
+              >
+                <IconSymbol
+                  ios_icon_name="xmark"
+                  android_material_icon_name="close"
+                  size={24}
+                  color={colors.textSecondary}
+                />
+              </TouchableOpacity>
+            </View>
+            
+            <View style={styles.meetingPointContent}>
+              <Text style={[styles.meetingPointDescription, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+                Choisissez un lieu de rencontre pour vos passagers. Par défaut, c&apos;est votre ville de départ.
+              </Text>
+
+              <CityAutocomplete
+                value={meetingPoint}
+                onChangeText={setMeetingPoint}
+                onSelectCity={handleSelectMeetingPoint}
+                placeholder="Ex: Place de l'Indépendance, Dakar"
+                label="Lieu de rencontre"
+                error=""
+              />
+
+              {meetingPointLat && meetingPointLng && (
+                <View style={[styles.coordinatesCard, { backgroundColor: isDark ? colors.darkBackground : colors.background }]}>
+                  <IconSymbol
+                    ios_icon_name="location.fill"
+                    android_material_icon_name="place"
+                    size={20}
+                    color={colors.primary}
+                  />
+                  <Text style={[styles.coordinatesText, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+                    {meetingPointLat.toFixed(6)}, {meetingPointLng.toFixed(6)}
+                  </Text>
+                </View>
+              )}
+            </View>
+            
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonCancel]}
+                onPress={() => setShowMeetingPointModal(false)}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.modalButtonCancelText}>Annuler</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonConfirm, { backgroundColor: colors.primary }]}
+                onPress={() => setShowMeetingPointModal(false)}
                 activeOpacity={0.7}
               >
                 <Text style={styles.modalButtonConfirmText}>Confirmer</Text>
@@ -1052,6 +1143,83 @@ export default function PublishRideScreen() {
             </View>
           )}
 
+          {/* Meeting Point Section */}
+          <View style={[styles.meetingPointSection, { backgroundColor: isDark ? colors.darkCard : colors.card }]}>
+            <View style={styles.meetingPointHeader}>
+              <IconSymbol
+                ios_icon_name="mappin.circle.fill"
+                android_material_icon_name="place"
+                size={24}
+                color={colors.primary}
+              />
+              <Text style={[styles.meetingPointTitle, { color: isDark ? colors.darkText : colors.text }]}>
+                Point de rencontre
+              </Text>
+            </View>
+            
+            {meetingPoint ? (
+              <View style={styles.meetingPointInfo}>
+                <Text style={[styles.meetingPointText, { color: isDark ? colors.darkText : colors.text }]}>
+                  {meetingPoint}
+                </Text>
+                {meetingPointLat && meetingPointLng && (
+                  <Text style={[styles.meetingPointCoords, { color: isDark ? colors.darkTextSecondary : colors.textSecondary }]}>
+                    {meetingPointLat.toFixed(6)}, {meetingPointLng.toFixed(6)}
+                  </Text>
+                )}
+                <View style={styles.meetingPointActions}>
+                  <TouchableOpacity
+                    style={[styles.meetingPointButton, { backgroundColor: colors.primary + '20' }]}
+                    onPress={() => setShowMeetingPointModal(true)}
+                    activeOpacity={0.7}
+                  >
+                    <IconSymbol
+                      ios_icon_name="pencil"
+                      android_material_icon_name="edit"
+                      size={16}
+                      color={colors.primary}
+                    />
+                    <Text style={[styles.meetingPointButtonText, { color: colors.primary }]}>
+                      Modifier
+                    </Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity
+                    style={[styles.meetingPointButton, { backgroundColor: colors.accent + '20' }]}
+                    onPress={handleShareMeetingPoint}
+                    activeOpacity={0.7}
+                  >
+                    <IconSymbol
+                      ios_icon_name="square.and.arrow.up"
+                      android_material_icon_name="share"
+                      size={16}
+                      color={colors.accent}
+                    />
+                    <Text style={[styles.meetingPointButtonText, { color: colors.accent }]}>
+                      Partager
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ) : (
+              <TouchableOpacity
+                style={[styles.addMeetingPointButton, { borderColor: colors.border }]}
+                onPress={() => setShowMeetingPointModal(true)}
+                activeOpacity={0.7}
+              >
+                <IconSymbol
+                  ios_icon_name="plus.circle"
+                  android_material_icon_name="add-circle"
+                  size={20}
+                  color={colors.primary}
+                />
+                <Text style={[styles.addMeetingPointText, { color: colors.primary }]}>
+                  Ajouter un point de rencontre
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
+
           <View style={styles.inputGroup}>
             <Text style={[styles.label, { color: isDark ? colors.darkText : colors.text }]}>
               Date du trajet *
@@ -1251,6 +1419,7 @@ export default function PublishRideScreen() {
 
       {renderDatePicker()}
       {renderTimePicker()}
+      {renderMeetingPointModal()}
       {renderSuccessModal()}
     </KeyboardAvoidingView>
   );
@@ -1364,6 +1533,64 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginLeft: 'auto',
   },
+  meetingPointSection: {
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  meetingPointHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 12,
+  },
+  meetingPointTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  meetingPointInfo: {
+    gap: 8,
+  },
+  meetingPointText: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  meetingPointCoords: {
+    fontSize: 13,
+  },
+  meetingPointActions: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 8,
+  },
+  meetingPointButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+  },
+  meetingPointButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  addMeetingPointButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+  },
+  addMeetingPointText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
   inputGroup: {
     marginBottom: 20,
   },
@@ -1438,11 +1665,38 @@ const styles = StyleSheet.create({
     padding: 20,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   modalTitle: {
     fontSize: 18,
     fontWeight: '700',
     textAlign: 'center',
+    flex: 1,
+  },
+  modalCloseButton: {
+    padding: 4,
+  },
+  meetingPointContent: {
+    padding: 20,
+  },
+  meetingPointDescription: {
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: 16,
+  },
+  coordinatesCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 8,
+  },
+  coordinatesText: {
+    fontSize: 13,
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
   },
   modalButtons: {
     flexDirection: 'row',

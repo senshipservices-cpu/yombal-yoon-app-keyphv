@@ -318,6 +318,7 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
 
       const departureDatetime = new Date(`${rideData.date}T${rideData.time}`).toISOString();
 
+      // TODO: Backend Integration - Meeting point will be stored in carpool_rides.meeting_point column
       const supabaseData: TablesInsert<'carpool_rides'> = {
         driver_id: driverId,
         driver_name: rideData.driverName,
@@ -337,6 +338,7 @@ export function CovoiturageProvider({ children }: { children: ReactNode }) {
         arrival_lng: rideData.arrivalLng || null,
         distance_km: rideData.distanceKm || null,
         duration_minutes: rideData.durationMinutes || null,
+        meeting_point: (rideData as any).meetingPoint || null,
         // ✅ NEW: Initialize with 0, will be calculated from accepted reservations
         prix_total: 0,
         commission_yombal: 0,
