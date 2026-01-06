@@ -465,6 +465,12 @@ export default function PublishRideScreen() {
     }
   };
 
+  const handleCheckboxToggle = () => {
+    console.log('[PublishRide] Checkbox toggled from', safetyDeclarationChecked, 'to', !safetyDeclarationChecked);
+    setSafetyDeclarationChecked(!safetyDeclarationChecked);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+  };
+
   const renderDatePicker = () => {
     if (Platform.OS === 'web') {
       return (
@@ -842,11 +848,8 @@ export default function PublishRideScreen() {
         <View style={styles.declarationContainer}>
           <TouchableOpacity
             style={styles.checkboxRow}
-            onPress={() => {
-              setSafetyDeclarationChecked(!safetyDeclarationChecked);
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            }}
-            activeOpacity={0.7}
+            onPress={handleCheckboxToggle}
+            activeOpacity={0.6}
           >
             <View style={[
               styles.checkbox,
@@ -856,7 +859,7 @@ export default function PublishRideScreen() {
                 <IconSymbol
                   ios_icon_name="checkmark"
                   android_material_icon_name="check"
-                  size={16}
+                  size={18}
                   color="#fff"
                 />
               )}
@@ -1029,12 +1032,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF9E6',
     padding: 16,
     borderRadius: 12,
-    borderWidth: 1,
+    borderWidth: 2,
     borderColor: colors.yellow,
   },
   checkbox: {
-    width: 24,
-    height: 24,
+    width: 28,
+    height: 28,
     borderRadius: 6,
     borderWidth: 2,
     borderColor: colors.yellow,
@@ -1043,6 +1046,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
     justifyContent: 'center',
     alignItems: 'center',
+    flexShrink: 0,
   },
   checkboxChecked: {
     backgroundColor: colors.green,
