@@ -30,6 +30,10 @@ import {
   type RideTrackingData,
 } from '@/utils/rideTrackingUtils';
 import { supabase } from '@/app/integrations/supabase/client';
+import {
+  updateTripShareLocation,
+  getActiveTripShares,
+} from '@/utils/tripSharingUtils';
 
 export default function RideTrackingScreen() {
   const theme = useTheme();
@@ -184,6 +188,22 @@ export default function RideTrackingScreen() {
     try {
       // Add tracking point
       await addTrackingPoint(trackingId, location);
+
+      // Update trip share locations (for passengers sharing their trip)
+      // TODO: Backend Integration - Update trip share locations in real-time
+      const sharesResult = await getActiveTripShares(driverId);
+      if (sharesResult.success && sharesResult.shares) {
+        for (const share of sharesResult.shares) {
+          if (share.ride_id === rideId) {
+            await updateTripShareLocation(
+              share.id,
+              rideId,
+              location,
+              'en_route'
+            );
+          }
+        }
+      }
 
       // Check departure geofence
       if (!departureVerified && departureLat && departureLng) {

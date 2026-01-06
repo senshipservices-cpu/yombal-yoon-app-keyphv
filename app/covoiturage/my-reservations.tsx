@@ -411,6 +411,29 @@ export default function MyReservationsScreen() {
                     </View>
                   )}
 
+                  {/* Share Trip Button - Only show for accepted reservations */}
+                  {booking.status === 'accepted' && (
+                    <TouchableOpacity
+                      style={[styles.shareButton, { backgroundColor: colors.primary }]}
+                      onPress={() => router.push({
+                        pathname: '/covoiturage/share-trip',
+                        params: {
+                          rideId: ride.id,
+                          bookingId: booking.id,
+                        },
+                      })}
+                      activeOpacity={0.7}
+                    >
+                      <IconSymbol
+                        ios_icon_name="shield.checkmark.fill"
+                        android_material_icon_name="verified-user"
+                        size={20}
+                        color="#FFFFFF"
+                      />
+                      <Text style={styles.shareButtonText}>Partager mon trajet (Sécurité)</Text>
+                    </TouchableOpacity>
+                  )}
+
                   {/* Cancel Button */}
                   {booking.status === 'pending' && (
                     <TouchableOpacity
@@ -546,6 +569,20 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   cancelButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  shareButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderRadius: 12,
+    padding: 14,
+    marginTop: 8,
+  },
+  shareButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
