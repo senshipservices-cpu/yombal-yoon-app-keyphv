@@ -1,3 +1,4 @@
+
 {
   "cli": {
     "appVersionSource": "remote"
@@ -15,9 +16,13 @@
     },
     "production": {
       "distribution": "store",
+      "autoIncrement": true,
       "android": {
         "buildType": "app-bundle",
         "credentialsSource": "remote"
+      },
+      "ios": {
+        "autoIncrement": "buildNumber"
       }
     },
     "production-local": {
@@ -33,6 +38,11 @@
       "android": {
         "serviceAccountKeyPath": "./google-service-account.json",
         "track": "internal"
+      },
+      "ios": {
+        "appleId": "votre-apple-id@example.com",
+        "ascAppId": "votre-app-store-connect-id",
+        "appleTeamId": "votre-team-id"
       }
     }
   }
