@@ -50,6 +50,9 @@ export function OTPProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // TODO: Backend Integration - Appelle l'endpoint send-otp-twilio avec priorité WhatsApp
+  // Le backend tente automatiquement WhatsApp en premier, puis bascule vers SMS si échec
+  // Cela réduit les coûts de ~90% (WhatsApp: ~3 FCFA vs SMS: ~30 FCFA)
   const sendOTP = async (
     phone: string,
     method: 'whatsapp' | 'sms' = 'whatsapp',
@@ -64,12 +67,15 @@ export function OTPProvider({ children }: { children: ReactNode }) {
       const requestBody = {
         action: 'send',
         phoneNumber: normalizedPhone,
-        method,
+        method, // 'whatsapp' par défaut - le backend priorise WhatsApp automatiquement
         userId,
       };
 
       console.log('📤 Request body:', requestBody);
 
+      // TODO: Backend Integration - Appel de l'Edge Function send-otp-twilio
+      // Cette fonction implémente la priorité WhatsApp avec fallback SMS automatique
+      // Voir TWILIO_WHATSAPP_PRIORITY_IMPLEMENTATION.md pour les détails
       const response = await fetch(`${SUPABASE_URL}/functions/v1/send-otp-twilio`, {
         method: 'POST',
         headers: {
@@ -92,11 +98,12 @@ export function OTPProvider({ children }: { children: ReactNode }) {
         };
       }
 
+      // Le backend retourne la méthode utilisée (whatsapp ou sms si fallback)
       console.log('✅ OTP sent successfully via', data.method);
       return {
         success: true,
         message: data.message,
-        method: data.method,
+        method: data.method, // 'whatsapp' ou 'sms' selon ce qui a fonctionné
       };
     } catch (error) {
       console.error('❌ Error sending OTP:', error);
@@ -107,6 +114,7 @@ export function OTPProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // TODO: Backend Integration - Vérifie le code OTP envoyé via WhatsApp ou SMS
   const verifyPhone = async (
     phone: string,
     otp: string,
@@ -127,6 +135,7 @@ export function OTPProvider({ children }: { children: ReactNode }) {
 
       console.log('📤 Verify request body:', { ...requestBody, otpCode: '******' });
 
+      // TODO: Backend Integration - Appel de l'Edge Function send-otp-twilio pour vérification
       const response = await fetch(`${SUPABASE_URL}/functions/v1/send-otp-twilio`, {
         method: 'POST',
         headers: {

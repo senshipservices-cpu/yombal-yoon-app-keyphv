@@ -23,12 +23,12 @@ function generateOTP(): string {
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
-// Envoi de l'OTP via Twilio (WhatsApp ou SMS)
+// Envoi de l'OTP via Twilio avec priorité WhatsApp et fallback SMS
 async function sendViaTwilio(
   phone: string, 
   otp: string, 
-  method: 'whatsapp' | 'sms' = 'whatsapp'
-): Promise<{ success: boolean; error?: string; method?: string }> {
+  attemptWhatsAppFirst: boolean = true
+): Promise<{ success: boolean; error?: string; method?: string; details?: string }> {
   const sid = Deno.env.get("TWILIO_ACCOUNT_SID");
   const token = Deno.env.get("TWILIO_AUTH_TOKEN");
   const whatsappNumber = Deno.env.get("TWILIO_WHATSAPP_NUMBER");
@@ -39,7 +39,8 @@ async function sendViaTwilio(
     hasToken: !!token,
     whatsappNumber: whatsappNumber || 'NOT SET',
     smsNumber: smsNumber || 'NOT SET',
-    mode: IS_PRODUCTION_MODE ? 'Production' : 'Test'
+    mode: IS_PRODUCTION_MODE ? 'Production' : 'Test',
+    attemptWhatsAppFirst
   });
 
   if (!sid || !token) {
@@ -47,22 +48,122 @@ async function sendViaTwilio(
   }
 
   const auth = btoa(`${sid}:${token}`);
-  let fromNumber: string;
-  let toNumber: string;
 
-  // Try WhatsApp first, fallback to SMS if WhatsApp fails
-  if (method === 'whatsapp' && whatsappNumber) {
-    fromNumber = `whatsapp:${whatsappNumber}`;
-    toNumber = `whatsapp:${phone}`;
-  } else if (smsNumber) {
-    fromNumber = smsNumber;
-    toNumber = phone;
-    method = 'sms';
-  } else {
-    return { success: false, error: "Aucun numéro Twilio configuré (TWILIO_WHATSAPP_NUMBER ou TWILIO_SMS_NUMBER)." };
+  // ================================================
+  // PRIORITÉ 1 : WHATSAPP (pour minimiser les coûts)
+  // ================================================
+  if (attemptWhatsAppFirst && whatsappNumber) {
+    console.log('📱 TENTATIVE 1/2 : Envoi via WhatsApp (prioritaire pour réduire les coûts)');
+    
+    const fromNumber = `whatsapp:${whatsappNumber}`;
+    const toNumber = `whatsapp:${phone}`;
+
+    console.log(`📤 Sending OTP via WhatsApp from ${fromNumber} to ${toNumber}`);
+
+    try {
+      const res = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
+        method: "POST",
+        headers: {
+          Authorization: `Basic ${auth}`,
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: new URLSearchParams({
+          From: fromNumber,
+          To: toNumber,
+          Body: `Votre code OTP Yombal Yoon est : ${otp}. Valide pendant 10 minutes.`,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        console.log(`✅ OTP envoyé avec succès via WhatsApp (coût réduit)`);
+        console.log(`📊 Message SID: ${data.sid}`);
+        return { success: true, method: 'whatsapp' };
+      }
+
+      // Log detailed WhatsApp error
+      console.error(`❌ Erreur WhatsApp (Code ${data.code}):`, {
+        message: data.message,
+        code: data.code,
+        moreInfo: data.more_info,
+        status: data.status
+      });
+
+      // Common WhatsApp error codes:
+      // 63007 - Recipient not on WhatsApp
+      // 63016 - WhatsApp message not delivered
+      // 21211 - Invalid 'To' phone number
+      // 21408 - Permission to send WhatsApp message denied
+      
+      const whatsappErrorDetails = `WhatsApp failed (Code ${data.code}): ${data.message}`;
+      
+      // ================================================
+      // FALLBACK AUTOMATIQUE : SMS
+      // ================================================
+      if (smsNumber) {
+        console.log('🔄 TENTATIVE 2/2 : Fallback automatique vers SMS...');
+        return await sendViaSMS(phone, otp, sid, token, smsNumber, auth, whatsappErrorDetails);
+      }
+
+      return { 
+        success: false, 
+        error: `WhatsApp échoué et aucun numéro SMS configuré`,
+        details: whatsappErrorDetails
+      };
+
+    } catch (error) {
+      console.error(`❌ Exception lors de l'envoi WhatsApp:`, error);
+      
+      const whatsappErrorDetails = `WhatsApp exception: ${error.message}`;
+      
+      // ================================================
+      // FALLBACK AUTOMATIQUE : SMS
+      // ================================================
+      if (smsNumber) {
+        console.log('🔄 TENTATIVE 2/2 : Fallback automatique vers SMS après exception...');
+        return await sendViaSMS(phone, otp, sid, token, smsNumber, auth, whatsappErrorDetails);
+      }
+
+      return { 
+        success: false, 
+        error: `WhatsApp échoué et aucun numéro SMS configuré`,
+        details: whatsappErrorDetails
+      };
+    }
   }
 
-  console.log(`📤 Sending OTP via ${method} from ${fromNumber} to ${toNumber} [Mode: ${IS_PRODUCTION_MODE ? 'Production' : 'Test'}]`);
+  // ================================================
+  // DIRECT SMS (si WhatsApp non disponible ou non demandé)
+  // ================================================
+  if (smsNumber) {
+    console.log('📱 Envoi direct via SMS (WhatsApp non disponible)');
+    return await sendViaSMS(phone, otp, sid, token, smsNumber, auth);
+  }
+
+  return { 
+    success: false, 
+    error: "Aucun numéro Twilio configuré (TWILIO_WHATSAPP_NUMBER ou TWILIO_SMS_NUMBER)." 
+  };
+}
+
+// Fonction dédiée pour l'envoi SMS
+async function sendViaSMS(
+  phone: string,
+  otp: string,
+  sid: string,
+  token: string,
+  smsNumber: string,
+  auth: string,
+  previousError?: string
+): Promise<{ success: boolean; error?: string; method?: string; details?: string }> {
+  const fromNumber = smsNumber;
+  const toNumber = phone;
+
+  console.log(`📤 Sending OTP via SMS from ${fromNumber} to ${toNumber}`);
+  if (previousError) {
+    console.log(`ℹ️ Raison du fallback: ${previousError}`);
+  }
 
   try {
     const res = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
@@ -81,34 +182,34 @@ async function sendViaTwilio(
     const data = await res.json();
 
     if (!res.ok) {
-      console.error(`❌ Twilio ${method} error:`, data);
-      
-      // If WhatsApp fails, try SMS as fallback
-      if (method === 'whatsapp' && smsNumber) {
-        console.log('🔄 WhatsApp failed, trying SMS fallback...');
-        return await sendViaTwilio(phone, otp, 'sms');
-      }
+      console.error(`❌ Erreur SMS (Code ${data.code}):`, {
+        message: data.message,
+        code: data.code,
+        moreInfo: data.more_info,
+        status: data.status
+      });
       
       return { 
         success: false, 
-        error: data.message || `Erreur d'envoi ${method}` 
+        error: data.message || `Erreur d'envoi SMS`,
+        details: `SMS failed (Code ${data.code}): ${data.message}`
       };
     }
 
-    console.log(`✅ OTP sent successfully via ${method}`);
-    return { success: true, method };
+    console.log(`✅ OTP envoyé avec succès via SMS${previousError ? ' (fallback)' : ''}`);
+    console.log(`📊 Message SID: ${data.sid}`);
+    return { 
+      success: true, 
+      method: 'sms',
+      details: previousError ? `Fallback SMS après échec WhatsApp: ${previousError}` : undefined
+    };
+
   } catch (error) {
-    console.error(`❌ Error sending via ${method}:`, error);
-    
-    // If WhatsApp fails, try SMS as fallback
-    if (method === 'whatsapp' && smsNumber) {
-      console.log('🔄 WhatsApp failed, trying SMS fallback...');
-      return await sendViaTwilio(phone, otp, 'sms');
-    }
-    
+    console.error(`❌ Exception lors de l'envoi SMS:`, error);
     return { 
       success: false, 
-      error: `Erreur d'envoi ${method}` 
+      error: `Erreur d'envoi SMS: ${error.message}`,
+      details: `SMS exception: ${error.message}`
     };
   }
 }
@@ -201,21 +302,32 @@ Deno.serve(async (req) => {
 
       console.log('✅ OTP saved to database:', insertData);
 
-      // Send OTP via Twilio
-      const sent = await sendViaTwilio(phoneNumber, otp, method);
+      // Send OTP via Twilio with WhatsApp priority
+      // Always attempt WhatsApp first unless explicitly requested SMS only
+      const attemptWhatsApp = method !== 'sms';
+      const sent = await sendViaTwilio(phoneNumber, otp, attemptWhatsApp);
 
       if (!sent.success) {
+        console.error('❌ Échec complet de l\'envoi OTP:', sent);
         return response({ 
           success: false, 
-          error: sent.error || "Erreur d'envoi. Vérifiez que le numéro est correct et enregistré sur WhatsApp." 
+          error: sent.error || "Erreur d'envoi. Vérifiez que le numéro est correct.",
+          details: IS_PRODUCTION_MODE ? undefined : sent.details
         }, 500);
       }
+
+      // Log successful send with method used
+      console.log('✅ OTP envoyé avec succès:', {
+        method: sent.method,
+        details: sent.details
+      });
 
       return response({
         success: true,
         message: `Code envoyé par ${sent.method === 'sms' ? 'SMS' : 'WhatsApp'}${!IS_PRODUCTION_MODE ? ' (Mode Test)' : ''}`,
         method: sent.method,
         mode: IS_PRODUCTION_MODE ? 'production' : 'test',
+        details: IS_PRODUCTION_MODE ? undefined : sent.details,
       });
     }
 

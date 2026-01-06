@@ -1,7 +1,7 @@
 
 // Supabase Edge Function: send-notification-unified
 // Unified notification handler for all Covoiturage events
-// Handles: in-app, push (Expo/FCM), and WhatsApp (Twilio) notifications
+// Handles: in-app, push (Expo/FCM), and WhatsApp (Twilio) with SMS fallback
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
@@ -13,7 +13,8 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 const IS_PRODUCTION_MODE = Deno.env.get("IS_PRODUCTION_MODE") === "true";
 const TWILIO_ACCOUNT_SID = Deno.env.get("TWILIO_ACCOUNT_SID");
 const TWILIO_AUTH_TOKEN = Deno.env.get("TWILIO_AUTH_TOKEN");
-const TWILIO_WHATSAPP_FROM = Deno.env.get("TWILIO_WHATSAPP_FROM") || "whatsapp:+14155238886";
+const TWILIO_WHATSAPP_NUMBER = Deno.env.get("TWILIO_WHATSAPP_NUMBER");
+const TWILIO_SMS_NUMBER = Deno.env.get("TWILIO_SMS_NUMBER");
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -30,7 +31,7 @@ interface NotificationPayload {
   title: string;
   message: string;
   metadata?: any;
-  channels?: ('in_app' | 'push' | 'whatsapp')[];
+  channels?: ('in_app' | 'push' | 'whatsapp' | 'sms')[];
   phoneNumber?: string;
 }
 
@@ -40,7 +41,8 @@ interface NotificationResponse {
   channels: {
     in_app?: { success: boolean; id?: string; error?: string };
     push?: { success: boolean; error?: string };
-    whatsapp?: { success: boolean; error?: string };
+    whatsapp?: { success: boolean; error?: string; details?: string };
+    sms?: { success: boolean; error?: string; details?: string };
   };
 }
 
@@ -189,43 +191,161 @@ async function sendPushNotification(
 }
 
 /**
- * Send WhatsApp notification via Twilio
+ * Send WhatsApp notification via Twilio with SMS fallback
+ * PRIORITÉ : WhatsApp d'abord pour minimiser les coûts, puis SMS en fallback
  */
-async function sendWhatsAppNotification(
+async function sendTwilioNotification(
   phoneNumber: string,
   message: string
-): Promise<{ success: boolean; error?: string }> {
+): Promise<{ 
+  success: boolean; 
+  method?: 'whatsapp' | 'sms'; 
+  error?: string; 
+  details?: string 
+}> {
   if (!TWILIO_ACCOUNT_SID || !TWILIO_AUTH_TOKEN) {
-    console.log('⚠️ Twilio credentials not configured, skipping WhatsApp');
+    console.log('⚠️ Twilio credentials not configured');
     return { success: false, error: 'Twilio not configured' };
   }
 
-  try {
-    // Format phone number to E.164
-    let formattedPhone = phoneNumber;
-    if (!phoneNumber.startsWith('+')) {
-      if (phoneNumber.startsWith('221')) {
-        formattedPhone = '+' + phoneNumber;
-      } else {
-        formattedPhone = '+221' + phoneNumber.replace(/^0+/, '');
-      }
+  // Format phone number to E.164
+  let formattedPhone = phoneNumber;
+  if (!phoneNumber.startsWith('+')) {
+    if (phoneNumber.startsWith('221')) {
+      formattedPhone = '+' + phoneNumber;
+    } else {
+      formattedPhone = '+221' + phoneNumber.replace(/^0+/, '');
     }
+  }
 
+  const auth = btoa(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`);
+
+  // ================================================
+  // PRIORITÉ 1 : WHATSAPP (pour minimiser les coûts)
+  // ================================================
+  if (TWILIO_WHATSAPP_NUMBER) {
+    console.log('📱 TENTATIVE 1/2 : Envoi via WhatsApp (prioritaire pour réduire les coûts)');
+    
+    const whatsappFrom = `whatsapp:${TWILIO_WHATSAPP_NUMBER}`;
     const whatsappTo = `whatsapp:${formattedPhone}`;
 
-    console.log('📱 Sending WhatsApp to:', whatsappTo);
+    console.log(`📤 Sending notification via WhatsApp from ${whatsappFrom} to ${whatsappTo}`);
 
+    try {
+      const response = await fetch(
+        `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Messages.json`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Basic ${auth}`,
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          body: new URLSearchParams({
+            From: whatsappFrom,
+            To: whatsappTo,
+            Body: message,
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (response.ok) {
+        console.log('✅ Notification envoyée avec succès via WhatsApp (coût réduit)');
+        console.log(`📊 Message SID: ${data.sid}`);
+        return { success: true, method: 'whatsapp' };
+      }
+
+      // Log detailed WhatsApp error
+      console.error(`❌ Erreur WhatsApp (Code ${data.code}):`, {
+        message: data.message,
+        code: data.code,
+        moreInfo: data.more_info,
+        status: data.status
+      });
+
+      const whatsappErrorDetails = `WhatsApp failed (Code ${data.code}): ${data.message}`;
+
+      // ================================================
+      // FALLBACK AUTOMATIQUE : SMS
+      // ================================================
+      if (TWILIO_SMS_NUMBER) {
+        console.log('🔄 TENTATIVE 2/2 : Fallback automatique vers SMS...');
+        return await sendViaSMS(formattedPhone, message, auth, whatsappErrorDetails);
+      }
+
+      return { 
+        success: false, 
+        error: 'WhatsApp échoué et aucun numéro SMS configuré',
+        details: whatsappErrorDetails
+      };
+
+    } catch (error) {
+      console.error('❌ Exception lors de l\'envoi WhatsApp:', error);
+      
+      const whatsappErrorDetails = `WhatsApp exception: ${error.message}`;
+
+      // ================================================
+      // FALLBACK AUTOMATIQUE : SMS
+      // ================================================
+      if (TWILIO_SMS_NUMBER) {
+        console.log('🔄 TENTATIVE 2/2 : Fallback automatique vers SMS après exception...');
+        return await sendViaSMS(formattedPhone, message, auth, whatsappErrorDetails);
+      }
+
+      return { 
+        success: false, 
+        error: 'WhatsApp échoué et aucun numéro SMS configuré',
+        details: whatsappErrorDetails
+      };
+    }
+  }
+
+  // ================================================
+  // DIRECT SMS (si WhatsApp non disponible)
+  // ================================================
+  if (TWILIO_SMS_NUMBER) {
+    console.log('📱 Envoi direct via SMS (WhatsApp non disponible)');
+    return await sendViaSMS(formattedPhone, message, auth);
+  }
+
+  return { 
+    success: false, 
+    error: 'Aucun numéro Twilio configuré (TWILIO_WHATSAPP_NUMBER ou TWILIO_SMS_NUMBER)' 
+  };
+}
+
+/**
+ * Fonction dédiée pour l'envoi SMS
+ */
+async function sendViaSMS(
+  formattedPhone: string,
+  message: string,
+  auth: string,
+  previousError?: string
+): Promise<{ 
+  success: boolean; 
+  method?: 'sms'; 
+  error?: string; 
+  details?: string 
+}> {
+  console.log(`📤 Sending notification via SMS to ${formattedPhone}`);
+  if (previousError) {
+    console.log(`ℹ️ Raison du fallback: ${previousError}`);
+  }
+
+  try {
     const response = await fetch(
       `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Messages.json`,
       {
         method: 'POST',
         headers: {
-          'Authorization': 'Basic ' + btoa(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`),
+          'Authorization': `Basic ${auth}`,
           'Content-Type': 'application/x-www-form-urlencoded',
         },
         body: new URLSearchParams({
-          From: TWILIO_WHATSAPP_FROM,
-          To: whatsappTo,
+          From: TWILIO_SMS_NUMBER!,
+          To: formattedPhone,
           Body: message,
         }),
       }
@@ -234,15 +354,35 @@ async function sendWhatsAppNotification(
     const data = await response.json();
 
     if (!response.ok) {
-      console.error('❌ Twilio error:', data);
-      return { success: false, error: data.message || 'Twilio API error' };
+      console.error(`❌ Erreur SMS (Code ${data.code}):`, {
+        message: data.message,
+        code: data.code,
+        moreInfo: data.more_info,
+        status: data.status
+      });
+      
+      return { 
+        success: false, 
+        error: data.message || 'Erreur d\'envoi SMS',
+        details: `SMS failed (Code ${data.code}): ${data.message}`
+      };
     }
 
-    console.log('✅ WhatsApp sent successfully:', data.sid);
-    return { success: true };
+    console.log(`✅ Notification envoyée avec succès via SMS${previousError ? ' (fallback)' : ''}`);
+    console.log(`📊 Message SID: ${data.sid}`);
+    return { 
+      success: true, 
+      method: 'sms',
+      details: previousError ? `Fallback SMS après échec WhatsApp: ${previousError}` : undefined
+    };
+
   } catch (error) {
-    console.error('❌ Error sending WhatsApp:', error);
-    return { success: false, error: error.message };
+    console.error('❌ Exception lors de l\'envoi SMS:', error);
+    return { 
+      success: false, 
+      error: `Erreur d'envoi SMS: ${error.message}`,
+      details: `SMS exception: ${error.message}`
+    };
   }
 }
 
@@ -252,7 +392,7 @@ async function sendWhatsAppNotification(
 async function logNotification(
   supabase: any,
   userId: string,
-  channel: 'in_app' | 'push' | 'whatsapp',
+  channel: 'in_app' | 'push' | 'whatsapp' | 'sms',
   status: 'success' | 'error',
   payload: any,
   errorMessage?: string
@@ -397,26 +537,64 @@ serve(async (req) => {
       }
     }
 
-    // Send WhatsApp notification (only if opted in and in production mode)
-    if (channels.includes('whatsapp') && canSendWhatsApp && payload.phoneNumber) {
+    // Send WhatsApp/SMS notification (with automatic fallback)
+    // TODO: Backend Integration - This will be called when notifications need to be sent
+    if ((channels.includes('whatsapp') || channels.includes('sms')) && payload.phoneNumber) {
       if (IS_PRODUCTION_MODE) {
-        const whatsappResult = await sendWhatsAppNotification(
+        // Always try WhatsApp first (unless SMS explicitly requested), then fallback to SMS
+        const twilioResult = await sendTwilioNotification(
           payload.phoneNumber,
           payload.message
         );
-        response.channels.whatsapp = whatsappResult;
         
-        await logNotification(
-          supabase,
-          payload.userId,
-          'whatsapp',
-          whatsappResult.success ? 'success' : 'error',
-          { type: payload.type, message: payload.message, phoneNumber: payload.phoneNumber },
-          whatsappResult.error
-        );
+        // Store result in appropriate channel
+        if (twilioResult.method === 'whatsapp') {
+          response.channels.whatsapp = {
+            success: twilioResult.success,
+            error: twilioResult.error,
+            details: twilioResult.details
+          };
+          
+          await logNotification(
+            supabase,
+            payload.userId,
+            'whatsapp',
+            twilioResult.success ? 'success' : 'error',
+            { type: payload.type, message: payload.message, phoneNumber: payload.phoneNumber },
+            twilioResult.error
+          );
+        } else if (twilioResult.method === 'sms') {
+          response.channels.sms = {
+            success: twilioResult.success,
+            error: twilioResult.error,
+            details: twilioResult.details
+          };
+          
+          await logNotification(
+            supabase,
+            payload.userId,
+            'sms',
+            twilioResult.success ? 'success' : 'error',
+            { type: payload.type, message: payload.message, phoneNumber: payload.phoneNumber },
+            twilioResult.error
+          );
+        } else {
+          // Both failed
+          response.channels.whatsapp = {
+            success: false,
+            error: twilioResult.error,
+            details: twilioResult.details
+          };
+          response.channels.sms = {
+            success: false,
+            error: 'SMS fallback also failed',
+            details: twilioResult.details
+          };
+        }
       } else {
-        console.log('⚠️ WhatsApp notification skipped (test mode)');
+        console.log('⚠️ WhatsApp/SMS notification skipped (test mode)');
         response.channels.whatsapp = { success: false, error: 'Test mode - WhatsApp skipped' };
+        response.channels.sms = { success: false, error: 'Test mode - SMS skipped' };
       }
     }
 
