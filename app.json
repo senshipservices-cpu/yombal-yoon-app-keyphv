@@ -1,50 +1,26 @@
-
 {
   "expo": {
     "name": "Yombal Yoon",
-<<<<<<< HEAD
-    "slug": "Yombal Yoon",
-    "version": "1.0.0",
-=======
     "slug": "yombal-yoon",
     "version": "1.0.1",
->>>>>>> 50f38b4 (chore: update app config and dependencies for iOS build)
     "orientation": "portrait",
-    "icon": "./assets/images/natively-dark.png",
+    "icon": "./assets/images/final_quest_240x240.png",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
-<<<<<<< HEAD
-    "scheme": "natively",
-=======
-
     "scheme": "yombalyoon",
-
->>>>>>> 50f38b4 (chore: update app config and dependencies for iOS build)
     "splash": {
-      "image": "./assets/images/natively-dark.png",
+      "image": "./assets/images/final_quest_240x240.png",
       "resizeMode": "contain",
-<<<<<<< HEAD
-      "backgroundColor": "#000000"
-=======
       "backgroundColor": "#FFFFFF"
     },
-
     "updates": {
       "enabled": true,
       "fallbackToCacheTimeout": 30000,
       "checkAutomatically": "ON_LOAD",
       "url": "https://u.expo.dev/52fa7013-83b9-49a0-b966-0237771a3c4f"
->>>>>>> 50f38b4 (chore: update app config and dependencies for iOS build)
     },
-
     "ios": {
       "supportsTablet": true,
-<<<<<<< HEAD
-      "bundleIdentifier": "com.anonymous.Natively",
-      "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false,
-        "NSLocationWhenInUseUsageDescription": "This app needs access to your location to provide location-based services."
-=======
       "bundleIdentifier": "com.yombalyoon.app",
       "buildNumber": "33",
       "infoPlist": {
@@ -55,52 +31,41 @@
         "NSPhotoLibraryUsageDescription": "Yombal Yoon a besoin d'accéder à vos photos pour sélectionner des images de vos colis.",
         "NSMicrophoneUsageDescription": "Yombal Yoon a besoin d'accéder à votre microphone pour les appels.",
         "NSContactsUsageDescription": "Yombal Yoon a besoin d'accéder à vos contacts pour faciliter le partage de trajets."
->>>>>>> 50f38b4 (chore: update app config and dependencies for iOS build)
       }
     },
-
     "android": {
       "package": "com.yombalyoon.app",
       "versionCode": 33,
       "adaptiveIcon": {
-<<<<<<< HEAD
-        "foregroundImage": "./assets/images/natively-dark.png",
-        "backgroundColor": "#000000"
+        "foregroundImage": "./assets/images/final_quest_240x240.png",
+        "backgroundColor": "#FFFFFF"
       },
-      "edgeToEdgeEnabled": true,
-      "package": "com.anonymous.Natively",
       "permissions": [
-        "ACCESS_COARSE_LOCATION",
-        "ACCESS_FINE_LOCATION"
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
       ]
     },
     "web": {
       "favicon": "./assets/images/final_quest_240x240.png",
       "bundler": "metro"
-=======
-        "foregroundImage": "./assets/images/final_quest_240x240.png",
-        "backgroundColor": "#FFFFFF"
-      }
->>>>>>> 50f38b4 (chore: update app config and dependencies for iOS build)
     },
-
-    "web": {
-      "favicon": "./assets/images/final_quest_240x240.png"
-    },
-
     "plugins": [
-      "expo-font",
+      [
+        "expo-font",
+        {
+          "fonts": [
+            "./assets/fonts/SpaceMono-Regular.ttf",
+            "./assets/fonts/SpaceMono-Bold.ttf",
+            "./assets/fonts/SpaceMono-Italic.ttf",
+            "./assets/fonts/SpaceMono-BoldItalic.ttf"
+          ]
+        }
+      ],
       "expo-router",
       "expo-web-browser",
       [
         "expo-location",
         {
-<<<<<<< HEAD
-          "locationAlwaysAndWhenInUsePermission": "Allow Natively to use your location."
-        }
-      ]
-    ],
-=======
           "locationAlwaysAndWhenInUsePermission": "Yombal Yoon utilise votre position pour suivre les livraisons en temps réel.",
           "locationWhenInUsePermission": "Yombal Yoon utilise votre position pour afficher les trajets de covoiturage et les livraisons à proximité."
         }
@@ -114,26 +79,20 @@
         }
       ]
     ],
-
->>>>>>> 50f38b4 (chore: update app config and dependencies for iOS build)
     "experiments": {
       "typedRoutes": true
     },
-
     "extra": {
-<<<<<<< HEAD
-      "router": {}
-    }
-=======
+      "router": {
+        "origin": false
+      },
       "eas": {
         "projectId": "52fa7013-83b9-49a0-b966-0237771a3c4f"
       }
     },
-
     "owner": "yombalyoon",
     "privacy": "public",
     "description": "Covoiturage, envoi de colis et livraisons rapides au Sénégal.",
     "primaryCategory": "NAVIGATION"
->>>>>>> 50f38b4 (chore: update app config and dependencies for iOS build)
   }
 }
