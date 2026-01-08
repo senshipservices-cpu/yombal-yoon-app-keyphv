@@ -46,8 +46,7 @@
       ]
     },
     "web": {
-      "favicon": "./assets/images/final_quest_240x240.png",
-      "bundler": "metro"
+      "favicon": "./assets/images/final_quest_240x240.png"
     },
     "plugins": [
       [
@@ -83,11 +82,11 @@
       "typedRoutes": true
     },
     "extra": {
-      "router": {
-        "origin": false
-      },
       "eas": {
         "projectId": "52fa7013-83b9-49a0-b966-0237771a3c4f"
+      },
+      "router": {
+        "origin": false
       }
     },
     "owner": "yombalyoon",
