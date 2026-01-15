@@ -1,0 +1,33 @@
+# --- Documentation massive (cause principale dans ton repo) ---
+docs/*
+*.md
+
+# Si tu veux garder seulement README.md visible, remplace la ligne "*.md" par :
+# ACTION_*.md
+# AUDIT_*.md
+# BUILD_*.md
+# CONFIGURATION_*.md
+# CRITICAL_*.md
+# DIAGRAMME_*.md
+# DOCUMENTATION_*.md
+# (et laisse README.md en dehors)
+
+# --- Dépendances / builds / caches ---
+node_modules
+.next
+dist
+build
+out
+.cache
+.turbo
+.vercel
+
+# --- Logs / temp ---
+*.log
+
+# --- Médias lourds (si présents) ---
+**/*.mp4
+**/*.mov
+**/*.zip
+**/*.psd
+**/*.ai
